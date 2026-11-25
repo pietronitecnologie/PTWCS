@@ -3,6 +3,7 @@
 import { api, esc, fmtTs, toast } from './core.js';
 import { modal } from './forms.js';
 import { whCellDialog, whInvalidate } from './render.js';
+import { helpBtn, slug } from './markdown.js';
 
 const TABS = [['missions', '📋 Missioni'], ['orders', '🧾 Ordini'], ['stock', '📦 Giacenze'], ['reorg', '♻ Riorganizzazione'], ['cranes', '🏗 Trasli / KPI'], ['strategy', '🎯 Strategia']];
 const KIND = { in: ['⬇', 'Deposito'], out: ['⬆', 'Prelievo'], move: ['⇄', 'Movimentazione'] };
@@ -48,7 +49,8 @@ export async function showWcs(page, whName, params, setTimer) {
         <select id="wcsWh">${list.map((w) => `<option ${w.name === wh ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}</select>
         <b id="wcsDesc"></b><span class="grow"></span><div id="wcsChips" class="row" style="flex-wrap:wrap;gap:6px"></div>
       </div>
-      <div class="subtabs" style="margin:10px 0 0">${TABS.map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="subtabs" style="margin:10px 0 0;align-items:center">${TABS.map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}
+        ${helpBtn('wcs#' + slug(TABS.find(([k]) => k === tab)[1].replace(/^\S+\s/, '')), 'Guida della scheda')}</div>
     </div>
     <div id="wcsBody"></div></div>`;
   page.querySelector('#wcsWh').onchange = (e) => (location.hash = `#/wcs/${encodeURIComponent(e.target.value)}?tab=${tab}`);

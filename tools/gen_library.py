@@ -2,13 +2,17 @@
 """Generatore della libreria WCS-SCADA: simboli SVG, UDT per famiglia, binding
 predefiniti e faceplate.
 
-Uso:  python3 tools/gen_library.py [cartella_config]   (default: config)
+Uso:  python3 tools/gen_library.py [cartella]   (default: stdlib)
+
+La libreria standard è parte dello SCADA, indipendente dal progetto e in sola
+lettura a runtime: i progetti la usano così com'è o la personalizzano salvando
+una vista/simbolo con lo stesso id nelle proprie cartelle.
 
 Produce:
-  <config>/symbols/<id>.svg          simboli (categoria, titolo, elementi animabili con id)
-  <config>/library/udts.yaml         tipi UDT standard per famiglia (indirizzi S7 parametrici)
-  <config>/library/symbols.json      metadati: categoria, famiglia, faceplate, binding predefiniti
-  <config>/views/fp_<id>.json        faceplate (vista popup con parametro `device`)
+  <stdlib>/symbols/<id>.svg          simboli (categoria, titolo, elementi animabili con id)
+  <stdlib>/udts.json                 tipi UDT standard per famiglia (indirizzi S7 parametrici)
+  <stdlib>/symbols.json              metadati: categoria, famiglia, faceplate, binding predefiniti
+  <stdlib>/faceplates/fp_<id>.json   faceplate (vista popup con parametro `device`)
 
 Convenzioni degli id degli elementi (binding dal Designer):
   body   colore di stato        flow   flusso animato         load   unità di carico presente
@@ -19,7 +23,7 @@ import os
 import sys
 from xml.sax.saxutils import escape
 
-OUT = sys.argv[1] if len(sys.argv) > 1 else "config"
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "stdlib")
 
 # ------------------------------------------------------------------ palette
 FR, FRD, BODY, BELT, ROL, DARK = "#475569", "#334155", "#64748b", "#1e293b", "#94a3b8", "#0f172a"
@@ -1290,8 +1294,7 @@ def faceplate(sid, title, fam, members, sym_bindings, vb):
 
 def main():
     os.makedirs(f"{OUT}/symbols", exist_ok=True)
-    os.makedirs(f"{OUT}/library", exist_ok=True)
-    os.makedirs(f"{OUT}/views", exist_ok=True)
+    os.makedirs(f"{OUT}/faceplates", exist_ok=True)
     meta = {}
     for sid, title, cat, fam, vb, body, extra in SYMBOLS:
         fam_desc, members = FAMILIES[fam]
@@ -1313,12 +1316,12 @@ def main():
         meta[sid] = {"title": title, "category": cat, "udt": fam, "faceplate": f"fp_{sid}", "bindings": bindings,
                      "fit": fit, "native": list(native)}
         fp = faceplate(sid, title, fam, members, bindings, f"0 0 {native[0]} {native[1]}")
-        with open(f"{OUT}/views/fp_{sid}.json", "w", encoding="utf-8") as f:
+        with open(f"{OUT}/faceplates/fp_{sid}.json", "w", encoding="utf-8") as f:
             json.dump(fp, f, indent=1, ensure_ascii=False)
-    with open(f"{OUT}/library/symbols.json", "w", encoding="utf-8") as f:
+    with open(f"{OUT}/symbols.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=1, ensure_ascii=False)
     udts = [build_udt(n, d, m) for n, (d, m) in FAMILIES.items()]
-    with open(f"{OUT}/library/udts.json", "w", encoding="utf-8") as f:
+    with open(f"{OUT}/udts.json", "w", encoding="utf-8") as f:
         json.dump(udts, f, indent=1, ensure_ascii=False)
     cats = sorted({m["category"] for m in meta.values()})
     print(f"{len(meta)} simboli, {len(udts)} UDT, {len(meta)} faceplate in {OUT}/  categorie: {len(cats)}")

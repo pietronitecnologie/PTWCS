@@ -7,3 +7,5 @@ scripts/__pycache__/
 config/*.yaml.bak
 config/*.yaml.tmp
 config/rules/*.tmp
+scripts/.history/
+**/__pycache__/

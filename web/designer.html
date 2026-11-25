@@ -16,6 +16,7 @@
       <button data-ws="tags">🏷 Tag e UDT</button>
       <button data-ws="sort">🔀 Smistamento</button>
       <button data-ws="project">⚙ Progetto</button>
+      <button data-ws="scripts">🐍 Script</button>
     </nav>
     <span class="sep"></span>
     <span id="viewTools" class="row">
@@ -30,7 +31,7 @@
     </span>
     <span class="grow"></span>
     <button id="btnSaveProject" title="Valida, salva e applica a caldo il progetto (tag, UDT, aree, protocollo, classi…)">Salva progetto<span id="projDirty" class="dirty" hidden> ●</span></button>
-    <button id="btnScript" title="Editor script Python">🐍 Script</button>
+    <a href="manual.html#designer" target="_blank" title="Manuale utente (aiuto contestuale: pulsanti ? accanto a sezioni e campi)"><button>📖 Manuale</button></a>
     <a id="btnRuntime" href="index.html" target="_blank"><button title="Apri il runtime">Runtime ↗</button></a>
   </header>
 
@@ -47,7 +48,7 @@
         <ul class="list" id="viewList"></ul>
       </div>
       <div class="tabpane" id="tab-palette" hidden>
-        <p class="hint">Trascina un componente sulla vista (doppio click = aggiungi).</p>
+        <p class="hint">Trascina un componente sulla vista (doppio click = aggiungi). <button type="button" class="helpbtn" data-help="designer#componenti">?</button></p>
         <div class="palette" id="palette"></div>
       </div>
       <div class="tabpane" id="tab-symbols" hidden>
@@ -55,7 +56,7 @@
         <input id="symFilter" placeholder="Cerca simbolo…" style="width:100%;margin-top:6px">
         <div id="symList"></div>
         <label class="button-like" style="margin-top:10px"><input type="file" id="svgFile" accept=".svg,image/svg+xml" multiple hidden>⬆ Importa SVG…</label>
-        <p class="hint">Gli elementi con un <code>id</code> nell'SVG diventano animabili (colore, visibilità, testo, rotazione, traslazione, flusso, lampeggio).</p>
+        <p class="hint"><button type="button" class="helpbtn" data-help="designer#simboli-e-libreria-standard">?</button> Gli elementi con un <code>id</code> nell'SVG diventano animabili (colore, visibilità, testo, rotazione, traslazione, flusso, lampeggio).</p>
       </div>
       <div class="tabpane" id="tab-tags" hidden>
         <input id="tagFilter" placeholder="Cerca tag…" style="width:100%">
@@ -77,6 +78,7 @@
   <div class="ws" id="ws-tags" hidden></div>
   <div class="ws" id="ws-sort" hidden></div>
   <div class="ws" id="ws-project" hidden></div>
+  <div class="ws" id="ws-scripts" hidden></div>
 </div>
 <datalist id="tagNames"></datalist>
 <datalist id="instNames"></datalist>

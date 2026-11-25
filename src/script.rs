@@ -33,10 +33,13 @@ pub struct ScriptStatus {
     pub running: bool,
     pub load_error: Option<String>,
     pub functions: Vec<String>,
+    /// File caricati (cartella script): nome, tipo (function|module), doc, errore.
+    #[serde(default)]
+    pub files: Vec<Json>,
     pub restarts: u64,
 }
 
-type Pending = Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<ScriptReply>>>>>;
+type Pending = Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Json>>>>>;
 
 struct Worker {
     child: Child,
@@ -101,6 +104,7 @@ impl ScriptHost {
             st.running = true;
             st.load_error = hello["error"].as_str().map(str::to_string);
             st.functions = serde_json::from_value(hello["functions"].clone()).unwrap_or_default();
+            st.files = serde_json::from_value(hello["files"].clone()).unwrap_or_default();
             if let Some(e) = &st.load_error {
                 tracing::error!("errore caricamento script:\n{e}");
             } else {
@@ -115,20 +119,7 @@ impl ScriptHost {
                 let Ok(msg) = serde_json::from_str::<Json>(&line) else { continue };
                 let Some(id) = msg["id"].as_u64() else { continue };
                 let Some(tx) = p2.lock().unwrap().remove(&id) else { continue };
-                let logs: Vec<String> = serde_json::from_value(msg["logs"].clone()).unwrap_or_default();
-                let r = if msg["ok"].as_bool() == Some(true) {
-                    Ok(ScriptReply {
-                        result: msg["result"].clone(),
-                        writes: serde_json::from_value(msg["writes"].clone()).unwrap_or_default(),
-                        logs,
-                    })
-                } else {
-                    if let Some(t) = msg["trace"].as_str() {
-                        tracing::warn!(target: "script", "{t}");
-                    }
-                    Err(anyhow!("{}", msg["error"].as_str().unwrap_or("errore script")))
-                };
-                let _ = tx.send(r);
+                let _ = tx.send(Ok(msg));
             }
             // processo terminato: fallisci le chiamate pendenti
             for (_, tx) in p2.lock().unwrap().drain() {
@@ -152,6 +143,33 @@ impl ScriptHost {
 
     /// Chiama `fn(payload, ctx)` nel modulo utente.
     pub async fn call(&self, func: &str, payload: Json, ctx: Json, timeout: Duration) -> Result<ScriptReply> {
+        let msg = self.call_raw(func, payload, ctx, timeout, false).await?;
+        if msg["ok"].as_bool() == Some(true) {
+            Ok(ScriptReply {
+                result: msg["result"].clone(),
+                writes: serde_json::from_value(msg["writes"].clone()).unwrap_or_default(),
+                logs: serde_json::from_value(msg["logs"].clone()).unwrap_or_default(),
+            })
+        } else {
+            if let Some(t) = msg["trace"].as_str() {
+                tracing::warn!(target: "script", "{t}");
+            }
+            Err(anyhow!("{}", msg["error"].as_str().unwrap_or("errore script")))
+        }
+    }
+
+    /// Chiamata di test: ritorna la risposta completa (risultato o errore con
+    /// traccia e righe, scritture non applicate, print catturate, durata).
+    pub async fn test(&self, func: &str, payload: Json, ctx: Json, timeout: Duration) -> Result<Json> {
+        self.call_raw(func, payload, ctx, timeout, true).await
+    }
+
+    /// Processo già avviato e caricato (per i test isolati).
+    pub async fn start(&self) -> Result<ScriptStatus> {
+        self.reload().await
+    }
+
+    async fn call_raw(&self, func: &str, payload: Json, ctx: Json, timeout: Duration, test: bool) -> Result<Json> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = oneshot::channel();
         {
@@ -171,7 +189,7 @@ impl ScriptHost {
             }
             let wk = w.as_mut().unwrap();
             wk.pending.lock().unwrap().insert(id, tx);
-            let line = serde_json::to_string(&serde_json::json!({"id": id, "fn": func, "payload": payload, "ctx": ctx}))?;
+            let line = serde_json::to_string(&serde_json::json!({"id": id, "fn": func, "payload": payload, "ctx": ctx, "test": test}))?;
             if let Err(e) = async {
                 wk.stdin.write_all(line.as_bytes()).await?;
                 wk.stdin.write_all(b"\n").await?;

@@ -39,7 +39,8 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - **ordini di prelievo FIFO** con avanzamento e mancanze;
   - **riorganizzazione (defrag)** automatica nei tempi morti, con simulazione del piano e indici di frammentazione;
   - **KPI dei trasli**: utilizzo, disponibilità, missioni/h, ciclo medio, cicli doppi.
-- **Libreria**: 74 simboli in 3 menu (Intralogistica, Macchine, Processo), 27 UDT standard per famiglia e **un faceplate per ogni simbolo**.
+- **Libreria standard** (`stdlib/`, parte dello SCADA e indipendente dal progetto): 74 simboli in 3 menu (Intralogistica, Macchine, Processo), 28 UDT standard per famiglia e **un faceplate per ogni simbolo**.
+- **Menu tasto destro**: nel Designer per modificare (copia, incolla, elimina, ordine, allineamento…), nel runtime per navigare tra viste e aree.
 
 ## Avvio rapido (demo)
 
@@ -116,7 +117,7 @@ Per ricreare l'esempio, a WCS avviato:
 python3 tools/build_demo_pallet.py
 ```
 
-La simulazione dei PLC (arrivi pallet, rulliere, trasli, baie) è lo script a timer `sim_pallet` in `scripts/rules.py`.
+La simulazione dei PLC (arrivi pallet, rulliere, trasli, baie) è lo script a timer `scripts/sim_pallet.py`, con lo stato condiviso in `scripts/_magpallet.py`.
 
 ## WCS magazzini automatici a trasloelevatori
 
@@ -297,23 +298,66 @@ Le richieste hanno timeout breve e cache. Per i token negli header usa `${VARIAB
 - I trasporti (nastri, rulliere, accumulo, catenarie, sorter, corsie traslo, tubazioni) sono a **lunghezza variabile**: allungandoli aumenta il numero di rulli, non la loro dimensione; aumentandone la larghezza crescono rulli e dettagli. I binding possono usare `param('_len')`, la lunghezza corrente del simbolo.
 - Tutti gli altri simboli hanno una **dimensione nativa** coerente con questa scala (usata al drop) e si ridimensionano senza deformarsi.
 
-La libreria si rigenera con `python3 tools/gen_library.py config`. Il generatore produce simboli, UDT, binding predefiniti e faceplate partendo dalle stesse definizioni.
+### Libreria standard (`stdlib/`)
 
-## Script Python (`scripts/rules.py`)
+Simboli, faceplate e UDT standard fanno parte dello SCADA, non del progetto: ogni progetto li trova già disponibili.
 
-```python
-def decide_sc1(req, ctx):              # punto di decisione (se nessuna regola scatta)
-    return {"destination": 2, "result": 0}
-
-def start_line(payload, ctx):          # evento HMI (pulsante)
-    ctx.write("CV1.Run", True)
-    return {"message": "Linea avviata"}   # oppure {"popup": "fp_x", "params": {...}}
-
-def sim_magazzino(payload, ctx):       # script a timer (Progetto → Script a timer)
-    ctx.write("LIFT1.PosPct", 50)
+```
+stdlib/symbols/<id>.svg            simboli
+stdlib/faceplates/fp_<id>.json     faceplate (parametro `device`)
+stdlib/symbols.json                metadati: categoria, UDT, faceplate, binding predefiniti
+stdlib/udts.json                   tipi UDT standard importabili
 ```
 
-`ctx.tag(n)`, `ctx.tags`, `ctx.write(tag, v)`, `ctx.log(msg)`. Ci sono due processi Python separati: uno per le decisioni (tempo reale) e uno per HMI e timer. Uno script bloccato viene terminato e riavviato. Gli script a timer possono scrivere anche i tag di stato dei soli driver `sim`.
+- **Percorso**: `server.library_dir` in `plant.yaml` (default `../stdlib`, relativo alla cartella di configurazione) oppure la variabile d'ambiente `PTWCS_LIBRARY`.
+- **Sola lettura**: le API elencano insieme viste/simboli del progetto e della libreria (`library: true`); la libreria non si può cancellare né sovrascrivere.
+- **Personalizzazione**: salvando dal Designer un faceplate o un simbolo standard se ne crea una copia nel progetto con lo stesso id (`overrides: true`, icona ✎), che ha la precedenza. ↺ *Ripristina* elimina la copia e torna allo standard. Gli aggiornamenti della libreria arrivano così a tutti i progetti, tranne gli elementi personalizzati.
+- **Rigenerazione**: `python3 tools/gen_library.py` riscrive `stdlib/` partendo dalle stesse definizioni (simboli, UDT, binding predefiniti, faceplate).
+
+### Menu del tasto destro
+
+- **Designer, su un componente**: taglia, copia, incolla, incolla qui, duplica, elimina; ordine (primo piano, avanti, indietro, in fondo); allinea e distribuisci; ruota; apri il faceplate o la vista collegata; rinomina; seleziona tutto; annulla/ripeti. Gli appunti valgono anche tra viste e schede del browser (Ctrl+C / Ctrl+X / Ctrl+V).
+- **Designer, su un'area vuota**: incolla qui, aggiungi componente nel punto, griglia, anteprima, zoom, salva, apri nel runtime. Sull'elenco viste: apri, apri nel runtime, duplica, elimina o ripristina.
+- **Runtime**: indietro/avanti, pagina iniziale, tutte le viste, aree con stato e sottomenu delle viste per area e sotto-area, pagine di sistema (aree, allarmi, WCS, decisioni, tag, trend, diagnostica), aggiorna, schermo intero, modifica nel Designer. Su un simbolo: apri il faceplate con il suo `device`, vai alla vista collegata, tag del dispositivo. Maiusc + tasto destro apre il menu del browser.
+
+## Script Python (`scripts/`, un file per funzione)
+
+```
+scripts/decide_sc1.py      def decide_sc1(req, ctx)      punto di decisione
+scripts/start_line.py      def start_line(payload, ctx)  evento HMI (pulsante)
+scripts/sim_pallet.py      def sim_pallet(payload, ctx)  script a timer
+scripts/_linea.py          modulo condiviso: costanti, funzioni, stato comune (from _linea import stats)
+```
+
+- **Cartella**: `scripting.module` in `plant.yaml` indica la cartella; per compatibilità accetta anche un singolo file `.py` con più funzioni.
+- **Regola dei nomi**: ogni `nome.py` deve definire `def nome(...)`. I file `_nome.py` sono moduli condivisi, con stato comune a tutti gli script che li importano.
+- **API del contesto**: `ctx.tag(n)`, `ctx.tags`, `ctx.write(tag, v)`, `ctx.log(msg)`, `ctx.now`, `ctx.point`, `ctx.user`.
+- **Processi**: due processi Python separati, uno per le decisioni (tempo reale) e uno per HMI e timer. Uno script bloccato viene terminato e riavviato. Gli script a timer possono scrivere anche i tag di stato dei soli driver `sim`.
+
+**Designer → 🐍 Script**:
+- un menu con una voce per script, raggruppato per uso (punti di decisione, eventi HMI, timer, non collegati, moduli condivisi);
+- editor con evidenziazione della sintassi, suggerimenti (API `ctx`, nomi dei tag, moduli e simboli condivisi), snippet, indentazione automatica e controllo in tempo reale (sintassi, nomi non definiti, import inutilizzati);
+- **test** in un interprete isolato con il codice non salvato: payload e tag simulati, risultato, scritture non applicate, `ctx.log`, `print()`, errore con riga;
+- storico delle versioni in `scripts/.history/`.
+
+API: `GET /api/scripts/files`, `GET|PUT|DELETE /api/scripts/file/{nome}`, `POST /api/scripts/check`, `POST /api/scripts/test`.
+
+## Manuale utente
+
+Il manuale è in Markdown in [`web/manual/`](web/manual/index.md) e si legge anche dallo SCADA:
+- **📖 Manuale** in runtime e Designer apre `http://<server>:8080/manual.html`, con indice, sommario della pagina e ricerca;
+- **aiuto contestuale**: nel Designer i pulsanti **?** accanto a sezioni e campi aprono, in un pannello laterale, la parte del manuale che li descrive. Lo Smistamento è documentato campo per campo;
+- nel runtime: **F1** o tasto destro → *Manuale utente*.
+
+| Pagina | Contenuto |
+|---|---|
+| [Runtime](web/manual/runtime.md) | viste, barra aree, navigazione, faceplate, pagine di sistema |
+| [WCS](web/manual/wcs.md) | missioni, ordini, giacenze, riorganizzazione, KPI, strategia |
+| [Designer – Viste](web/manual/designer.md) | editor grafico, componenti, binding, eventi, libreria |
+| [Designer – Tag e UDT](web/manual/designer-tag.md) | tag, indirizzi, UDT, istanze, allarmi |
+| [Designer – Smistamento](web/manual/designer-smistamento.md) | protocollo, handshake, regole, classi, WMS |
+| [Designer – Progetto](web/manual/designer-progetto.md) | aree, scan class, timer, magazzini, driver |
+| [Designer – Script](web/manual/designer-script.md) | script Python, editor, test |
 
 ## Protocolli e indirizzi
 

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manuale PTWCS</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="manual">
+  <header class="top">
+    <span class="brand">📖 Manuale PTWCS</span>
+    <input id="mSearch" placeholder="Cerca nel manuale…" style="width:280px">
+    <span class="grow"></span>
+    <a href="index.html" style="color:var(--muted)">Runtime ↗</a>
+    <a href="designer.html" style="color:var(--muted)">Designer ↗</a>
+  </header>
+  <div class="man-wrap">
+    <nav class="man-nav" id="mNav"></nav>
+    <main class="man-main md" id="mMain"></main>
+    <aside class="man-toc" id="mToc"></aside>
+  </div>
+  <script type="module">
+    import { esc } from './js/core.js';
+    import { MANUAL_PAGES, renderMarkdown, manualLink, loadPage, setCurrentPage } from './js/markdown.js';
+    const nav = document.getElementById('mNav'), main = document.getElementById('mMain'), tocEl = document.getElementById('mToc');
+    const search = document.getElementById('mSearch');
+    let page = null;
+
+    function drawNav() {
+      nav.innerHTML = MANUAL_PAGES.map(([p, t]) => `<a href="#${p}" class="${p === page ? 'on' : ''}">${esc(t)}</a>`).join('');
+    }
+
+    async function show() {
+      const [p, anchor] = decodeURIComponent(location.hash.slice(1) || 'index').split('/');
+      if (p !== page) {
+        page = MANUAL_PAGES.some(([x]) => x === p) ? p : 'index';
+        setCurrentPage(page);
+        let md;
+        try { md = await loadPage(page); } catch (e) { main.innerHTML = `<p>${esc(e.message)}</p>`; return; }
+        const r = renderMarkdown(md, { link: manualLink('') });
+        main.innerHTML = r.html;
+        // ancore dei titoli nel formato pagina/ancora
+        main.querySelectorAll('[data-anchor]').forEach((a) => a.setAttribute('href', `#${page}/${a.dataset.anchor}`));
+        main.querySelectorAll('a[href^="#"]').forEach((a) => { if (!a.dataset.anchor && !a.getAttribute('href').includes('/') && !MANUAL_PAGES.some(([x]) => `#${x}` === a.getAttribute('href'))) a.setAttribute('href', `#${page}/${a.getAttribute('href').slice(1)}`); });
+        tocEl.innerHTML = '<div class="toc-h">In questa pagina</div>' + r.toc.filter((t) => t.level > 1 && t.level < 4).map((t) => `<a href="#${page}/${t.id}" class="l${t.level}">${esc(t.text)}</a>`).join('');
+        document.title = `${MANUAL_PAGES.find(([x]) => x === page)[1]} – Manuale PTWCS`;
+        drawNav();
+      }
+      const el = anchor && document.getElementById(anchor);
+      main.querySelectorAll('.hl').forEach((x) => x.classList.remove('hl'));
+      if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('hl'); } else main.scrollTop = 0;
+    }
+
+    // ricerca in tutte le pagine
+    let st;
+    search.oninput = () => {
+      clearTimeout(st);
+      st = setTimeout(async () => {
+        const q = search.value.trim().toLowerCase();
+        if (q.length < 2) { page = null; return show(); }
+        const res = [];
+        for (const [p, t] of MANUAL_PAGES) {
+          const md = await loadPage(p);
+          let head = '', headId = '';
+          for (const l of md.split('\n')) {
+            const h = l.match(/^#{1,6}\s+(.*)$/);
+            if (h) { head = h[1]; headId = (await import('./js/markdown.js')).slug(h[1]); }
+            if (l.toLowerCase().includes(q)) res.push({ p, t, head, headId, line: l.replace(/[#*`|>]/g, ' ').trim() });
+          }
+        }
+        page = null;
+        main.innerHTML = `<h1>Ricerca: “${esc(search.value)}”</h1>` + (res.length ? res.slice(0, 120).map((r) =>
+          `<a class="sres" href="#${r.p}/${r.headId}"><b>${esc(r.t)}</b> › ${esc(r.head)}<br><span class="muted">${esc(r.line.slice(0, 200))}</span></a>`).join('') : '<p class="muted">Nessun risultato.</p>');
+        tocEl.innerHTML = '';
+        drawNav();
+      }, 250);
+    };
+    window.addEventListener('hashchange', () => { if (search.value) { search.value = ''; page = null; } show(); });
+    show();
+  </script>
+</body>
+</html>

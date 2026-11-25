@@ -3,6 +3,7 @@
 import { api, esc, toast, fmtTs } from './core.js';
 import { P, markDirty, areaNames, checkProject } from './project.js';
 import { tableEditor, modal } from './forms.js';
+import { helpBtn } from './markdown.js';
 
 const OPS = [
   ['eq', '='], ['ne', '≠'], ['gt', '>'], ['ge', '≥'], ['lt', '<'], ['le', '≤'], ['between', 'compreso tra (min..max)'],
@@ -20,7 +21,7 @@ export function mount(root, { live }) {
   function drawSide() {
     side.innerHTML = `<div class="subtabs" style="flex-direction:column">${[['protocol', '📡 Protocollo request/reply'], ['rules', '🔀 Regole di smistamento'], ['classes', '🏷 Classi di smistamento'], ['wms', '🔌 Connessione WMS']]
       .map(([k, l]) => `<button data-st="${k}" class="${tab === k ? 'on' : ''}" style="text-align:left">${l}</button>`).join('')}</div>
-      <p class="hint">Catena di decisione: <b>regole grafiche</b> (in ordine) → se nessuna scatta, <b>funzione Python</b> del punto → altrimenti <b>fallback</b>. Le uscite <code>class:barcode</code> e <code>wms:barcode</code> usano classi e WMS.</p>`;
+      <p class="hint">${helpBtn('designer-smistamento#catena-di-decisione')} Catena di decisione: <b>regole grafiche</b> (in ordine) → se nessuna scatta, <b>funzione Python</b> del punto → altrimenti <b>fallback</b>. Le uscite <code>class:barcode</code> e <code>wms:barcode</code> usano classi e WMS.</p>`;
     side.querySelectorAll('[data-st]').forEach((b) => (b.onclick = () => { if (tab === 'rules' && rulesDirty && !confirm('Regole non salvate: continuare?')) return; tab = b.dataset.st; rulesDirty = false; drawSide(); draw(); }));
   }
 
@@ -40,23 +41,23 @@ export function mount(root, { live }) {
     const d = dps.find((x) => x.name === selPoint);
     main.innerHTML = `<div class="row" style="margin-bottom:10px;flex-wrap:wrap">${dps.map((x) => `<button class="small ${x.name === selPoint ? 'primary' : ''}" data-dp="${esc(x.name)}">${esc(x.name)}</button>`).join('')}
         <button class="small" id="dpNew">+ Nuovo punto di decisione</button><button class="small" id="dpTpl" title="Crea un tipo UDT telegramma con i ruoli già impostati">+ Modello telegramma</button></div>
-      ${d ? `<div class="sec"><h3>Punto di decisione <input id="dpName" value="${esc(d.name)}" style="width:160px"><span class="grow"></span><button class="small danger" id="dpDel">Elimina</button></h3>
+      ${d ? `<div class="sec"><h3>Punto di decisione ${helpBtn('designer-smistamento#campi-del-punto-di-decisione')} <input id="dpName" value="${esc(d.name)}" style="width:160px"><span class="grow"></span><button class="small danger" id="dpDel">Elimina</button></h3>
         <div class="formgrid">
-          <label>Descrizione</label><input data-f="description" value="${esc(d.description || '')}">
-          <label>Area</label><select data-f="area"><option value=""></option>${areaNames().map((a) => `<option ${a === d.area ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select>
-          <label>Definizione telegramma</label><div class="row"><label class="row"><input type="radio" name="dpm" value="udt" ${d.telegram !== undefined ? 'checked' : ''}> da istanza UDT (ruoli dei membri)</label>
+          <label>Descrizione ${helpBtn('designer-smistamento#campi-del-punto-di-decisione')}</label><input data-f="description" value="${esc(d.description || '')}">
+          <label>Area ${helpBtn('designer-smistamento#campi-del-punto-di-decisione')}</label><select data-f="area"><option value=""></option>${areaNames().map((a) => `<option ${a === d.area ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select>
+          <label>Definizione telegramma ${helpBtn('designer-smistamento#ruoli-dei-membri-del-telegramma')}</label><div class="row"><label class="row"><input type="radio" name="dpm" value="udt" ${d.telegram !== undefined ? 'checked' : ''}> da istanza UDT (ruoli dei membri)</label>
             <label class="row"><input type="radio" name="dpm" value="tags" ${d.telegram === undefined ? 'checked' : ''}> tag manuali</label></div>
-          ${d.telegram !== undefined ? `<label>Istanza telegramma</label><select data-f="telegram"><option value=""></option>${telegramInstances().map((i) => `<option ${i.name === d.telegram ? 'selected' : ''}>${esc(i.name)}</option>`).join('')}</select>` : `
-          <label>Tag richiesta (PLC)</label><input data-f="request_tag" list="tagNames" value="${esc(d.request_tag || '')}">
-          <label>Tag risposta (WCS)</label><input data-f="response_tag" list="tagNames" value="${esc(d.response_tag || '')}">`}
-          <label>Handshake</label><select data-f="handshake"><option value="counter" ${d.handshake !== 'flag' ? 'selected' : ''}>Contatore (ReqID / RespID)</option><option value="flag" ${d.handshake === 'flag' ? 'selected' : ''}>Flag (Req / Ack)</option></select>
-          <label>Funzione Python</label><select data-f="function"><option value="">(nessuna – solo regole)</option>${P.functions.map((f) => `<option ${f === d.function ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select>
-          <label>Timeout script (ms)</label><input type="number" data-f="timeout_ms" value="${d.timeout_ms ?? 300}" style="width:120px">
+          ${d.telegram !== undefined ? `<label>Istanza telegramma ${helpBtn('designer-smistamento#ruoli-dei-membri-del-telegramma')}</label><select data-f="telegram"><option value=""></option>${telegramInstances().map((i) => `<option ${i.name === d.telegram ? 'selected' : ''}>${esc(i.name)}</option>`).join('')}</select>` : `
+          <label>Tag richiesta (PLC) ${helpBtn('designer-smistamento#campi-del-punto-di-decisione')}</label><input data-f="request_tag" list="tagNames" value="${esc(d.request_tag || '')}">
+          <label>Tag risposta (WCS) ${helpBtn('designer-smistamento#campi-del-punto-di-decisione')}</label><input data-f="response_tag" list="tagNames" value="${esc(d.response_tag || '')}">`}
+          <label>Handshake ${helpBtn('designer-smistamento#handshake')}</label><select data-f="handshake"><option value="counter" ${d.handshake !== 'flag' ? 'selected' : ''}>Contatore (ReqID / RespID)</option><option value="flag" ${d.handshake === 'flag' ? 'selected' : ''}>Flag (Req / Ack)</option></select>
+          <label>Funzione Python ${helpBtn('designer-smistamento#catena-di-decisione')}</label><select data-f="function"><option value="">(nessuna – solo regole)</option>${P.functions.map((f) => `<option ${f === d.function ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select>
+          <label>Timeout script (ms) ${helpBtn('designer-smistamento#campi-del-punto-di-decisione')}</label><input type="number" data-f="timeout_ms" value="${d.timeout_ms ?? 300}" style="width:120px">
         </div></div>
-        ${d.telegram === undefined ? `<div class="grid2"><div class="sec"><h3>Input (PLC → WCS)</h3><div id="dpIn"></div></div><div class="sec"><h3>Output (WCS → PLC)</h3><div id="dpOut"></div></div></div>` : ''}
-        <div class="sec"><h3>Fallback</h3><p class="hint">Uscite scritte se nessuna regola/script fornisce una risposta valida. Se vuoto, il WCS non risponde e il PLC applica il proprio default al timeout.</p><div id="dpFb"></div></div>
-        <div class="sec"><h3>Protocollo risolto</h3><div id="dpRes" class="mono" style="font-size:12.5px">verifica…</div></div>
-        <div class="sec"><h3>Sequenza dell'handshake</h3>${handshakeDiagram(d.handshake || 'counter')}</div>` : '<p class="muted">Nessun punto di decisione.</p>'}`;
+        ${d.telegram === undefined ? `<div class="grid2"><div class="sec"><h3>Input (PLC → WCS) ${helpBtn('designer-smistamento#input-e-output-tag-manuali')}</h3><div id="dpIn"></div></div><div class="sec"><h3>Output (WCS → PLC) ${helpBtn('designer-smistamento#input-e-output-tag-manuali')}</h3><div id="dpOut"></div></div></div>` : ''}
+        <div class="sec"><h3>Fallback ${helpBtn('designer-smistamento#fallback')}</h3><p class="hint">Uscite scritte se nessuna regola/script fornisce una risposta valida. Se vuoto, il WCS non risponde e il PLC applica il proprio default al timeout.</p><div id="dpFb"></div></div>
+        <div class="sec"><h3>Protocollo risolto ${helpBtn('designer-smistamento#protocollo-risolto')}</h3><div id="dpRes" class="mono" style="font-size:12.5px">verifica…</div></div>
+        <div class="sec"><h3>Sequenza dell'handshake ${helpBtn('designer-smistamento#handshake')}</h3>${handshakeDiagram(d.handshake || 'counter')}</div>` : '<p class="muted">Nessun punto di decisione.</p>'}`;
     main.querySelectorAll('[data-dp]').forEach((b) => (b.onclick = () => { selPoint = b.dataset.dp; drawProtocol(); }));
     main.querySelector('#dpNew').onclick = () => {
       const n = prompt('Nome del punto di decisione (es. SC2):');
@@ -191,7 +192,7 @@ export function mount(root, { live }) {
         <label class="row"><input type="checkbox" id="rsEn" ${draft.enabled !== false ? 'checked' : ''}> regole attive</label>
         <span class="grow"></span>
         <button class="small" id="rsReset">Azzera contatori</button><button class="small" id="rsReload">Annulla modifiche</button>
-        <button class="primary" id="rsSave">Salva regole${rulesDirty ? ' ●' : ''}</button></div>
+        ${helpBtn('designer-smistamento#regole-di-smistamento')}<button class="primary" id="rsSave">Salva regole${rulesDirty ? ' ●' : ''}</button></div>
       <div class="row" style="align-items:flex-start;gap:16px">
         <div class="grow" style="min-width:0">
           <input id="rsDesc" value="${esc(draft.description || '')}" placeholder="Descrizione dell'insieme di regole" style="width:100%;margin-bottom:10px">
@@ -203,26 +204,26 @@ export function mount(root, { live }) {
               <select data-mode title="Combinazione condizioni"><option value="all" ${r.mode !== 'any' ? 'selected' : ''}>TUTTE le condizioni</option><option value="any" ${r.mode === 'any' ? 'selected' : ''}>ALMENO UNA</option></select>
               <span class="hits" title="Colli decisi da questa regola dall'avvio">▶ ${hits[r.id] || 0}</span>
               <button class="small" data-up title="Su">↑</button><button class="small" data-down title="Giù">↓</button><button class="small" data-dup title="Duplica">⧉</button><button class="small danger" data-del>✕</button></div>
-            <div class="rb"><div><h5>Se</h5>${(r.when || []).map((c, k) => `<div class="cond" data-ci="${k}">
+            <div class="rb"><div><h5>Se ${helpBtn('designer-smistamento#condizioni')}</h5>${(r.when || []).map((c, k) => `<div class="cond" data-ci="${k}">
                 <input data-cf list="ruleFields" value="${esc(c.field)}" placeholder="campo">
                 <select data-co>${OPS.map(([v, l]) => `<option value="${v}" ${v === c.op ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
                 <input data-cv value="${esc(c.value || '')}" ${NO_VALUE.includes(c.op) ? 'disabled placeholder="—"' : `placeholder="valore o tag:Nome" ${['in_class', 'not_in_class'].includes(c.op) ? 'list="ruleClasses"' : ''}`}>
                 <span class="res ${tr ? (tr.conditions[k] ? 't' : 'f') : ''}" title="Esito nell'ultimo test"></span>
                 <button class="small danger" data-cdel>✕</button></div>`).join('')}
                 <button class="small" data-cadd>+ Condizione</button></div>
-              <div><h5>Allora</h5>${actionHtml(r.then || {}, 'r')}</div></div></div>`;
+              <div><h5>Allora ${helpBtn('designer-smistamento#uscite-allora')}</h5>${actionHtml(r.then || {}, 'r')}</div></div></div>`;
           }).join('')}
           <button id="rAdd">+ Nuova regola</button>
-          <div class="rule ${hitId === 'default' ? 'hit' : ''}" style="margin-top:14px"><div class="rh"><b>Default</b> <span class="muted">se nessuna regola scatta</span><span class="grow"></span>
+          <div class="rule ${hitId === 'default' ? 'hit' : ''}" style="margin-top:14px"><div class="rh"><b>Default</b> ${helpBtn('designer-smistamento#default')} <span class="muted">se nessuna regola scatta</span><span class="grow"></span>
             <label class="row"><input type="checkbox" id="defEn" ${draft.default ? 'checked' : ''}> attivo</label><span class="hits">▶ ${hits.default || 0}</span></div>
             ${draft.default ? `<div class="rb"><div class="muted" style="font-size:12.5px">Se il default non è attivo: funzione Python <b>${esc(meta.point.function || '—')}</b>, poi fallback ${esc(JSON.stringify(meta.point.fallback || {}))}.</div><div>${actionHtml(draft.default, 'd')}</div></div>` : ''}</div>
         </div>
         <div style="width:330px;flex:none;position:sticky;top:0">
-          <div class="sec"><h3>Prova regole</h3><p class="hint">Valuta la bozza corrente (anche non salvata) con dati di esempio e tag live. Nessuna scrittura al PLC.</p>
+          <div class="sec"><h3>Prova regole ${helpBtn('designer-smistamento#prova-regole')}</h3><p class="hint">Valuta la bozza corrente (anche non salvata) con dati di esempio e tag live. Nessuna scrittura al PLC.</p>
             ${Object.keys(meta.point.inputs || {}).map((f) => `<div class="outrow"><label class="muted">${esc(f)}</label><input data-tin="${esc(f)}" value="${esc(test?.inputs?.[f] ?? '')}"></div>`).join('')}
             <button class="primary" id="rTest" style="width:100%;margin-top:6px">▶ Prova</button>
             <div id="rTestOut" style="margin-top:10px">${test ? testHtml() : ''}</div></div>
-          <div class="sec"><h3>Ultime decisioni</h3><div id="rLast" style="font-size:12px">…</div></div>
+          <div class="sec"><h3>Ultime decisioni ${helpBtn('designer-smistamento#ultime-decisioni')}</h3><div id="rLast" style="font-size:12px">…</div></div>
         </div></div>`;
     wireRules(points);
     api.get(`/api/decisions?point=${encodeURIComponent(rulesPoint)}&limit=8`).then((ds) => {
@@ -314,11 +315,11 @@ export function mount(root, { live }) {
 
   // ================================================================ classi
   function drawClasses() {
-    main.innerHTML = `<div class="sec"><h3>Classi di smistamento</h3>
+    main.innerHTML = `<div class="sec"><h3>Classi di smistamento ${helpBtn('designer-smistamento#classi-di-smistamento')}</h3>
       <p class="hint">Una classe raggruppa barcode (elenco esplicito e/o pattern con <code>*</code> e <code>?</code>) e ha una destinazione (<code>3</code> oppure <code>1|2</code> a rotazione).
       Le classi con origine <b>WMS</b> ricevono l'elenco dei barcode dal WMS (sincronizzazione periodica). Nelle regole: condizione <i>appartiene alla classe</i>, uscita <code>class:barcode</code>.</p>
       <div id="clTbl"></div></div>
-      <div class="sec"><h3>Prova un barcode</h3><div class="row"><input id="clBc" placeholder="barcode" style="width:220px"><label class="row"><input type="checkbox" id="clWms" checked> chiedi anche al WMS</label><button id="clGo">Prova</button></div>
+      <div class="sec"><h3>Prova un barcode ${helpBtn('designer-smistamento#classi-di-smistamento')}</h3><div class="row"><input id="clBc" placeholder="barcode" style="width:220px"><label class="row"><input type="checkbox" id="clWms" checked> chiedi anche al WMS</label><button id="clGo">Prova</button></div>
       <div id="clRes" style="margin-top:8px"></div><p class="hint">La prova usa il progetto <b>salvato</b>.</p></div>`;
     tableEditor(main.querySelector('#clTbl'), P.data.sort_classes, [
       { key: 'name', label: 'Nome', width: 120, required: true }, { key: 'description', label: 'Descrizione', width: 170 },
@@ -341,8 +342,8 @@ export function mount(root, { live }) {
   async function drawWms() {
     const w = P.data.wms;
     const st = (await api.get('/api/sorting/status')).wms;
-    const F = (k, l, ph = '', type = 'text') => `<label>${l}</label><input data-w="${k}" type="${type}" value="${esc(w?.[k] ?? '')}" placeholder="${esc(ph)}">`;
-    main.innerHTML = `<div class="sec"><h3>Connessione WMS <span class="grow"></span><label class="row"><input type="checkbox" id="wEn" ${w?.enabled !== false && w ? 'checked' : ''}> abilitata</label></h3>
+    const F = (k, l, ph = '', type = 'text') => `<label>${l} ${helpBtn('designer-smistamento#connessione-wms')}</label><input data-w="${k}" type="${type}" value="${esc(w?.[k] ?? '')}" placeholder="${esc(ph)}">`;
+    main.innerHTML = `<div class="sec"><h3>Connessione WMS ${helpBtn('designer-smistamento#connessione-wms')} <span class="grow"></span><label class="row"><input type="checkbox" id="wEn" ${w?.enabled !== false && w ? 'checked' : ''}> abilitata</label></h3>
       ${w ? `<div class="formgrid">
         ${F('base_url', 'URL base', 'http://wms.local/api')}
         ${F('destination_path', 'Destinazione collo (GET)', '/parcels/{barcode}/destination')}
@@ -352,9 +353,9 @@ export function mount(root, { live }) {
         ${F('sync_interval_s', 'Sincronizzazione classi (s)', '60', 'number')}
         ${F('timeout_ms', 'Timeout richiesta (ms)', '250', 'number')}
         ${F('cache_ttl_s', 'Cache risposte (s)', '300', 'number')}
-        <label>Header HTTP</label><div id="wHdr"></div></div>
+        <label>Header HTTP ${helpBtn('designer-smistamento#connessione-wms')}</label><div id="wHdr"></div></div>
         <p class="hint">Il WMS risponde con JSON; un 404 significa "collo sconosciuto" (la regola che usa <code>wms:barcode</code> viene saltata). Per i token usa <code>\${NOME_VARIABILE}</code>: il valore è letto dall'ambiente del server, non salvato nel progetto.</p>` : '<p class="muted">WMS non configurato: abilitalo per impostare la connessione.</p>'}</div>
-      <div class="sec"><h3>Stato</h3><div class="formgrid">
+      <div class="sec"><h3>Stato ${helpBtn('designer-smistamento#connessione-wms')}</h3><div class="formgrid">
         <label>Stato</label><div>${st.enabled ? '<span class="chip ok">abilitato</span>' : '<span class="chip">disabilitato</span>'} ${st.last_error ? `<span class="chip err">${esc(st.last_error)}</span>` : ''}</div>
         <label>Richieste / errori</label><div>${st.requests} / ${st.errors} · cache ${st.cache_size}</div>
         <label>Ultima sincronizzazione</label><div>${st.last_sync ? fmtTs(st.last_sync) : '—'} ${st.synced_classes.map((c) => `<span class="chip">${esc(c)}</span>`).join('')}</div></div>

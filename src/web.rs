@@ -89,7 +89,10 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/symbols/{id}", get(get_symbol).put(put_symbol).delete(del_symbol))
         .route("/api/scripts", get(script_status))
         .route("/api/scripts/reload", post(script_reload))
-        .route("/api/scripts/source", get(script_source).put(put_script_source))
+        .route("/api/scripts/files", get(script_files))
+        .route("/api/scripts/file/{name}", get(script_file_get).put(script_file_put).delete(script_file_del))
+        .route("/api/scripts/check", post(script_check))
+        .route("/api/scripts/test", post(script_test))
         .route("/api/scripts/call", post(script_call))
         .route("/ws", get(ws))
         .fallback_service(ServeDir::new(web_root).append_index_html_on_directories(true))
@@ -498,7 +501,7 @@ async fn wh_reorg_set(State(app): S, Path(name): Path<String>, Json(r): Json<Reo
 /// Libreria: metadati simboli (categoria, famiglia UDT, faceplate, binding
 /// predefiniti) e tipi UDT standard importabili nel progetto.
 async fn library(State(app): S) -> Json<J> {
-    let dir = app.cfg().resolve("library");
+    let dir = app.library_dir.clone();
     let read = |f: &str| -> J {
         std::fs::read_to_string(dir.join(f)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(J::Null)
     };
@@ -681,19 +684,48 @@ async fn trend(State(app): S, Query(q): Query<TrendQ>) -> R<Json<J>> {
 
 // ---------------------------------------------------------------- viste
 
+/// File di una vista: progetto (personalizzazione) o libreria standard.
+fn view_file(app: &AppState, id: &str) -> Option<(std::path::PathBuf, bool)> {
+    let p = app.views_dir.join(format!("{id}.json"));
+    if p.exists() {
+        return Some((p, false));
+    }
+    let l = app.library_dir.join("faceplates").join(format!("{id}.json"));
+    l.exists().then_some((l, true))
+}
+
+fn lib_view_exists(app: &AppState, id: &str) -> bool {
+    app.library_dir.join("faceplates").join(format!("{id}.json")).exists()
+}
+
+fn json_files(dir: &std::path::Path, ext: &str) -> Vec<(String, std::path::PathBuf)> {
+    let Ok(rd) = std::fs::read_dir(dir) else { return vec![] };
+    rd.filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == ext))
+        .map(|p| (p.file_stem().unwrap().to_string_lossy().to_string(), p))
+        .collect()
+}
+
+/// Viste del progetto + faceplate della libreria standard (`library: true`);
+/// una vista di progetto con lo stesso id di un faceplate standard lo personalizza (`overrides: true`).
 async fn list_views(State(app): S) -> R<Json<J>> {
     let mut out = vec![];
-    for e in std::fs::read_dir(&app.views_dir)? {
-        let p = e?.path();
-        if p.extension().is_some_and(|x| x == "json") {
-            let id = p.file_stem().unwrap().to_string_lossy().to_string();
+    let mut seen = std::collections::HashSet::new();
+    let lib = json_files(&app.library_dir.join("faceplates"), "json");
+    for (from_lib, files) in [(false, json_files(&app.views_dir, "json")), (true, lib)] {
+        for (id, p) in files {
+            if !seen.insert(id.clone()) {
+                continue;
+            }
             let v: J = std::fs::read_to_string(&p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(J::Null);
             out.push(json!({"id": id, "title": v.get("title").cloned().unwrap_or(json!(id)),
                             "home": v.get("home").cloned().unwrap_or(json!(false)),
                             "area": v.get("area").cloned().unwrap_or(J::Null),
-                            "faceplate": v.get("faceplate").cloned().unwrap_or(json!(false)),
+                            "faceplate": v.get("faceplate").cloned().unwrap_or(json!(from_lib)),
                             "menu": v.get("menu").cloned().unwrap_or(json!(true)),
-                            "params": v.get("params").cloned().unwrap_or(json!({}))}));
+                            "params": v.get("params").cloned().unwrap_or(json!({})),
+                            "library": from_lib,
+                            "overrides": !from_lib && lib_view_exists(&app, &id)}));
         }
     }
     out.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
@@ -702,7 +734,7 @@ async fn list_views(State(app): S) -> R<Json<J>> {
 
 async fn get_view(State(app): S, Path(id): Path<String>) -> R<Response> {
     safe_id(&id)?;
-    let p = app.views_dir.join(format!("{id}.json"));
+    let (p, _) = view_file(&app, &id).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("vista {id} non trovata")))?;
     let s = std::fs::read_to_string(&p).map_err(|_| ApiError(StatusCode::NOT_FOUND, format!("vista {id} non trovata")))?;
     Ok(([(header::CONTENT_TYPE, "application/json")], s).into_response())
 }
@@ -738,32 +770,47 @@ async fn put_view(State(app): S, Path(id): Path<String>, Json(view): Json<J>) ->
         .map(|t| format!("tag sconosciuto: {t}"))
         .collect();
     warnings.dedup();
+    // le viste si salvano sempre nel progetto: per un faceplate standard è una personalizzazione
     let p = app.views_dir.join(format!("{id}.json"));
     let tmp = p.with_extension("json.tmp");
     std::fs::write(&tmp, serde_json::to_string_pretty(&view).unwrap())?;
     std::fs::rename(tmp, p)?;
-    app.audit("designer", "save_view", id.clone());
-    Ok(Json(json!({"ok": true, "warnings": warnings})))
+    let overrides = lib_view_exists(&app, &id);
+    app.audit("designer", "save_view", if overrides { format!("{id} (personalizzazione del faceplate standard)") } else { id.clone() });
+    Ok(Json(json!({"ok": true, "warnings": warnings, "overrides": overrides})))
 }
 
 async fn del_view(State(app): S, Path(id): Path<String>) -> R<Json<J>> {
     require_designer(&app)?;
     safe_id(&id)?;
-    std::fs::remove_file(app.views_dir.join(format!("{id}.json")))?;
-    app.audit("designer", "delete_view", id);
-    Ok(Json(json!({"ok": true})))
+    let p = app.views_dir.join(format!("{id}.json"));
+    let lib = lib_view_exists(&app, &id);
+    if !p.exists() {
+        return Err(if lib {
+            ApiError(StatusCode::FORBIDDEN, format!("{id} è un faceplate della libreria standard (sola lettura)"))
+        } else {
+            ApiError(StatusCode::NOT_FOUND, format!("vista {id} non trovata"))
+        });
+    }
+    std::fs::remove_file(p)?;
+    app.audit("designer", "delete_view", if lib { format!("{id}: ripristinato il faceplate standard") } else { id });
+    Ok(Json(json!({"ok": true, "restored": lib})))
 }
 
 // ---------------------------------------------------------------- simboli SVG
 
+/// Simboli del progetto + simboli della libreria standard (`library: true`).
 async fn list_symbols(State(app): S) -> R<Json<J>> {
     let mut out = vec![];
-    for e in std::fs::read_dir(&app.symbols_dir)? {
-        let p = e?.path();
-        if p.extension().is_some_and(|x| x == "svg") {
-            let id = p.file_stem().unwrap().to_string_lossy().to_string();
+    let mut seen = std::collections::HashSet::new();
+    let lib_dir = app.library_dir.join("symbols");
+    for (from_lib, files) in [(false, json_files(&app.symbols_dir, "svg")), (true, json_files(&lib_dir, "svg"))] {
+        for (id, p) in files {
+            if !seen.insert(id.clone()) {
+                continue;
+            }
             let svg = std::fs::read_to_string(&p).unwrap_or_default();
-            out.push(json!({"id": id, "svg": svg}));
+            out.push(json!({"id": id, "svg": svg, "library": from_lib, "overrides": !from_lib && lib_dir.join(format!("{id}.svg")).exists()}));
         }
     }
     out.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
@@ -773,6 +820,7 @@ async fn list_symbols(State(app): S) -> R<Json<J>> {
 async fn get_symbol(State(app): S, Path(id): Path<String>) -> R<Response> {
     safe_id(&id)?;
     let s = std::fs::read_to_string(app.symbols_dir.join(format!("{id}.svg")))
+        .or_else(|_| std::fs::read_to_string(app.library_dir.join("symbols").join(format!("{id}.svg"))))
         .map_err(|_| ApiError(StatusCode::NOT_FOUND, "simbolo non trovato".into()))?;
     Ok(([(header::CONTENT_TYPE, "image/svg+xml")], s).into_response())
 }
@@ -834,8 +882,18 @@ async fn put_symbol(State(app): S, Path(id): Path<String>, Json(b): Json<SymbolB
 async fn del_symbol(State(app): S, Path(id): Path<String>) -> R<Json<J>> {
     require_designer(&app)?;
     safe_id(&id)?;
-    std::fs::remove_file(app.symbols_dir.join(format!("{id}.svg")))?;
-    Ok(Json(json!({"ok": true})))
+    let p = app.symbols_dir.join(format!("{id}.svg"));
+    let lib = app.library_dir.join("symbols").join(format!("{id}.svg")).exists();
+    if !p.exists() {
+        return Err(if lib {
+            ApiError(StatusCode::FORBIDDEN, format!("{id} è un simbolo della libreria standard (sola lettura)"))
+        } else {
+            ApiError(StatusCode::NOT_FOUND, "simbolo non trovato".into())
+        });
+    }
+    std::fs::remove_file(p)?;
+    app.audit("designer", "delete_symbol", id);
+    Ok(Json(json!({"ok": true, "restored": lib})))
 }
 
 // ---------------------------------------------------------------- script
@@ -851,9 +909,128 @@ async fn script_reload(State(app): S) -> R<Json<J>> {
     Ok(Json(json!(st)))
 }
 
-async fn script_source(State(app): S) -> R<Json<J>> {
-    let p = app.script_path.as_ref().ok_or_else(|| bad("nessun modulo script configurato"))?;
-    Ok(Json(json!({"path": p.display().to_string(), "source": std::fs::read_to_string(p).unwrap_or_default()})))
+/// Cartella degli script (un file per funzione).
+fn scripts_dir(app: &AppState) -> R<std::path::PathBuf> {
+    let p = app.script_path.clone().ok_or_else(|| bad("nessuna cartella script configurata (scripting.module)"))?;
+    if !p.is_dir() {
+        return Err(bad(format!("{} non è una cartella: gli script sono un file per funzione", p.display())));
+    }
+    Ok(p)
+}
+
+fn script_name(name: &str) -> R<()> {
+    let ok = !name.is_empty() && name.len() <= 64 && name.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+    if ok { Ok(()) } else { Err(bad("nome script non valido (identificatore Python)")) }
+}
+
+/// Dove è usata ogni funzione: punti di decisione, script a timer, azioni delle viste.
+fn script_usage(app: &AppState) -> HashMap<String, Vec<J>> {
+    let mut u: HashMap<String, Vec<J>> = HashMap::new();
+    let cfg = app.cfg();
+    for d in &cfg.decision_points {
+        if let Some(f) = &d.function {
+            u.entry(f.clone()).or_default().push(json!({"kind": "decision", "label": format!("Punto di decisione {}", d.name), "point": d.name}));
+        }
+    }
+    for t in &cfg.timer_scripts {
+        u.entry(t.function.clone()).or_default().push(json!({"kind": "timer", "label": format!("Timer {} ({} ms{})", t.name, t.interval_ms, if t.enabled { "" } else { ", disattivo" })}));
+    }
+    fn walk(v: &J, view: &str, u: &mut HashMap<String, Vec<J>>) {
+        match v {
+            J::Object(m) => {
+                if m.get("kind").and_then(J::as_str) == Some("script")
+                    && let Some(f) = m.get("fn").and_then(J::as_str)
+                {
+                    let e = u.entry(f.to_string()).or_default();
+                    if !e.iter().any(|x| x["view"] == view) {
+                        e.push(json!({"kind": "hmi", "label": format!("Vista {view}"), "view": view}));
+                    }
+                }
+                m.values().for_each(|x| walk(x, view, u));
+            }
+            J::Array(a) => a.iter().for_each(|x| walk(x, view, u)),
+            _ => {}
+        }
+    }
+    for (id, p) in json_files(&app.views_dir, "json") {
+        if let Some(v) = std::fs::read_to_string(&p).ok().and_then(|s| serde_json::from_str::<J>(&s).ok()) {
+            walk(&v, &id, &mut u);
+        }
+    }
+    u
+}
+
+/// Simboli di primo livello di un modulo (def/class/assegnazioni) per i suggerimenti.
+fn top_symbols(src: &str) -> Vec<String> {
+    let mut out = vec![];
+    for l in src.lines() {
+        let l2 = l.trim_end();
+        if l2.starts_with(' ') || l2.starts_with('\t') {
+            continue;
+        }
+        let name = if let Some(r) = l2.strip_prefix("def ").or_else(|| l2.strip_prefix("class ")) {
+            r.split(['(', ':']).next().unwrap_or("").trim().to_string()
+        } else {
+            let lhs = l2.split('=').next().unwrap_or("");
+            if l2.contains('=') && !l2.contains("==") && !lhs.contains('(') && !lhs.contains('[') {
+                lhs.split(',').map(str::trim).filter(|x| !x.is_empty()).collect::<Vec<_>>().join(",")
+            } else {
+                String::new()
+            }
+        };
+        for n in name.split(',') {
+            if !n.is_empty() && n.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') && !out.contains(&n.to_string()) {
+                out.push(n.to_string());
+            }
+        }
+    }
+    out
+}
+
+/// Elenco degli script: file, tipo, documentazione, errori di caricamento, utilizzi.
+async fn script_files(State(app): S) -> R<Json<J>> {
+    let dir = scripts_dir(&app)?;
+    let st = app.scripts.status();
+    let usage = script_usage(&app);
+    let mut files = vec![];
+    for (name, p) in json_files(&dir, "py") {
+        let src = std::fs::read_to_string(&p).unwrap_or_default();
+        let meta = std::fs::metadata(&p).ok();
+        let loaded = st.files.iter().find(|f| f["name"] == name.as_str());
+        let used = usage.get(&name).cloned().unwrap_or_default();
+        let kind = if name.starts_with('_') { "module" } else { "function" };
+        let group = if kind == "module" {
+            "module"
+        } else if used.iter().any(|u| u["kind"] == "decision") {
+            "decision"
+        } else if used.iter().any(|u| u["kind"] == "timer") {
+            "timer"
+        } else if used.iter().any(|u| u["kind"] == "hmi") {
+            "hmi"
+        } else {
+            "unused"
+        };
+        files.push(json!({
+            "name": name, "kind": kind, "group": group,
+            "doc": loaded.map(|f| f["doc"].clone()).unwrap_or(J::Null),
+            "error": loaded.map(|f| f["error"].clone()).unwrap_or(J::Null),
+            "loaded": loaded.is_some(),
+            "usage": used, "symbols": top_symbols(&src), "lines": src.lines().count(),
+            "mtime": meta.and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_millis() as u64),
+        }));
+    }
+    files.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
+    let hmi = app.hmi_scripts.status();
+    Ok(Json(json!({"dir": dir.display().to_string(), "files": files,
+        "status": {"decisions": st, "hmi": {"running": hmi.running, "load_error": hmi.load_error, "restarts": hmi.restarts}}})))
+}
+
+async fn script_file_get(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
+    script_name(&name)?;
+    let p = scripts_dir(&app)?.join(format!("{name}.py"));
+    let src = std::fs::read_to_string(&p).map_err(|_| ApiError(StatusCode::NOT_FOUND, format!("script {name} non trovato")))?;
+    Ok(Json(json!({"name": name, "source": src, "path": p.display().to_string()})))
 }
 
 #[derive(Deserialize)]
@@ -861,30 +1038,196 @@ struct SourceBody {
     source: String,
 }
 
-/// Salva il modulo Python e lo ricarica. Prima verifica la sintassi con
-/// py_compile: un errore non sostituisce il file in produzione.
-async fn put_script_source(State(app): S, Json(b): Json<SourceBody>) -> R<Json<J>> {
+/// Controllo statico con l'interprete: sintassi (riga/colonna), definizione della
+/// funzione con lo stesso nome del file, nomi non definiti (pyflakes, se installato).
+async fn check_source(app: &AppState, name: &str, source: &str) -> R<J> {
+    const CHECK: &str = r#"
+import ast, json, sys
+name, src = sys.argv[1], sys.stdin.read()
+out = {"ok": True, "errors": [], "warnings": []}
+try:
+    tree = ast.parse(src, name + ".py")
+except SyntaxError as e:
+    out["ok"] = False
+    out["errors"].append({"line": e.lineno or 1, "col": e.offset or 1, "msg": "SyntaxError: " + (e.msg or "")})
+    print(json.dumps(out)); sys.exit()
+if not name.startswith("_"):
+    fns = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name]
+    if not fns:
+        out["ok"] = False
+        out["errors"].append({"line": 1, "col": 1, "msg": "manca def %s(payload, ctx): il file deve definire la funzione con il suo nome" % name})
+    elif len(fns[0].args.args) != 2:
+        out["warnings"].append({"line": fns[0].lineno, "col": 1, "msg": "la funzione deve avere due argomenti: (payload, ctx)"})
+try:
+    from pyflakes.api import check
+    from pyflakes.reporter import Reporter
+    import io
+    class R(Reporter):
+        def __init__(self): pass
+        def unexpectedError(self, f, m): pass
+        def syntaxError(self, f, m, l, c, t): pass
+        def flake(self, m):
+            out["warnings"].append({"line": m.lineno, "col": (m.col or 0) + 1, "msg": m.message % m.message_args})
+    check(src, name + ".py", R())
+except ImportError:
+    # controllo semplificato: nomi mai definiti nel file e import non usati
+    import builtins
+    bound, loads, imports = set(dir(builtins)) | {"__name__", "__file__", "__doc__"}, [], {}
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(n.name)
+        elif isinstance(n, ast.arg):
+            bound.add(n.arg)
+        elif isinstance(n, ast.Name):
+            (bound.add(n.id) if isinstance(n.ctx, (ast.Store, ast.Del)) else loads.append(n))
+        elif isinstance(n, (ast.Import, ast.ImportFrom)):
+            for a in n.names:
+                nm = (a.asname or a.name).split(".")[0]
+                if a.name == "*":
+                    bound.add("*")
+                bound.add(nm)
+                imports[nm] = n.lineno
+        elif isinstance(n, ast.ExceptHandler) and n.name:
+            bound.add(n.name)
+        elif isinstance(n, (ast.Global, ast.Nonlocal)):
+            bound.update(n.names)
+    used = {n.id for n in loads} | {n.value.id for n in ast.walk(tree) if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)}
+    if "*" not in bound:
+        seen = set()
+        for n in loads:
+            if n.id not in bound and (n.id, n.lineno) not in seen:
+                seen.add((n.id, n.lineno))
+                out["warnings"].append({"line": n.lineno, "col": n.col_offset + 1, "msg": "nome non definito: '%s'" % n.id})
+    for nm, ln in imports.items():
+        if nm not in used:
+            out["warnings"].append({"line": ln, "col": 1, "msg": "'%s' importato ma non usato" % nm})
+print(json.dumps(out))
+"#;
+    let mut child = tokio::process::Command::new(&app.cfg().scripting.python)
+        .args(["-c", CHECK, name])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()?;
+    {
+        use tokio::io::AsyncWriteExt;
+        let mut stdin = child.stdin.take().unwrap();
+        stdin.write_all(source.as_bytes()).await?;
+    }
+    let out = tokio::time::timeout(Duration::from_secs(10), child.wait_with_output()).await.map_err(|_| bad("timeout controllo script"))??;
+    serde_json::from_slice(&out.stdout).map_err(|_| bad(format!("controllo script fallito: {}", String::from_utf8_lossy(&out.stderr))))
+}
+
+#[derive(Deserialize)]
+struct CheckReq {
+    name: String,
+    source: String,
+}
+
+async fn script_check(State(app): S, Json(r): Json<CheckReq>) -> R<Json<J>> {
+    script_name(&r.name)?;
+    Ok(Json(check_source(&app, &r.name, &r.source).await?))
+}
+
+/// Salva uno script (dopo il controllo sintattico) e ricarica i processi Python.
+async fn script_file_put(State(app): S, Path(name): Path<String>, Json(b): Json<SourceBody>) -> R<Json<J>> {
     require_designer(&app)?;
-    let p = app.script_path.clone().ok_or_else(|| bad("nessun modulo script configurato"))?;
-    let tmp = p.with_extension("py.check");
-    std::fs::write(&tmp, &b.source)?;
-    let out = tokio::process::Command::new(&app.cfg().scripting.python)
-        .args(["-c", "import sys,py_compile; py_compile.compile(sys.argv[1], doraise=True)"])
-        .arg(&tmp)
-        .output()
-        .await?;
-    if !out.status.success() {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(bad(format!("errore di sintassi:\n{}", String::from_utf8_lossy(&out.stderr))));
+    script_name(&name)?;
+    let dir = scripts_dir(&app)?;
+    let check = check_source(&app, &name, &b.source).await?;
+    if check["ok"] != json!(true) {
+        return Ok(Json(json!({"ok": false, "check": check})));
     }
-    // backup della versione precedente
+    let p = dir.join(format!("{name}.py"));
+    // storico: copia della versione precedente
     if p.exists() {
-        let _ = std::fs::copy(&p, p.with_extension("py.bak"));
+        let hist = dir.join(".history");
+        std::fs::create_dir_all(&hist)?;
+        let _ = std::fs::copy(&p, hist.join(format!("{name}.{}.py", crate::tagdb::now_ms())));
     }
+    let tmp = dir.join(format!(".{name}.py.tmp"));
+    std::fs::write(&tmp, &b.source)?;
     std::fs::rename(&tmp, &p)?;
     let st = app.reload_scripts().await?;
-    app.audit("designer", "save_script", p.display().to_string());
-    Ok(Json(json!(st)))
+    app.audit("designer", "save_script", format!("{name}.py"));
+    Ok(Json(json!({"ok": true, "check": check, "status": st})))
+}
+
+#[derive(Deserialize, Default)]
+struct DelQ {
+    #[serde(default)]
+    force: bool,
+}
+
+async fn script_file_del(State(app): S, Path(name): Path<String>, Query(q): Query<DelQ>) -> R<Json<J>> {
+    require_designer(&app)?;
+    script_name(&name)?;
+    let dir = scripts_dir(&app)?;
+    let used = script_usage(&app).remove(&name).unwrap_or_default();
+    if !used.is_empty() && !q.force {
+        return Err(ApiError(StatusCode::CONFLICT, format!("{name} è usato da: {}", used.iter().filter_map(|u| u["label"].as_str()).collect::<Vec<_>>().join(", "))));
+    }
+    let p = dir.join(format!("{name}.py"));
+    let hist = dir.join(".history");
+    std::fs::create_dir_all(&hist)?;
+    std::fs::rename(&p, hist.join(format!("{name}.{}.deleted.py", crate::tagdb::now_ms()))).map_err(|_| ApiError(StatusCode::NOT_FOUND, format!("script {name} non trovato")))?;
+    let st = app.reload_scripts().await?;
+    app.audit("designer", "delete_script", format!("{name}.py"));
+    Ok(Json(json!({"ok": true, "status": st})))
+}
+
+#[derive(Deserialize)]
+struct TestReq {
+    name: String,
+    /// sorgente non salvato (se assente: il file su disco)
+    #[serde(default)]
+    source: Option<String>,
+    #[serde(default)]
+    payload: J,
+    /// tag da sovrascrivere rispetto ai valori live
+    #[serde(default)]
+    tags: serde_json::Map<String, J>,
+    #[serde(default)]
+    point: Option<String>,
+    #[serde(default)]
+    timeout_ms: Option<u64>,
+}
+
+/// Esegue una funzione in un interprete isolato (copia della cartella script con
+/// il sorgente in modifica): le scritture NON vengono applicate ai tag.
+async fn script_test(State(app): S, Json(r): Json<TestReq>) -> R<Json<J>> {
+    require_designer(&app)?;
+    script_name(&r.name)?;
+    let dir = scripts_dir(&app)?;
+    let tmp = std::env::temp_dir().join(format!("ptwcs_test_{}_{}", std::process::id(), crate::tagdb::now_ms()));
+    std::fs::create_dir_all(&tmp)?;
+    for (n, p) in json_files(&dir, "py") {
+        std::fs::copy(&p, tmp.join(format!("{n}.py")))?;
+    }
+    if let Some(src) = &r.source {
+        std::fs::write(tmp.join(format!("{}.py", r.name)), src)?;
+    }
+    let mut tags = match tags_ctx(&app) {
+        J::Object(m) => m,
+        _ => Default::default(),
+    };
+    tags.extend(r.tags.clone());
+    let ctx = json!({"tags": tags, "point": r.point.clone().unwrap_or_else(|| format!("test:{}", r.name)), "user": "test"});
+    let host = crate::script::ScriptHost::new(app.cfg().scripting.python.clone(), Some(tmp.clone()));
+    let res = async {
+        let st = host.start().await?;
+        let t = Duration::from_millis(r.timeout_ms.unwrap_or(5000).clamp(100, 30000));
+        let rep = host.test(&r.name, r.payload.clone(), ctx, t).await?;
+        anyhow::Ok((st, rep))
+    }
+    .await;
+    drop(host);
+    let _ = std::fs::remove_dir_all(&tmp);
+    app.audit("designer", "test_script", r.name.clone());
+    Ok(Json(match res {
+        Ok((st, rep)) => json!({"reply": rep, "load_error": st.load_error, "files": st.files}),
+        Err(e) => json!({"reply": {"ok": false, "error": format!("{e:#}")}}),
+    }))
 }
 
 #[derive(Deserialize)]

@@ -4,6 +4,7 @@ import { api, esc, toast } from './core.js';
 import { COMPONENTS, TREND_COLORS } from './render.js';
 import { P, markDirty, onProject, areaNames, scanNames, driverNames, udtNames, TYPES } from './project.js';
 import { tableEditor, modal } from './forms.js';
+import { helpBtn } from './markdown.js';
 
 const ROLES = [{ value: 'request', label: 'request (PLC)' }, { value: 'response', label: 'response (WCS)' }, { value: 'input', label: 'input (dato richiesta)' }, { value: 'output', label: 'output (risposta)' }];
 const SEVERITIES = ['info', 'warning', 'alarm', 'critical'];
@@ -73,7 +74,7 @@ export function mount(root, { live }) {
   }
 
   function drawTags(body) {
-    body.innerHTML = `<div class="sec"><h3>Tag di progetto <span class="muted" style="font-weight:400">(${P.data.tags.length})</span></h3>
+    body.innerHTML = `<div class="sec"><h3>Tag di progetto ${helpBtn('designer-tag#tag-di-progetto')} <span class="muted" style="font-weight:400">(${P.data.tags.length})</span></h3>
       <p class="hint">Indirizzi: S7 <code>DB10.DBW2</code> · Modbus <code>hr:12</code> · OPC UA <code>ns=2;s=…</code> · EIP nome tag Logix · sim qualsiasi chiave. Le modifiche si applicano con <b>Salva progetto</b> (riavvio a caldo dei soli driver coinvolti).</p>
       <div id="tgTbl"></div></div>`;
     tableEditor(body.querySelector('#tgTbl'), P.data.tags, [
@@ -119,11 +120,11 @@ export function mount(root, { live }) {
     body.innerHTML = `<div class="row" style="margin-bottom:10px;flex-wrap:wrap">
         ${types.map((x) => `<button class="small ${x.name === selType ? 'primary' : ''}" data-ty="${esc(x.name)}">${esc(x.name)}</button>`).join('')}
         <button class="small" id="tyNew">+ Nuovo tipo</button><button class="small" id="tyLib">⬇ Dalla libreria</button></div>
-      ${t ? `<div class="sec"><h3>Tipo UDT <input id="tyName" value="${esc(t.name)}" style="width:200px"> <span class="grow"></span>
+      ${t ? `<div class="sec"><h3>Tipo UDT ${helpBtn('designer-tag#tipi-udt')} <input id="tyName" value="${esc(t.name)}" style="width:200px"> <span class="grow"></span>
           <button class="small" id="tyDup">Duplica</button><button class="small danger" id="tyDel">Elimina</button></h3>
         <div class="formgrid"><label>Descrizione</label><input id="tyDesc" value="${esc(t.description || '')}"></div></div>
-        <div class="sec"><h3>Parametri</h3><p class="hint">Usati negli indirizzi dei membri come <code>{Nome}</code> o espressioni intere <code>{Base+4}</code>, <code>{(Idx-1)*20}</code>. <code>{Instance}</code> = nome dell'istanza.</p><div id="tyParams"></div></div>
-        <div class="sec"><h3>Membri</h3><p class="hint">Il <b>ruolo</b> definisce il protocollo request/reply quando il tipo è usato come telegramma di un punto di decisione (un membro request, uno response, input e output).</p><div id="tyMembers"></div></div>` : '<p class="muted">Nessun tipo UDT: creane uno o importalo dalla libreria.</p>'}`;
+        <div class="sec"><h3>Parametri ${helpBtn('designer-tag#tipi-udt')}</h3><p class="hint">Usati negli indirizzi dei membri come <code>{Nome}</code> o espressioni intere <code>{Base+4}</code>, <code>{(Idx-1)*20}</code>. <code>{Instance}</code> = nome dell'istanza.</p><div id="tyParams"></div></div>
+        <div class="sec"><h3>Membri ${helpBtn('designer-tag#tipi-udt')}</h3><p class="hint">Il <b>ruolo</b> definisce il protocollo request/reply quando il tipo è usato come telegramma di un punto di decisione (un membro request, uno response, input e output).</p><div id="tyMembers"></div></div>` : '<p class="muted">Nessun tipo UDT: creane uno o importalo dalla libreria.</p>'}`;
     body.querySelectorAll('[data-ty]').forEach((b) => (b.onclick = () => { selType = b.dataset.ty; draw(); }));
     body.querySelector('#tyNew').onclick = () => {
       const n = prompt('Nome del nuovo tipo UDT:');
@@ -185,7 +186,7 @@ export function mount(root, { live }) {
   }
 
   function drawInst(body) {
-    body.innerHTML = `<div class="sec"><h3>Istanze UDT <span class="muted" style="font-weight:400">(${P.data.udt_instances.length})</span></h3>
+    body.innerHTML = `<div class="sec"><h3>Istanze UDT ${helpBtn('designer-tag#istanze-udt')} <span class="muted" style="font-weight:400">(${P.data.udt_instances.length})</span></h3>
       <p class="hint">Ogni istanza genera i tag <code>Istanza.Membro</code> con gli indirizzi risolti dai parametri. Nei simboli di libreria imposta la proprietà <code>device</code> = nome istanza.</p><div id="inTbl"></div></div>`;
     tableEditor(body.querySelector('#inTbl'), P.data.udt_instances, [
       { key: 'name', label: 'Nome', width: 120, required: true },
@@ -205,7 +206,7 @@ export function mount(root, { live }) {
     if (!body) return;
     const names = [...trendSel];
     if (!body.querySelector('#trSvg')) {
-      body.innerHTML = `<div class="sec"><h3>Trend <span class="grow"></span>
+      body.innerHTML = `<div class="sec"><h3>Trend ${helpBtn('designer-tag#trend')} <span class="grow"></span>
         <label class="row muted">Finestra <select id="trMin">${[1, 5, 10, 30, 60].map((m) => `<option ${m === trendMin ? 'selected' : ''} value="${m}">${m} min</option>`).join('')}</select></label>
         <button class="small" id="trClear">Svuota</button></h3>
         <p class="hint">Seleziona i tag dall'elenco a sinistra. Lo storico persistente è disponibile per i tag con <b>Storico</b> attivo; per gli altri il trend parte dall'apertura del Designer.</p>

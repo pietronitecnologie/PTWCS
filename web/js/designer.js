@@ -7,6 +7,8 @@ import {
 import { P, loadProject, saveProject, onProject } from './project.js';
 import { whCellDialog } from './render.js';
 import { kvEditor, makeSplitter } from './forms.js';
+import { showMenu } from './ctxmenu.js';
+import { helpBtn } from './markdown.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
@@ -95,15 +97,30 @@ function toView(e) {
 async function loadViews() {
   S.views = await api.get('/api/views');
   const ul = $('#viewList');
-  const item = (v) => `<li data-id="${esc(v.id)}" class="${v.id === S.viewId ? 'on' : ''}" title="${esc(v.id)}">
-    <span class="vt">${v.home ? '🏠 ' : ''}${esc(v.title)}</span>
-    <span class="acts"><button class="small" data-dup title="Duplica">⧉</button><button class="small danger" data-del title="Elimina">✕</button></span></li>`;
+  const item = (v) => `<li data-id="${esc(v.id)}" class="${v.id === S.viewId ? 'on' : ''}" title="${esc(v.id)}${v.library ? '\nLibreria standard (sola lettura): salvando si crea una personalizzazione di progetto' : v.overrides ? '\nPersonalizzazione di progetto di un faceplate standard' : ''}">
+    <span class="vt">${v.home ? '🏠 ' : ''}${v.library ? '<span title="Libreria standard">📚</span> ' : v.overrides ? '<span title="Personalizzato nel progetto">✎</span> ' : ''}${esc(v.title)}</span>
+    <span class="acts"><button class="small" data-dup title="Duplica">⧉</button>${v.library ? '' : v.overrides
+      ? '<button class="small" data-del title="Ripristina il faceplate standard (elimina la personalizzazione)">↺</button>'
+      : '<button class="small danger" data-del title="Elimina">✕</button>'}</span></li>`;
   const pages = S.views.filter((v) => !v.faceplate), fps = S.views.filter((v) => v.faceplate);
   const openFp = fps.some((v) => v.id === S.viewId) || localStorage.getItem('designer.fpOpen') === '1';
   ul.innerHTML = (pages.map(item).join('') || '<li class="muted">Nessuna vista</li>') +
     (fps.length ? `<li class="muted" style="cursor:default;margin-top:8px"><details id="fpGroup" ${openFp ? 'open' : ''} style="width:100%"><summary>Faceplate / popup (${fps.length})</summary><ul class="list">${fps.map(item).join('')}</ul></details></li>` : '');
   ul.querySelector('#fpGroup')?.addEventListener('toggle', (e) => localStorage.setItem('designer.fpOpen', e.target.open ? '1' : '0'));
   ul.querySelectorAll('li[data-id]').forEach((li) => {
+    li.oncontextmenu = (e) => {
+      const v = S.views.find((x) => x.id === li.dataset.id);
+      showMenu(e, [
+        { header: v.title },
+        { label: 'Apri', icon: '🖼', action: () => openView(v.id) },
+        { label: 'Apri nel runtime', icon: '↗', action: () => window.open(`index.html#/view/${encodeURIComponent(v.id)}`, '_blank') },
+        { label: 'Duplica…', icon: '⧉', action: () => duplicateView(v.id) },
+        { sep: true },
+        v.library ? { label: 'Faceplate della libreria standard (sola lettura)', icon: '📚', disabled: true } : null,
+        v.overrides ? { label: 'Ripristina faceplate standard', icon: '↺', action: () => deleteView(v.id) } : null,
+        !v.library && !v.overrides ? { label: 'Elimina', icon: '🗑', danger: true, action: () => deleteView(v.id) } : null,
+      ]);
+    };
     li.onclick = (e) => {
       const id = li.dataset.id;
       if (e.target.closest('[data-del]')) return deleteView(id);
@@ -159,14 +176,19 @@ async function duplicateView(src) {
 }
 
 async function deleteView(id) {
-  if (!confirm(`Eliminare la vista "${id}"?`)) return;
-  await api.del(`/api/views/${id}`);
+  const v = S.views.find((x) => x.id === id);
+  if (!confirm(v?.overrides ? `Eliminare la personalizzazione di "${id}" e tornare al faceplate della libreria standard?` : `Eliminare la vista "${id}"?`)) return;
+  try { await api.del(`/api/views/${id}`); } catch (e) { return toast(e.message, 'error'); }
+  invalidateView(id);
+  if (v?.overrides) { toast(`Ripristinato il faceplate standard ${id}`, 'ok'); if (id === S.viewId) { S.dirty = false; await loadViews(); return openView(id); } }
   if (id === S.viewId) { S.view = null; S.viewId = null; S.dirty = false; refreshAll(); }
   loadViews();
 }
 
 async function save() {
   if (!S.view) return;
+  const cur = S.views.find((v) => v.id === S.viewId);
+  if (cur?.library && !confirm(`"${S.viewId}" è un faceplate della libreria standard.\nSalvando si crea una personalizzazione nel progetto (la libreria resta invariata; si può ripristinare con ↺).\nContinuare?`)) return;
   try {
     const r = await api.put(`/api/views/${S.viewId}`, S.view);
     invalidateView(S.viewId);
@@ -395,7 +417,7 @@ function drawSymbolMenu() {
   $('#symList').innerHTML = Object.entries(groups).sort().map(([g, arr]) => `<details class="cat" open><summary>${esc(g)} <span class="muted">(${arr.length})</span></summary>
     <div class="symgrid">${arr.map((s) => `<div class="si" draggable="true" data-sym="${esc(s.id)}" title="${esc(s.title)}${S.lib[s.id] ? `\nUDT: ${S.lib[s.id].udt} · faceplate: ${S.lib[s.id].faceplate}` : ''}">
       <img src="/api/symbols/${encodeURIComponent(s.id)}" alt="" loading="lazy">
-      <div class="nm">${esc(s.title)}${S.lib[s.id] ? '' : `<button class="small danger" data-delsym="${esc(s.id)}" title="Elimina">✕</button>`}</div></div>`).join('')}</div></details>`).join('')
+      <div class="nm">${esc(s.title)}${s.library ? '' : s.overrides ? `<button class="small" data-delsym="${esc(s.id)}" title="Ripristina il simbolo standard">↺</button>` : `<button class="small danger" data-delsym="${esc(s.id)}" title="Elimina">✕</button>`}</div></div>`).join('')}</div></details>`).join('')
     || '<p class="hint">Nessun simbolo in questa categoria.</p>';
 }
 $('#symFilter').oninput = () => drawSymbolMenu();
@@ -499,12 +521,12 @@ function renderProps() {
     <div class="xy">${['x', 'y', 'w', 'h'].map((k) => `<label>${k.toUpperCase()}<input type="number" data-geo="${k}" value="${Math.round(c[k])}"></label>`).join('')}</div>
     <div class="prow" style="grid-template-columns:100px 1fr;margin-top:5px"><label>Rotazione°</label><input type="number" data-geo="rotation" value="${c.rotation || 0}"></div>
     ${customSection(c)}
-    <h4>Proprietà</h4>`;
+    <h4>Proprietà ${helpBtn('designer#binding', 'Binding')}</h4>`;
   for (const [k, t, l, o] of def.schema) h += propRow(c, k, l, t, o);
   if (c.type === 'symbol') {
     const sym = renderer.symbols[c.props?.symbol];
     if (sym?.elements.length) {
-      h += `<h4>Elementi SVG</h4>`;
+      h += `<h4>Elementi SVG ${helpBtn('designer#proprieta-del-componente')}</h4>`;
       for (const el of sym.elements) {
         const nb = ELEMENT_ATTRS.filter((a) => c.bindings?.[`elements.${el.id}.${a}`]).length;
         h += `<details class="el" data-elid="${esc(el.id)}" ${openEls.has(el.id) ? 'open' : ''}><summary title="${esc(el.desc || '')}">#${esc(el.id)} <span class="muted">${esc(el.desc || el.tag)}</span>${nb ? ` <span class="badge" style="background:var(--ok)">${nb}</span>` : ''}</summary><div>`;
@@ -529,7 +551,7 @@ function customSection(c) {
   const cu = c.custom || {};
   const fam = c.type === 'symbol' ? S.lib[c.props?.symbol]?.udt : '';
   const insts = (P.data?.udt_instances || []).filter((i) => !fam || i.type === fam).map((i) => i.name);
-  let h = `<h4>Proprietà personalizzate <span class="grow"></span><button class="small" data-addcustom title="Aggiungi proprietà">+</button></h4>`;
+  let h = `<h4>Proprietà personalizzate ${helpBtn('designer#proprieta-del-componente')} <span class="grow"></span><button class="small" data-addcustom title="Aggiungi proprietà">+</button></h4>`;
   if (!Object.keys(cu).length) return h + `<p class="hint">Nessuna. Es. <code>device</code> = istanza UDT, usabile nei binding come <code>{device}.Run</code> e passabile ai faceplate.</p>`;
   for (const [k, v] of Object.entries(cu)) {
     h += `<div class="prow" style="grid-template-columns:100px 1fr 26px" data-custom="${esc(k)}"><label title="{${esc(k)}}">${esc(k)}</label>
@@ -544,7 +566,7 @@ function customSection(c) {
 
 function renderEvents(c) {
   const ev = c.events?.onClick || { actions: [] };
-  let h = `<h4>Evento: click <span class="grow"></span><button class="small" data-addact>+ Azione</button></h4>
+  let h = `<h4>Evento: click ${helpBtn('designer#eventi-e-azioni')} <span class="grow"></span><button class="small" data-addact>+ Azione</button></h4>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Conferma</label><input data-confirm placeholder="(nessuna)" value="${esc(ev.confirm || '')}"></div>`;
   (ev.actions || []).forEach((a, i) => {
     h += `<div class="act" data-ai="${i}"><div class="prow"><label>Tipo</label><div class="row">
@@ -636,7 +658,7 @@ function wireProps(c) {
 
 function renderViewProps() {
   const v = S.view;
-  props.innerHTML = `<div class="pp"><h4>Vista</h4>
+  props.innerHTML = `<div class="pp"><h4>Vista ${helpBtn('designer#proprieta-della-vista')}</h4>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Titolo</label><input data-v="title" value="${esc(v.title)}"></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Larghezza</label><input type="number" data-v="width" value="${v.width}"></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Altezza</label><input type="number" data-v="height" value="${v.height}"></div>
@@ -650,7 +672,7 @@ function renderViewProps() {
     <h4>Componenti (${v.components.length})</h4>
     <ul class="list">${[...v.components].reverse().map((c) => `<li data-pick="${esc(c.id)}">${COMPONENTS[c.type]?.icon || '?'} ${esc(c.name || c.id)}
       <span class="muted">${Object.keys(c.bindings || {}).length ? '🔗' + Object.keys(c.bindings).length : ''}</span></li>`).join('')}</ul>
-    <h4>Scorciatoie</h4><p class="hint">Canc elimina · Ctrl+C/V copia/incolla · Ctrl+D duplica · frecce sposta (Shift = 10px) · Shift+trascina maniglia = proporzionale · doppio click in palette = aggiungi</p></div>`;
+    <h4>Scorciatoie ${helpBtn('designer#scorciatoie')}</h4><p class="hint">Canc elimina · Ctrl+C/V copia/incolla · Ctrl+D duplica · frecce sposta (Shift = 10px) · Shift+trascina maniglia = proporzionale · doppio click in palette = aggiungi</p></div>`;
   props.querySelectorAll('[data-v]').forEach((el) => (el.onchange = () => mutate(() => {
     const k = el.dataset.v;
     v[k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Math.max(100, +el.value) : el.value;
@@ -721,11 +743,113 @@ function duplicateSel() { paste(selected()); }
 
 function zorder(where) {
   mutate(() => {
-    const sel = S.view.components.filter((c) => S.sel.includes(c.id));
-    const rest = S.view.components.filter((c) => !S.sel.includes(c.id));
+    const arr = S.view.components;
+    if (where === 'forward' || where === 'backward') {
+      // un livello: scambia ogni selezionato con il vicino non selezionato
+      const idx = arr.map((c, i) => (S.sel.includes(c.id) ? i : -1)).filter((i) => i >= 0);
+      if (where === 'forward') idx.reverse();
+      for (const i of idx) {
+        const j = where === 'forward' ? i + 1 : i - 1;
+        if (j >= 0 && j < arr.length && !S.sel.includes(arr[j].id)) [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return;
+    }
+    const sel = arr.filter((c) => S.sel.includes(c.id));
+    const rest = arr.filter((c) => !S.sel.includes(c.id));
     S.view.components = where === 'front' ? [...rest, ...sel] : [...sel, ...rest];
   });
 }
+
+// ---------------------------------------------------------------- appunti (condivisi tra viste e schede)
+function copySel(cut = false) {
+  if (!S.sel.length) return;
+  S.clip = structuredClone(selected());
+  try { localStorage.setItem('designer.clipboard', JSON.stringify(S.clip)); } catch { /* quota */ }
+  toast(`${S.clip.length} componenti ${cut ? 'tagliati' : 'copiati'}`, 'ok');
+  if (cut) deleteSel();
+}
+function clipboard() {
+  try { const c = JSON.parse(localStorage.getItem('designer.clipboard') || 'null'); if (Array.isArray(c) && c.length) S.clip = c; } catch { /* */ }
+  return S.clip?.length ? S.clip : null;
+}
+/** Incolla; con `at` porta l'angolo in alto a sinistra del gruppo nel punto indicato. */
+function pasteClip(at) {
+  const clip = clipboard();
+  if (!clip) return;
+  if (!at) return paste(clip);
+  const minX = Math.min(...clip.map((c) => c.x)), minY = Math.min(...clip.map((c) => c.y));
+  paste(clip.map((c) => ({ ...c, x: snap(c.x - minX + at.x), y: snap(c.y - minY + at.y) })), 0);
+}
+function rotateSel(deg) {
+  mutate(() => selected().forEach((c) => { c.rotation = (((c.rotation || 0) + deg) % 360 + 360) % 360; }));
+}
+function selectAll() { S.sel = S.view.components.map((c) => c.id); drawOverlay(); renderProps(); }
+
+// ---------------------------------------------------------------- menu tasto destro sul canvas
+function stageMenu(e) {
+  if (!S.view || S.preview) return;
+  const p = toView(e);
+  const g = e.target.closest('g[data-id]');
+  const id = g && g.parentNode === renderer.layer ? g.dataset.id : null;
+  if (id && !S.sel.includes(id)) { S.sel = [id]; drawOverlay(); renderProps(); }
+  if (!id && S.sel.length && !e.shiftKey) { S.sel = []; drawOverlay(); renderProps(); }
+  const sel = selected(), n = sel.length, one = n === 1 ? sel[0] : null;
+  const hasClip = !!clipboard();
+  const popupAct = one?.events?.onClick?.actions?.find((a) => a.kind === 'popup' && a.view);
+  const navAct = one?.events?.onClick?.actions?.find((a) => a.kind === 'navigate' && a.view);
+  const al = (how, label, icon) => ({ label, icon, action: () => align(how), disabled: n < 2 || ((how === 'dh' || how === 'dv') && n < 3) });
+  const items = n ? [
+    { header: one ? `${COMPONENTS[one.type]?.label || one.type} · ${one.name || one.id}` : `${n} componenti` },
+    { label: 'Taglia', icon: '✂', key: 'Ctrl+X', action: () => copySel(true) },
+    { label: 'Copia', icon: '⧉', key: 'Ctrl+C', action: () => copySel() },
+    { label: 'Incolla', icon: '📋', key: 'Ctrl+V', disabled: !hasClip, action: () => pasteClip() },
+    { label: 'Incolla qui', icon: '📍', disabled: !hasClip, action: () => pasteClip(p) },
+    { label: 'Duplica', icon: '⎘', key: 'Ctrl+D', action: duplicateSel },
+    { label: 'Elimina', icon: '🗑', key: 'Canc', danger: true, action: deleteSel },
+    { sep: true },
+    { label: 'Ordine', icon: '☰', sub: [
+      { label: 'Porta in primo piano', icon: '⤒', action: () => zorder('front') },
+      { label: 'Porta avanti', icon: '↑', action: () => zorder('forward') },
+      { label: 'Porta indietro', icon: '↓', action: () => zorder('backward') },
+      { label: 'Porta in fondo', icon: '⤓', action: () => zorder('back') }] },
+    { label: 'Allinea', icon: '⇤', disabled: n < 2, sub: [
+      al('left', 'A sinistra', '⇤'), al('hcenter', 'Al centro orizzontale', '↔'), al('right', 'A destra', '⇥'), { sep: true },
+      al('top', 'In alto', '⤒'), al('vcenter', 'Al centro verticale', '↕'), al('bottom', 'In basso', '⤓'), { sep: true },
+      al('dh', 'Distribuisci orizzontalmente', '⋯'), al('dv', 'Distribuisci verticalmente', '⋮'), al('same', 'Stessa dimensione', '▣')] },
+    { label: 'Ruota', icon: '⟳', sub: [
+      { label: 'Ruota 90° orario', icon: '↻', action: () => rotateSel(90) },
+      { label: 'Ruota 90° antiorario', icon: '↺', action: () => rotateSel(-90) },
+      { label: 'Ruota 180°', icon: '⇅', action: () => rotateSel(180) },
+      { label: 'Azzera rotazione', icon: '0', action: () => mutate(() => sel.forEach((c) => { c.rotation = 0; })) }] },
+    { sep: true },
+    one && one.type === 'symbol' && popupAct ? { label: `Apri faceplate ${popupAct.view}`, icon: '🪟', action: () => openView(popupAct.view) } : null,
+    one && navAct ? { label: `Apri vista ${navAct.view}`, icon: '↪', action: () => openView(navAct.view) } : null,
+    one ? { label: 'Rinomina…', icon: '✎', action: () => { const v = prompt('Nome del componente:', one.name || one.id); if (v) mutate(() => { one.name = v.trim(); }); } } : null,
+    { sep: true },
+    { label: 'Seleziona tutto', icon: '▦', key: 'Ctrl+A', action: selectAll },
+    { label: 'Annulla', icon: '↶', key: 'Ctrl+Z', disabled: !S.undo.length, action: () => undo() },
+    { label: 'Ripeti', icon: '↷', key: 'Ctrl+Y', disabled: !S.redo.length, action: () => undo(true) },
+  ] : [
+    { header: S.view.title || S.viewId },
+    { label: 'Incolla qui', icon: '📋', key: 'Ctrl+V', disabled: !hasClip, action: () => pasteClip(p) },
+    { label: 'Aggiungi componente', icon: '➕', sub: Object.entries(COMPONENTS).filter(([, d]) => d.label).map(([t, d]) => ({ label: d.label, icon: d.icon, action: () => addComponent(t, p.x, p.y) })) },
+    { sep: true },
+    { label: 'Seleziona tutto', icon: '▦', key: 'Ctrl+A', disabled: !S.view.components.length, action: selectAll },
+    { label: 'Annulla', icon: '↶', key: 'Ctrl+Z', disabled: !S.undo.length, action: () => undo() },
+    { label: 'Ripeti', icon: '↷', key: 'Ctrl+Y', disabled: !S.redo.length, action: () => undo(true) },
+    { sep: true },
+    { label: 'Griglia e aggancio', checked: S.snap, action: () => { $('#chkSnap').click(); } },
+    { label: 'Anteprima (click attivi)', icon: '▶', action: () => { $('#chkPreview').click(); } },
+    { label: 'Adatta alla finestra', icon: '⤢', action: () => { fit(); drawOverlay(); } },
+    { label: 'Zoom 100%', icon: '1:1', action: () => { S.zoom = 1; applyZoom(); drawOverlay(); } },
+    { sep: true },
+    { label: 'Salva vista', icon: '💾', key: 'Ctrl+S', action: save },
+    { label: 'Apri nel runtime', icon: '↗', action: () => window.open(`index.html#/view/${encodeURIComponent(S.viewId)}`, '_blank') },
+  ];
+  showMenu(e, items);
+}
+stage.addEventListener('contextmenu', stageMenu);
+$('#center').addEventListener('contextmenu', (e) => { if (!e.target.closest('#stage')) stageMenu(e); });
 
 // ================================================================ modale generica
 function modal(title, body, buttons, { wide = false } = {}) {
@@ -807,33 +931,6 @@ function openBinding(c, path) {
 }
 
 // ================================================================ editor script Python
-async function openScripts() {
-  let src;
-  try { src = await api.get('/api/scripts/source'); } catch (e) { return toast(e.message, 'error'); }
-  const m = modal(`Script Python – ${src.path}`, `
-    <p class="hint">Funzioni dei punti di decisione: <code>def f(req, ctx) -&gt; dict</code> · eventi HMI: <code>def f(payload, ctx)</code> ·
-      <code>ctx.tag(n)</code>, <code>ctx.write(n, v)</code>, <code>ctx.log(msg)</code>. Il salvataggio verifica la sintassi e ricarica il modulo.</p>
-    <textarea class="code" id="pySrc" spellcheck="false"></textarea><div class="err" id="pyErr"></div>`,
-  [['Chiudi', '', null], ['Salva e ricarica', 'primary', async (mm) => {
-    try {
-      const st = await api.put('/api/scripts/source', { source: mm.querySelector('#pySrc').value });
-      S.scripts = st;
-      if (st.load_error) { mm.querySelector('#pyErr').textContent = st.load_error; return false; }
-      toast(`Script ricaricato: ${st.functions.length} funzioni`, 'ok');
-      renderProps();
-    } catch (e) { mm.querySelector('#pyErr').textContent = e.message; return false; }
-  }]], { wide: true });
-  const ta = m.querySelector('#pySrc');
-  ta.value = src.source;
-  ta.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const s = ta.selectionStart;
-      ta.setRangeText('    ', s, ta.selectionEnd, 'end');
-    }
-  });
-}
-
 // ================================================================ tastiera e toolbar
 window.addEventListener('keydown', (e) => {
   if (e.target.matches('input, textarea, select') || document.querySelector('.modal-back')) return;
@@ -842,10 +939,11 @@ window.addEventListener('keydown', (e) => {
   if (!S.view) return;
   if (mod && e.key === 'z') { e.preventDefault(); undo(e.shiftKey); }
   else if (mod && e.key === 'y') { e.preventDefault(); undo(true); }
-  else if (mod && e.key === 'c') S.clip = structuredClone(selected());
-  else if (mod && e.key === 'v' && S.clip?.length) paste(S.clip);
+  else if (mod && e.key === 'c') copySel();
+  else if (mod && e.key === 'x') copySel(true);
+  else if (mod && e.key === 'v') pasteClip();
   else if (mod && e.key === 'd') { e.preventDefault(); duplicateSel(); }
-  else if (mod && e.key === 'a') { e.preventDefault(); S.sel = S.view.components.map((c) => c.id); drawOverlay(); renderProps(); }
+  else if (mod && e.key === 'a') { e.preventDefault(); selectAll(); }
   else if (e.key === 'Delete' || e.key === 'Backspace') deleteSel();
   else if (e.key === 'Escape') { S.sel = []; drawOverlay(); renderProps(); }
   else if (e.key.startsWith('Arrow') && S.sel.length) {
@@ -866,7 +964,6 @@ $('#btnZoomOut').onclick = () => { S.zoom = Math.max(0.1, S.zoom / 1.25); applyZ
 $('#btnFit').onclick = () => { fit(); drawOverlay(); };
 $('#chkSnap').onchange = (e) => { S.snap = e.target.checked; gridRect.style.display = S.snap ? '' : 'none'; };
 $('#chkPreview').onchange = (e) => { S.preview = e.target.checked; S.sel = []; drawOverlay(); renderProps(); stage.style.cursor = S.preview ? 'pointer' : ''; };
-$('#btnScript').onclick = openScripts;
 $('#center').addEventListener('wheel', (e) => {
   if (!e.ctrlKey || !S.view) return;
   e.preventDefault();
@@ -897,7 +994,7 @@ async function showWorkspace(ws) {
   $('#viewTools').style.display = ws === 'views' ? '' : 'none';
   localStorage.setItem('designer.ws', ws);
   if (ws === 'views') { renderProps(); return; }
-  const mod = { tags: './ws_tags.js', sort: './ws_sort.js', project: './ws_project.js' }[ws];
+  const mod = { tags: './ws_tags.js', sort: './ws_sort.js', project: './ws_project.js', scripts: './ws_scripts.js' }[ws];
   if (!wsLoaded[ws]) {
     wsLoaded[ws] = (await import(mod)).mount($(`#ws-${ws}`), { live, S, toast });
     // separatore del pannello laterale del workspace

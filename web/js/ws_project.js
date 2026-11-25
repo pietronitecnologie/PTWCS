@@ -2,6 +2,7 @@
 import { api, esc } from './core.js';
 import { P, markDirty, areaNames } from './project.js';
 import { tableEditor } from './forms.js';
+import { helpBtn } from './markdown.js';
 
 export function mount(root, { live }) {
   let tab = 'areas';
@@ -17,7 +18,7 @@ export function mount(root, { live }) {
 
   function draw() {
     if (tab === 'areas') {
-      main.innerHTML = `<div class="sec"><h3>Aree</h3><p class="hint">Ogni tag (o istanza UDT, punto di decisione, driver) appartiene a un'area: gli allarmi del tag, gli errori di qualità e la perdita di comunicazione finiscono nell'area di appartenenza. Le aree possono essere annidate (l'area padre comprende le figlie).</p><div id="arTbl"></div></div>
+      main.innerHTML = `<div class="sec"><h3>Aree ${helpBtn('designer-progetto#aree')}</h3><p class="hint">Ogni tag (o istanza UDT, punto di decisione, driver) appartiene a un'area: gli allarmi del tag, gli errori di qualità e la perdita di comunicazione finiscono nell'area di appartenenza. Le aree possono essere annidate (l'area padre comprende le figlie).</p><div id="arTbl"></div></div>
         <div class="sec"><h3>Gerarchia</h3><div id="arTree"></div></div>`;
       const tree = () => {
         const kids = (p) => P.data.areas.filter((a) => (a.parent || '') === p);
@@ -30,13 +31,13 @@ export function mount(root, { live }) {
       ], { onChange: () => { markDirty(); tree(); }, newRow: () => ({ name: `Area${P.data.areas.length + 1}` }) });
       tree();
     } else if (tab === 'scan') {
-      main.innerHTML = `<div class="sec"><h3>Scan class</h3><p class="hint">Frequenze di lettura assegnabili a tag, membri UDT e istanze. I tag senza scan class usano <code>poll_ms</code> del driver. Nello stesso ciclo i gruppi in scadenza sono letti insieme (letture a blocchi ottimizzate).</p><div id="scTbl"></div></div>`;
+      main.innerHTML = `<div class="sec"><h3>Scan class ${helpBtn('designer-progetto#scan-class')}</h3><p class="hint">Frequenze di lettura assegnabili a tag, membri UDT e istanze. I tag senza scan class usano <code>poll_ms</code> del driver. Nello stesso ciclo i gruppi in scadenza sono letti insieme (letture a blocchi ottimizzate).</p><div id="scTbl"></div></div>`;
       tableEditor(main.querySelector('#scTbl'), P.data.scan_classes, [
         { key: 'name', label: 'Nome', width: 140, required: true }, { key: 'rate_ms', label: 'Periodo (ms)', type: 'number', width: 100, required: true },
         { key: 'description', label: 'Descrizione', width: 300 },
       ], { onChange: markDirty, newRow: () => ({ name: `scan${P.data.scan_classes.length + 1}`, rate_ms: 1000 }) });
     } else if (tab === 'timers') {
-      main.innerHTML = `<div class="sec"><h3>Script a timer</h3><p class="hint">Funzioni Python <code>def f(payload, ctx)</code> eseguite periodicamente nel processo HMI (separato dalle decisioni in tempo reale). Utili per logiche di supporto, calcoli KPI, simulazioni (<code>sim_magazzino</code> anima la demo).</p><div id="tmTbl"></div></div>`;
+      main.innerHTML = `<div class="sec"><h3>Script a timer ${helpBtn('designer-progetto#script-a-timer')}</h3><p class="hint">Funzioni Python <code>def f(payload, ctx)</code> eseguite periodicamente nel processo HMI (separato dalle decisioni in tempo reale). Utili per logiche di supporto, calcoli KPI, simulazioni (<code>sim_magazzino</code> anima la demo).</p><div id="tmTbl"></div></div>`;
       tableEditor(main.querySelector('#tmTbl'), P.data.timer_scripts, [
         { key: 'name', label: 'Nome', width: 160, required: true },
         { key: 'function', label: 'Funzione', type: 'select', options: () => P.functions, empty: false },
@@ -46,7 +47,7 @@ export function mount(root, { live }) {
     } else if (tab === 'wh') {
       drawWh();
     } else {
-      main.innerHTML = `<div class="sec"><h3>Driver PLC</h3><p class="hint">Definiti in <code>plant.yaml</code> (sola lettura qui). Stato aggiornato in tempo reale.</p><div id="drv"></div></div>`;
+      main.innerHTML = `<div class="sec"><h3>Driver PLC ${helpBtn('designer-progetto#driver-plc')}</h3><p class="hint">Definiti in <code>plant.yaml</code> (sola lettura qui). Stato aggiornato in tempo reale.</p><div id="drv"></div></div>`;
       const drawDrv = () => {
         const st = Object.fromEntries((live.status?.drivers || []).map((d) => [d.name, d]));
         const el = main.querySelector('#drv');
@@ -68,12 +69,12 @@ export function mount(root, { live }) {
     const list = P.data.warehouses;
     if (whSel >= list.length) whSel = 0;
     const w = list[whSel];
-    main.innerHTML = `<div class="sec"><h3>Magazzini automatici
+    main.innerHTML = `<div class="sec"><h3>Magazzini automatici ${helpBtn('designer-progetto#geometria-e-generali')}
         <select id="whSel" style="margin-left:8px">${list.map((x, i) => `<option value="${i}" ${i === whSel ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
         <button class="small" id="whNew">+ Nuovo</button>${w ? '<button class="small danger" id="whDel">Elimina</button>' : ''}</h3>
         <p class="hint">Geometria, corsie/trasli, strategia di stoccaggio (ABC, distribuzione articoli, sagome) e riorganizzazione automatica. Gestione operativa nel runtime: <b>WCS</b>.</p>
         ${w ? '<div id="whForm"></div>' : '<p class="muted">Nessun magazzino.</p>'}</div>
-      ${w ? '<div class="sec"><h3>Corsie e trasloelevatori</h3><p class="hint">Il traslo è un\'istanza UDT con il telegramma missione (Mission, Type, Src/Dst, Start, Busy, Done, Fault; suffisso 2 per il secondo posto UdC).</p><div id="whAisles"></div></div><div id="whStrat"></div>' : ''}`;
+      ${w ? '<div class="sec"><h3>Corsie e trasloelevatori ${helpBtn('designer-progetto#corsie-e-trasloelevatori')}</h3><p class="hint">Il traslo è un\'istanza UDT con il telegramma missione (Mission, Type, Src/Dst, Start, Busy, Done, Fault; suffisso 2 per il secondo posto UdC).</p><div id="whAisles"></div></div><div id="whStrat"></div>' : ''}`;
     main.querySelector('#whSel').onchange = (e) => { whSel = +e.target.value; drawWh(); };
     main.querySelector('#whNew').onclick = () => {
       list.push({ name: `MAG${list.length + 1}`, aisles: [{ name: '1', crane: '', slots: 1, pair_wait_s: 4 }], sides: 2, columns: 20, levels: 5, inputs: [], outputs: ['OUT1'], strategy: {}, reorg: {} });
@@ -98,12 +99,12 @@ export function mount(root, { live }) {
       ${F(w, 'inputs', 'Ingressi', 'list', [])}${F(w, 'outputs', 'Baie d\'uscita', 'list', [])}
       ${F(w, 'lu_prefix', 'Prefisso UdC demo', 'text', 'LU')}${F(w, 'initial_fill_pct', 'Riempimento iniziale %', 'number', 0, 'solo alla creazione')}${F(w, 'demo_skus', 'Articoli demo', 'number', 0)}
       ${F(w, 'auto_outbound_s', 'Prelievo casuale ogni (s)', 'number', 0, 'demo, 0 = no')}${F(w, 'auto_orders_s', 'Ordine casuale ogni (s)', 'number', 0, 'demo, 0 = no')}</div>`;
-    main.querySelector('#whStrat').innerHTML = `<div class="sec"><h3>Strategia di stoccaggio</h3><div class="formgrid" id="fS">
+    main.querySelector('#whStrat').innerHTML = `<div class="sec"><h3>Strategia di stoccaggio ${helpBtn('designer-progetto#strategia-di-stoccaggio')}</h3><div class="formgrid" id="fS">
       ${F(w.strategy, 'abc', 'Classi ABC', 'bool', true, 'zone per tempo di traslazione dal P&D')}
       ${F(w.strategy, 'a_zone_pct', 'Zona A (quota celle)', 'number', 0.2)}${F(w.strategy, 'b_zone_pct', 'Zona B (quota celle)', 'number', 0.3, 'il resto è zona C')}
       ${F(w.strategy, 'a_sku_pct', 'Classe A (quota articoli)', 'number', 0.2, 'articoli più prelevati')}${F(w.strategy, 'b_sku_pct', 'Classe B (quota articoli)', 'number', 0.3)}
       ${F(w.strategy, 'abc_window_h', 'Finestra frequenze (h)', 'number', 168)}${F(w.strategy, 'spread_sku', 'Distribuisci articolo su più corsie', 'bool', true)}</div></div>
-      <div class="sec"><h3>Riorganizzazione automatica (defrag)</h3><div class="formgrid">
+      <div class="sec"><h3>Riorganizzazione automatica (defrag) ${helpBtn('designer-progetto#riorganizzazione-automatica')}</h3><div class="formgrid">
       ${F(w.reorg, 'enabled', 'Attiva', 'bool', false, 'stato iniziale; commutabile dal runtime')}
       ${F(w.reorg, 'idle_s', 'Inattività corsia (s)', 'number', 15, 'prima di una movimentazione')}${F(w.reorg, 'max_per_hour', 'Mosse max per ora/corsia', 'number', 60)}
       ${F(w.reorg, 'min_gain_s', 'Guadagno minimo (s)', 'number', 2, 'per la compattazione')}</div></div>`;

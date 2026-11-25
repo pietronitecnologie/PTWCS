@@ -1,6 +1,7 @@
 // Client Runtime (operatore): viste, allarmi, decisioni, tag, trend, diagnostica.
 import { api, Live, esc, fmtTs, toast } from './core.js';
-import { ViewRenderer, runActions, createPopup, compileSymbol, invalidateView, whCellDialog } from './render.js';
+import { ViewRenderer, runActions, createPopup, compileSymbol, invalidateView, whCellDialog, scopeFor, subst } from './render.js';
+import { showMenu } from './ctxmenu.js';
 import { showWcs } from './wcs.js';
 
 const live = new Live();
@@ -87,6 +88,86 @@ function openPopup(viewId, params = {}, title) {
   });
   popups.push(p);
 }
+
+// ------------------------------------------------------------ menu tasto destro: navigazione
+const goView = (id) => (location.hash = `#/view/${encodeURIComponent(id)}`);
+
+/** Viste di un'area e delle sotto-aree, come sottomenu annidati. */
+function areaMenuItems(name) {
+  const vs = views.filter((v) => v.area === name && !v.faceplate && v.menu !== false);
+  const kids = areaData.filter((a) => a.parent === name);
+  const a = areaData.find((x) => x.name === name);
+  return [
+    ...vs.map((v) => ({ label: v.title, icon: '🖼', checked: current && location.hash.startsWith(`#/view/${v.id}`), action: () => goView(v.id) })),
+    ...kids.map((k) => ({ label: k.name, icon: sevIcon(k), sub: areaMenuItems(k.name) })),
+    { sep: true },
+    { label: 'Panoramica area', icon: '🗺', action: () => (location.hash = `#/areas/${encodeURIComponent(name)}`) },
+    { label: `Allarmi dell'area${a?.active ? ` (${a.active})` : ''}`, icon: '🔔', action: () => { areaFilter = name; location.hash = '#/alarms'; } },
+  ];
+}
+const sevIcon = (a) => ({ critical: '🟥', alarm: '🔴', warning: '🟠', info: '🔵' }[a.worst] || '🟢');
+
+/** Componente sotto il mouse (vista principale o popup) con renderer e vista. */
+function componentAt(e) {
+  const win = e.target.closest('.popup-win');
+  const r = win ? popups.find((p) => p.win === win)?.renderer : renderer;
+  if (!r) return null;
+  let g = e.target.closest('g[data-id]');
+  while (g && g.parentNode !== r.layer) g = g.parentNode?.closest?.('g[data-id]');
+  const comp = g && r.view?.components?.find((c) => c.id === g.dataset.id);
+  return comp ? { comp, r } : null;
+}
+
+function runtimeMenu(e) {
+  if (e.shiftKey || e.target.closest('input, textarea, select, .ctxmenu')) return; // Maiusc = menu del browser
+  const hit = componentAt(e);
+  const items = [];
+  if (hit) {
+    const scope = scopeFor(hit.comp, hit.r.scope || {});
+    const acts = hit.comp.events?.onClick?.actions || [];
+    const pop = acts.find((a) => a.kind === 'popup' && a.view);
+    const nav = acts.find((a) => a.kind === 'navigate' && a.view);
+    const prm = (a) => Object.fromEntries(Object.entries(a.params || {}).map(([k, v]) => [k, subst(String(v ?? ''), scope)]));
+    const dev = scope.device;
+    if (pop || nav || dev) items.push({ header: dev || hit.comp.name || hit.comp.id });
+    if (pop) items.push({ label: 'Apri faceplate', icon: '🪟', action: () => openPopup(pop.view, prm(pop), dev || undefined) });
+    if (nav) items.push({ label: `Vai a ${views.find((v) => v.id === nav.view)?.title || nav.view}`, icon: '↪', action: () => { const q = new URLSearchParams(prm(nav)).toString(); location.hash = `#/view/${nav.view}${q ? '?' + q : ''}`; } });
+    if (dev) items.push({ label: `Tag di ${dev}`, icon: '🏷', action: () => { localStorage.setItem('tagFilter', dev); location.hash = '#/tags'; } });
+    if (items.length) items.push({ sep: true });
+  }
+  const home = views.find((v) => v.home) || views.find((v) => !v.faceplate);
+  const free = views.filter((v) => !v.area && !v.faceplate && v.menu !== false);
+  const roots = areaData.filter((a) => !a.parent);
+  items.push(
+    { label: 'Indietro', icon: '←', key: 'Alt+←', action: () => history.back() },
+    { label: 'Avanti', icon: '→', key: 'Alt+→', action: () => history.forward() },
+    home ? { label: `Pagina iniziale (${home.title})`, icon: '⌂', action: () => goView(home.id) } : null,
+    { sep: true },
+    free.length ? { header: 'Viste' } : null,
+    ...free.map((v) => ({ label: v.title, icon: '🖼', checked: location.hash.split('?')[0] === `#/view/${v.id}`, action: () => goView(v.id) })),
+    roots.length ? { header: 'Aree' } : null,
+    ...roots.map((a) => ({ label: `${a.name}${a.active ? ` · ${a.active} all.` : ''}`, icon: sevIcon(a), sub: areaMenuItems(a.name) })),
+    { sep: true },
+    { label: 'Pagine di sistema', icon: '☰', sub: [
+      { label: 'Panoramica aree', icon: '🗺', action: () => (location.hash = '#/areas') },
+      { label: 'Allarmi', icon: '🔔', action: () => { areaFilter = ''; location.hash = '#/alarms'; } },
+      hasWh ? { label: 'WCS magazzini', icon: '🏬', action: () => (location.hash = '#/wcs') } : null,
+      { label: 'Decisioni', icon: '🔀', action: () => (location.hash = '#/decisions') },
+      { label: 'Tag', icon: '🏷', action: () => (location.hash = '#/tags') },
+      { label: 'Trend', icon: '📈', action: () => (location.hash = '#/trend') },
+      { label: 'Diagnostica', icon: '🩺', action: () => (location.hash = '#/diag') }].filter(Boolean) },
+    { label: 'Aggiorna pagina', icon: '⟳', key: 'F5', action: () => route() },
+    { label: 'Manuale utente', icon: '📖', key: 'F1', action: () => window.open(`manual.html#${location.hash.startsWith('#/wcs') ? 'wcs' : 'runtime'}`, '_blank') },
+    { label: document.fullscreenElement ? 'Esci da schermo intero' : 'Schermo intero', icon: '⛶', key: 'F11', action: () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()) },
+    info?.designer ? { label: location.hash.startsWith('#/view/') ? 'Modifica vista nel Designer' : 'Apri il Designer', icon: '✎', action: () => {
+      if (location.hash.startsWith('#/view/')) localStorage.setItem('designer.view', location.hash.split('/')[2].split('?')[0]);
+      window.open('designer.html', '_blank');
+    } } : null,
+  );
+  showMenu(e, items);
+}
+document.addEventListener('contextmenu', runtimeMenu);
+document.addEventListener('keydown', (e) => { if (e.key === 'F1') { e.preventDefault(); window.open(`manual.html#${location.hash.startsWith('#/wcs') ? 'wcs' : 'runtime'}`, '_blank'); } });
 
 // ------------------------------------------------------------ barra aree (stile PCS7)
 let areaData = [], areaMenuFor = null;
@@ -295,6 +376,8 @@ async function showTags() {
     const f = e.target.value.toLowerCase();
     tb.querySelectorAll('tr').forEach((tr) => (tr.style.display = tr.dataset.tag.toLowerCase().includes(f) ? '' : 'none'));
   };
+  const pre = localStorage.getItem('tagFilter');
+  if (pre) { localStorage.removeItem('tagFilter'); const i = page.querySelector('#flt'); i.value = pre + '.'; i.dispatchEvent(new Event('input')); }
   tb.querySelectorAll('[data-w]').forEach((b) => (b.onclick = async () => {
     const v = prompt(`Nuovo valore per ${b.dataset.w}`, JSON.stringify(live.value(b.dataset.w)));
     if (v === null) return;

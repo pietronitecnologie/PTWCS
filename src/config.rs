@@ -288,6 +288,11 @@ pub struct ServerConfig {
     /// Directory dei simboli SVG.
     #[serde(default = "default_symbols")]
     pub symbols_dir: String,
+    /// Libreria standard dello SCADA (simboli, faceplate, UDT), indipendente dal
+    /// progetto e in sola lettura. Le viste/simboli del progetto con lo stesso id
+    /// la personalizzano. Sovrascrivibile con la variabile `PTWCS_LIBRARY`.
+    #[serde(default = "default_library")]
+    pub library_dir: String,
     /// Abilita il Designer (modifica viste, simboli, progetto e script dal browser).
     #[serde(default = "yes")]
     pub designer: bool,
@@ -300,6 +305,9 @@ fn default_views() -> String {
 }
 fn default_symbols() -> String {
     "symbols".into()
+}
+fn default_library() -> String {
+    "../stdlib".into()
 }
 fn yes() -> bool {
     true
@@ -324,6 +332,7 @@ impl Default for ServerConfig {
             web_root: default_web(),
             views_dir: default_views(),
             symbols_dir: default_symbols(),
+            library_dir: default_library(),
             designer: true,
             retention_days: default_retention(),
         }
@@ -334,6 +343,7 @@ impl Default for ServerConfig {
 pub struct ScriptingConfig {
     #[serde(default = "default_python")]
     pub python: String,
+    /// Cartella degli script (un file per funzione) o, per compatibilità, un singolo modulo .py.
     pub module: Option<String>,
 }
 fn default_python() -> String {

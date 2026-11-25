@@ -16,7 +16,7 @@ server:
 
 scripting:
   python: python3
-  module: ../scripts/rules.py
+  module: ../scripts           # cartella: un file per funzione (nome.py → def nome(payload, ctx)), _modulo.py = codice condiviso
 
 drivers:
   - name: PLC_LINEA

@@ -52,6 +52,8 @@ pub struct AppState {
     pub events: broadcast::Sender<Event>,
     pub views_dir: PathBuf,
     pub symbols_dir: PathBuf,
+    /// Libreria standard (sola lettura): `faceplates/`, `symbols/`, `symbols.json`, `udts.json`.
+    pub library_dir: PathBuf,
     pub script_path: Option<PathBuf>,
     pub rules: RulesEngine,
     pub sorting: Arc<Sorting>,
@@ -289,6 +291,10 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
     let symbols_dir = cfg.resolve(&cfg.server.symbols_dir);
     std::fs::create_dir_all(&views_dir)?;
     std::fs::create_dir_all(&symbols_dir)?;
+    let library_dir = std::env::var("PTWCS_LIBRARY").map(PathBuf::from).unwrap_or_else(|_| cfg.resolve(&cfg.server.library_dir));
+    if !library_dir.join("symbols.json").exists() {
+        tracing::warn!("libreria standard non trovata in {}", library_dir.display());
+    }
     let rules = RulesEngine::load(cfg.resolve(&cfg.rules_dir), &cfg.decision_points)?;
     let sorting = Sorting::new();
     sorting.configure(&cfg.sort_classes, cfg.wms.clone());
@@ -305,6 +311,7 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
         events,
         views_dir,
         symbols_dir,
+        library_dir,
         script_path,
         rules,
         sorting: sorting.clone(),
