@@ -261,9 +261,10 @@ def sim_pallet(payload, ctx):
             weight = round(random.uniform(1250, 1500) if 0.04 <= r < 0.07 else random.uniform(150, 1000), 1)
             height = random.randint(1850, 2000) if 0.07 <= r < 0.09 else random.randint(900, 1700)
             w(f"{inp}.Barcode", lu); w(f"{inp}.Weight", weight); w(f"{inp}.Height", height)
+            req = (int(g(f"{inp}.ReqID") or 0) % 65000) + 1   # calcolato una sola volta: ctx.write aggiorna ctx.tags
             w(f"{inp}.Occupied", True)
-            w(f"{inp}.ReqID", (int(g(f"{inp}.ReqID") or 0) % 65000) + 1)
-            s["pending"][inp] = {"lu": lu, "since": t, "req": (int(g(f"{inp}.ReqID") or 0) % 65000) + 1}
+            w(f"{inp}.ReqID", req)
+            s["pending"][inp] = {"lu": lu, "since": t, "req": req}
         p = s["pending"].get(inp)
         if p and g(f"{inp}.RespID") == p["req"] and t > p["since"] + 2:
             dest = int(g(f"{inp}.Destination") or 0)
@@ -288,9 +289,10 @@ def sim_pallet(payload, ctx):
     for a in (1, 2, 3):
         w(f"PD{a}.In", len(s["pd_in"][a]) > 0)
 
-    # --- trasli
+    # --- trasli (singola o doppia UdC: campi con suffisso "2" per il secondo posto)
     for a in (1, 2, 3):
         c = f"C{a}"
+        slots = 2 if g(f"{c}.Mission2") is not None else 1
         st = s["crane"].setdefault(a, {"phase": "idle"})
         if g(f"{c}.Cmd_Reset"):
             w(f"{c}.Fault", False); w(f"{c}.Cmd_Reset", False)
@@ -301,16 +303,35 @@ def sim_pallet(payload, ctx):
             continue
         if st["phase"] == "idle":
             restore = g(f"{c}.Busy") and not g(f"{c}.Start")   # missione in corso persa (script ricaricato)
-            if (g(f"{c}.Start") and not g(f"{c}.Busy")) or restore:
-                st.update(phase="to_src", mission=int(g(f"{c}.Mission")), type=int(g(f"{c}.Type")),
-                          src=(int(g(f"{c}.SrcSide")), int(g(f"{c}.SrcCol")), int(g(f"{c}.SrcLvl"))),
-                          dst=(int(g(f"{c}.DstSide")), int(g(f"{c}.DstCol")), int(g(f"{c}.DstLvl"))),
-                          out=int(g(f"{c}.DstOut") or 1), fork=0.0)
-                w(f"{c}.Busy", True)
-            else:
+            if not ((g(f"{c}.Start") and not g(f"{c}.Busy")) or restore):
                 w(f"{c}.Moving", False)
                 continue
-        side, col, lvl = st["src"] if st["phase"] in ("to_src", "fork_src") else st["dst"]
+            jobs = []
+            for slot in range(1, slots + 1):
+                sfx = "" if slot == 1 else "2"
+                mid = int(g(f"{c}.Mission{sfx}") or 0)
+                if mid <= 0 or (restore and int(g(f"{c}.Done{sfx}") or 0) == mid):
+                    continue
+                jobs.append({"slot": slot, "sfx": sfx, "mission": mid, "type": int(g(f"{c}.Type{sfx}") or 0),
+                             "src": (int(g(f"{c}.SrcSide{sfx}") or 0), int(g(f"{c}.SrcCol{sfx}") or 0), int(g(f"{c}.SrcLvl{sfx}") or 0)),
+                             "dst": (int(g(f"{c}.DstSide{sfx}") or 0), int(g(f"{c}.DstCol{sfx}") or 0), int(g(f"{c}.DstLvl{sfx}") or 0)),
+                             "out": int(g(f"{c}.DstOut{sfx}") or 1)})
+            if not jobs:
+                w(f"{c}.Busy", False)
+                continue
+            # fermate: prima le prese, poi i depositi in ordine di vicinanza
+            stops = [("pick", j) for j in jobs]
+            last = _mp_target(*jobs[-1]["src"][1:])
+            rest = list(jobs)
+            while rest:
+                j = min(rest, key=lambda j: max(abs(_mp_target(*j["dst"][1:])[0] - last[0]) / 2.2, abs(_mp_target(*j["dst"][1:])[1] - last[1]) / 3.5))
+                rest.remove(j)
+                stops.append(("drop", j))
+                last = _mp_target(*j["dst"][1:])
+            st.update(phase="run", stops=stops, i=0, fork=0.0, ret=False, wait=0)
+            w(f"{c}.Busy", True)
+        kind, j = st["stops"][st["i"]]
+        side, col, lvl = j["src"] if kind == "pick" else j["dst"]
         tx, ty = _mp_target(col, lvl)
         x, y = _approach(x0, tx, 2.2), _approach(y0, ty, 3.5)
         w(f"{c}.PctX", x); w(f"{c}.PctY", y)
@@ -319,49 +340,38 @@ def sim_pallet(payload, ctx):
         w(f"{c}.Moving", not at)
         if not at:
             continue
-        fdir = -100.0 if side == 1 else 100.0
-        if st["phase"] == "to_src":
-            if st["type"] == 1 and col == 0 and not s["pd_in"][a]:
-                st["wait"] = st.get("wait", 0) + 1
-                if st["wait"] < 300:          # attende il pallet al P&D di ingresso (max 60 s in simulazione)
-                    continue
-            st["wait"] = 0
-            st["phase"] = "fork_src"
-        elif st["phase"] == "fork_src":
-            target = fdir if col > 0 else -100.0
-            if not st.get("ret"):
-                st["fork"] = _approach(st["fork"], target, 34)
-                if st["fork"] == target:
-                    st["ret"] = True
-                    w(f"{c}.Loaded", True)
-                    if st["type"] == 1 and col == 0 and s["pd_in"][a]:
+        if kind == "pick" and j["type"] == 1 and col == 0 and not st["ret"] and st["fork"] == 0 and not s["pd_in"][a]:
+            st["wait"] += 1
+            if st["wait"] < 300:              # attende il pallet al P&D di ingresso (max 60 s in simulazione)
+                continue
+        st["wait"] = 0
+        target = (-100.0 if side == 1 else 100.0) if col > 0 else (-100.0 if kind == "pick" else 100.0)
+        if not st["ret"]:
+            st["fork"] = _approach(st["fork"], target, 34)
+            if st["fork"] == target:
+                st["ret"] = True
+                if kind == "pick":
+                    w(f"{c}.Loaded{j['sfx']}", True)
+                    if j["type"] == 1 and col == 0 and s["pd_in"][a]:
                         s["pd_in"][a].pop(0)
-            else:
-                st["fork"] = _approach(st["fork"], 0.0, 34)
-                if st["fork"] == 0:
-                    st["ret"] = False
-                    st["phase"] = "to_dst"
-        elif st["phase"] == "to_dst":
-            st["phase"] = "fork_dst"
-        elif st["phase"] == "fork_dst":
-            target = fdir if col > 0 else 100.0
-            if not st.get("ret"):
-                st["fork"] = _approach(st["fork"], target, 34)
-                if st["fork"] == target:
-                    st["ret"] = True
-                    w(f"{c}.Loaded", False)
-                    if st["type"] == 2:
-                        s["out_transit"].append({"aisle": a, "bay": f"BU{st['out']}", "eta": t + 20, "mission": st["mission"]})
-            else:
-                st["fork"] = _approach(st["fork"], 0.0, 34)
-                if st["fork"] == 0:
-                    st["ret"] = False
-                    w(f"{c}.Done", st["mission"]); w(f"{c}.Busy", False)
+                else:
+                    w(f"{c}.Loaded{j['sfx']}", False)
+                    if j["type"] == 2:
+                        s["out_transit"].append({"aisle": a, "bay": f"BU{j['out']}", "eta": t + 20, "mission": j["mission"]})
+        else:
+            st["fork"] = _approach(st["fork"], 0.0, 34)
+            if st["fork"] == 0:
+                st["ret"] = False
+                if kind == "drop":
+                    w(f"{c}.Done{j['sfx']}", j["mission"])
                     w(f"{c}.Missions", int(g(f"{c}.Missions") or 0) + 1)
+                st["i"] += 1
+                if st["i"] >= len(st["stops"]):
+                    w(f"{c}.Busy", False)
                     st["phase"] = "idle"
-        w(f"{c}.Fork", st["fork"])
+        w(f"{c}.Fork{j['sfx']}", st["fork"])
 
-    # --- P&D di uscita → baie OUT1/OUT2
+    # --- P&D di uscita → baie BU1/BU2
     for a in (1, 2, 3):
         w(f"PD{a}.Out", any(o["aisle"] == a and o["eta"] - t > 12 for o in s["out_transit"]))
     for o in list(s["out_transit"]):
@@ -382,3 +392,11 @@ def sim_pallet(payload, ctx):
     if g("SimMP.FaultC2"):
         w("C2.Fault", True); w("SimMP.FaultC2", False)
     return None
+
+
+def mp_debug(payload, ctx):
+    """Diagnostica della simulazione del magazzino pallet."""
+    return {"t": _mp["t"], "pending": _mp["pending"], "next_in": _mp["next_in"], "transit": _mp["transit"],
+            "pd_in": {str(k): v for k, v in _mp["pd_in"].items()},
+            "crane": {str(k): {x: y for x, y in v.items() if x != "src" and x != "dst"} for k, v in _mp["crane"].items()},
+            "tags": {k: ctx.tag(k) for k in ("IN1.Occupied", "IN1.ReqID", "IN1.RespID", "IN1.Destination", "IN2.Occupied", "IN2.ReqID", "IN2.RespID")}}

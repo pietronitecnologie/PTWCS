@@ -16,6 +16,12 @@
 //! | Busy (bool)                  | PLC        | missione in esecuzione                |
 //! | Done (u32)                   | PLC        | id dell'ultima missione completata    |
 //! | Fault (bool)                 | PLC        | traslo in guasto (non riceve missioni)|
+//!
+//! Traslo a **doppia UdC** (`slots: 2`): stessi campi con suffisso `2` per il
+//! secondo posto (`Mission2`, `Type2`, `Src…2`, `Dst…2`, `DstOut2`, `Done2`).
+//! Il WCS invia fino a due missioni per ciclo (Mission2 = 0 se il secondo posto
+//! è vuoto), accoppiando preferibilmente missioni dello stesso tipo e con celle
+//! vicine; il PLC scrive `Done`/`Done2` per ciascuna missione completata.
 
 use crate::config::WarehouseDef;
 use crate::store::Store;
@@ -117,6 +123,9 @@ pub struct Mission {
     /// ingresso di provenienza (depositi) o baia d'uscita (prelievi)
     pub bay: String,
     pub state: MissionState,
+    /// Posto UdC sul traslo (1 o 2) quando inviata.
+    #[serde(default)]
+    pub slot: u8,
     pub created: i64,
     pub started: Option<i64>,
     pub finished: Option<i64>,
@@ -139,6 +148,9 @@ pub struct AisleSummary {
     pub sides: Vec<SideSummary>,
     pub queued: u32,
     pub active: Option<Mission>,
+    /// secondo posto UdC (traslo a doppia UdC)
+    pub active2: Option<Mission>,
+    pub slots: u8,
     pub done_hour: u32,
 }
 
@@ -152,8 +164,8 @@ struct State {
     locs: Vec<Loc>,
     lus: HashMap<String, usize>,
     missions: VecDeque<Mission>,
-    /// missione inviata/in corso per corsia
-    active: HashMap<u16, u32>,
+    /// missioni inviate/in corso per corsia (una per posto UdC)
+    active: HashMap<u16, Vec<u32>>,
     next_id: u32,
     done_log: VecDeque<(i64, u16, MissionKind)>,
     out_rr: usize,
@@ -336,6 +348,7 @@ impl Warehouse {
             dst,
             bay: bay.into(),
             state: MissionState::Queued,
+            slot: 0,
             created: now_ms(),
             started: None,
             finished: None,
@@ -387,6 +400,7 @@ impl Warehouse {
             dst: Self::pd(src.aisle),
             bay,
             state: MissionState::Queued,
+            slot: 0,
             created: now_ms(),
             started: None,
             finished: None,
@@ -510,13 +524,17 @@ impl Warehouse {
                 tot.blocked += s.blocked;
                 sides.push(s);
             }
-            let active = st.active.get(&aisle).and_then(|id| st.missions.iter().find(|m| m.id == *id)).cloned();
+            let act: Vec<Mission> = st.active.get(&aisle).map(|ids| ids.iter().filter_map(|id| st.missions.iter().find(|m| m.id == *id)).cloned().collect()).unwrap_or_default();
+            let active = act.iter().find(|m| m.slot != 2).cloned().or_else(|| act.first().cloned());
+            let active2 = act.iter().find(|m| m.slot == 2).cloned();
             aisles.push(AisleSummary {
                 name: a.name.clone(),
                 crane: a.crane.clone(),
                 sides,
                 queued: st.missions.iter().filter(|m| m.aisle == aisle && m.state == MissionState::Queued).count() as u32,
                 active,
+                active2,
+                slots: a.slots,
                 done_hour: st.done_log.iter().filter(|(t, a2, _)| *t >= hour_ago && *a2 == aisle).count() as u32,
             });
         }
@@ -541,6 +559,35 @@ impl Warehouse {
         self.st.lock().unwrap().missions.iter().cloned().collect()
     }
 
+    /// Sceglie le missioni del prossimo ciclo di una corsia: la più vecchia in
+    /// coda e, per i trasli a doppia UdC, una compagna (stesso tipo e celle
+    /// vicine preferite). Con una sola missione in coda attende fino a
+    /// `pair_wait_s` per poterla accoppiare.
+    fn pick_cycle(&self, aisle: u16, slots: u8, pair_wait_s: f64) -> Vec<Mission> {
+        let st = self.st.lock().unwrap();
+        let queued: Vec<&Mission> = st.missions.iter().filter(|m| m.aisle == aisle && m.state == MissionState::Queued).collect();
+        let Some(first) = queued.first().copied() else { return vec![] };
+        if slots < 2 {
+            return vec![first.clone()];
+        }
+        let cell = |m: &Mission| if m.kind == MissionKind::In { m.dst } else { m.src };
+        let dist = |a: &Mission, b: &Mission| {
+            let (p, q) = (cell(a), cell(b));
+            (p.col as f64 - q.col as f64).abs() * self.def.col_time_s + (p.lvl as f64 - q.lvl as f64).abs() * self.def.lvl_time_s
+                + if p.side != q.side { 0.5 } else { 0.0 }
+        };
+        let partner = queued.iter().skip(1).copied().min_by(|a, b| {
+            let ka = (a.kind != first.kind) as u8;
+            let kb = (b.kind != first.kind) as u8;
+            ka.cmp(&kb).then(dist(first, a).total_cmp(&dist(first, b)))
+        });
+        match partner {
+            Some(p) => vec![first.clone(), p.clone()],
+            None if (now_ms() - first.created) as f64 / 1000.0 < pair_wait_s => vec![],
+            None => vec![first.clone()],
+        }
+    }
+
     /// Un ciclo del dispatcher: dialogo con i trasli via tag.
     pub async fn dispatch(&self, db: &TagDb) {
         for (ai, a) in self.def.aisles.iter().enumerate() {
@@ -549,55 +596,73 @@ impl Warehouse {
             let busy = db.value(&t("Busy")).as_bool().unwrap_or(false);
             let start = db.value(&t("Start")).as_bool().unwrap_or(false);
             let done = db.value(&t("Done")).as_i64().unwrap_or(0) as u32;
+            let done2 = if a.slots == 2 { db.value(&t("Done2")).as_i64().unwrap_or(0) as u32 } else { 0 };
             let fault = db.value(&t("Fault")).as_bool().unwrap_or(false);
             // il PLC ha preso in carico: azzera lo Start
             if start && busy {
                 let _ = db.write(&t("Start"), Value::Bool(false)).await;
                 let mut st = self.st.lock().unwrap();
-                if let Some(id) = st.active.get(&aisle).copied()
-                    && let Some(m) = st.missions.iter_mut().find(|m| m.id == id && m.state == MissionState::Sent) {
+                let ids = st.active.get(&aisle).cloned().unwrap_or_default();
+                for id in ids {
+                    if let Some(m) = st.missions.iter_mut().find(|m| m.id == id && m.state == MissionState::Sent) {
                         m.state = MissionState::Running;
                         let m = m.clone();
                         self.persist_mission(&m);
                     }
-                continue;
-            }
-            // completamento
-            let active = self.st.lock().unwrap().active.get(&aisle).copied();
-            if let Some(id) = active {
-                if done == id && !busy && !start {
-                    self.complete(aisle, id);
                 }
                 continue;
+            }
+            // completamento (ogni posto UdC indipendentemente)
+            let active = self.st.lock().unwrap().active.get(&aisle).cloned().unwrap_or_default();
+            if !active.is_empty() {
+                if !start {
+                    for id in &active {
+                        if *id == done || (a.slots == 2 && *id == done2) {
+                            self.complete(aisle, *id);
+                        }
+                    }
+                }
+                let left = self.st.lock().unwrap().active.get(&aisle).map(|v| v.len()).unwrap_or(0);
+                if left > 0 || busy {
+                    continue;
+                }
             }
             if busy || start || fault {
                 continue;
             }
-            // nuova missione per la corsia (prelievi e depositi in ordine di arrivo)
-            let next = {
-                let st = self.st.lock().unwrap();
-                st.missions.iter().find(|m| m.aisle == aisle && m.state == MissionState::Queued).cloned()
-            };
-            let Some(m) = next else { continue };
-            let typ = match m.kind {
-                MissionKind::In => 1,
-                MissionKind::Out => 2,
-            };
-            let out_bay = self.def.outputs.iter().position(|o| *o == m.bay).map(|p| p as i64 + 1).unwrap_or(0);
-            let writes = [
-                ("Mission", Value::Int(m.id as i64)),
-                ("Type", Value::Int(typ)),
-                ("SrcSide", Value::Int(m.src.side as i64)),
-                ("SrcCol", Value::Int(m.src.col as i64)),
-                ("SrcLvl", Value::Int(m.src.lvl as i64)),
-                ("DstSide", Value::Int(m.dst.side as i64)),
-                ("DstCol", Value::Int(m.dst.col as i64)),
-                ("DstLvl", Value::Int(m.dst.lvl as i64)),
-                ("DstOut", Value::Int(out_bay)),
-            ];
+            let cycle = self.pick_cycle(aisle, a.slots, a.pair_wait_s);
+            if cycle.is_empty() {
+                continue;
+            }
+            let mut writes: Vec<(String, Value)> = vec![];
+            for slot in 1..=a.slots {
+                let sfx = if slot == 1 { "" } else { "2" };
+                let m = cycle.get(slot as usize - 1);
+                let (typ, src, dst, out_bay, id) = match m {
+                    Some(m) => (
+                        if m.kind == MissionKind::In { 1 } else { 2 },
+                        m.src,
+                        m.dst,
+                        self.def.outputs.iter().position(|o| *o == m.bay).map(|p| p as i64 + 1).unwrap_or(0),
+                        m.id as i64,
+                    ),
+                    None => (0, Pos { aisle, side: 0, col: 0, lvl: 0 }, Pos { aisle, side: 0, col: 0, lvl: 0 }, 0, 0),
+                };
+                writes.extend([
+                    (format!("Mission{sfx}"), Value::Int(id)),
+                    (format!("Type{sfx}"), Value::Int(typ)),
+                    (format!("SrcSide{sfx}"), Value::Int(src.side as i64)),
+                    (format!("SrcCol{sfx}"), Value::Int(src.col as i64)),
+                    (format!("SrcLvl{sfx}"), Value::Int(src.lvl as i64)),
+                    (format!("DstSide{sfx}"), Value::Int(dst.side as i64)),
+                    (format!("DstCol{sfx}"), Value::Int(dst.col as i64)),
+                    (format!("DstLvl{sfx}"), Value::Int(dst.lvl as i64)),
+                    (format!("DstOut{sfx}"), Value::Int(out_bay)),
+                ]);
+            }
             let mut ok = true;
             for (k, v) in writes {
-                if let Err(e) = db.write(&t(k), v).await {
+                if let Err(e) = db.write(&t(&k), v).await {
                     tracing::warn!(wh = %self.def.name, "traslo {}: scrittura {k}: {e:#}", a.crane);
                     ok = false;
                     break;
@@ -605,12 +670,18 @@ impl Warehouse {
             }
             if ok && db.write(&t("Start"), Value::Bool(true)).await.is_ok() {
                 let mut st = self.st.lock().unwrap();
-                st.active.insert(aisle, m.id);
-                if let Some(x) = st.missions.iter_mut().find(|x| x.id == m.id) {
-                    x.state = MissionState::Sent;
-                    x.started = Some(now_ms());
-                    let x = x.clone();
-                    self.persist_mission(&x);
+                st.active.insert(aisle, cycle.iter().map(|m| m.id).collect());
+                for (k, m) in cycle.iter().enumerate() {
+                    if let Some(x) = st.missions.iter_mut().find(|x| x.id == m.id) {
+                        x.state = MissionState::Sent;
+                        x.slot = k as u8 + 1;
+                        x.started = Some(now_ms());
+                        let x = x.clone();
+                        self.persist_mission(&x);
+                    }
+                }
+                if cycle.len() == 2 {
+                    tracing::info!(wh = %self.def.name, "traslo {}: ciclo doppio missioni {} + {}", a.crane, cycle[0].id, cycle[1].id);
                 }
             }
         }
@@ -618,7 +689,12 @@ impl Warehouse {
 
     fn complete(&self, aisle: u16, id: u32) {
         let mut st = self.st.lock().unwrap();
-        st.active.remove(&aisle);
+        if let Some(v) = st.active.get_mut(&aisle) {
+            v.retain(|x| *x != id);
+            if v.is_empty() {
+                st.active.remove(&aisle);
+            }
+        }
         let Some(k) = st.missions.iter().position(|m| m.id == id) else { return };
         let mut m = st.missions.remove(k).unwrap();
         match m.kind {

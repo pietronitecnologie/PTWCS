@@ -521,7 +521,7 @@
       },
       "rotation": 0,
       "type": "label",
-      "w": 260,
+      "w": 360,
       "x": 400,
       "y": 90
     },
@@ -685,7 +685,7 @@
           "kind": "expr"
         },
         "text": {
-          "expr": "tag('C1.Fault') ? 'C1: GUASTO' : tag('C1.Busy') ? ('C1: missione ' + tag('C1.Mission') + (tag('C1.Type') === 1 ? ' – deposito' : ' – prelievo')) : 'C1: libero'",
+          "expr": "tag('C1.Fault') ? 'C1: GUASTO' : tag('C1.Busy') ? ('C1: missione ' + tag('C1.Mission') + (tag('C1.Type') === 1 ? ' dep.' : ' prel.') + (tag('C1.Mission2') > 0 ? ' + ' + tag('C1.Mission2') + (tag('C1.Type2') === 1 ? ' dep.' : ' prel.') : '')) : 'C1: libero'",
           "kind": "expr"
         }
       },
@@ -745,7 +745,7 @@
       },
       "rotation": 0,
       "type": "label",
-      "w": 260,
+      "w": 360,
       "x": 400,
       "y": 278
     },
@@ -909,7 +909,7 @@
           "kind": "expr"
         },
         "text": {
-          "expr": "tag('C2.Fault') ? 'C2: GUASTO' : tag('C2.Busy') ? ('C2: missione ' + tag('C2.Mission') + (tag('C2.Type') === 1 ? ' – deposito' : ' – prelievo')) : 'C2: libero'",
+          "expr": "tag('C2.Fault') ? 'C2: GUASTO' : tag('C2.Busy') ? ('C2: missione ' + tag('C2.Mission') + (tag('C2.Type') === 1 ? ' dep.' : ' prel.') + (tag('C2.Mission2') > 0 ? ' + ' + tag('C2.Mission2') + (tag('C2.Type2') === 1 ? ' dep.' : ' prel.') : '')) : 'C2: libero'",
           "kind": "expr"
         }
       },
@@ -965,11 +965,11 @@
       "props": {
         "bold": true,
         "fontSize": 13,
-        "text": "CORSIA 3 – traslo C3"
+        "text": "CORSIA 3 – traslo C3 · doppia UdC"
       },
       "rotation": 0,
       "type": "label",
-      "w": 260,
+      "w": 360,
       "x": 400,
       "y": 466
     },
@@ -1011,11 +1011,15 @@
           "kind": "expr"
         },
         "elements.crane.tx": {
-          "expr": "(tag('{device}.PctX') || 0) * 9.6",
+          "expr": "(tag('{device}.PctX') || 0) * 9.3",
           "kind": "expr"
         },
         "elements.forks.ty": {
           "expr": "(tag('{device}.Fork') || 0) * 0.14",
+          "kind": "expr"
+        },
+        "elements.forks2.ty": {
+          "expr": "(tag('{device}.Fork2') || 0) * 0.14",
           "kind": "expr"
         },
         "elements.label.text": {
@@ -1025,6 +1029,10 @@
         "elements.load.visible": {
           "kind": "tag",
           "tag": "{device}.Loaded"
+        },
+        "elements.load2.visible": {
+          "kind": "tag",
+          "tag": "{device}.Loaded2"
         }
       },
       "custom": {
@@ -1038,7 +1046,7 @@
               "params": {
                 "device": "{device}"
               },
-              "view": "fp_asrs_lane"
+              "view": "fp_asrs_lane2"
             }
           ]
         }
@@ -1047,7 +1055,7 @@
       "id": "a3_lane",
       "name": "a3_lane",
       "props": {
-        "symbol": "asrs_lane"
+        "symbol": "asrs_lane2"
       },
       "rotation": 0,
       "type": "symbol",
@@ -1133,7 +1141,7 @@
           "kind": "expr"
         },
         "text": {
-          "expr": "tag('C3.Fault') ? 'C3: GUASTO' : tag('C3.Busy') ? ('C3: missione ' + tag('C3.Mission') + (tag('C3.Type') === 1 ? ' – deposito' : ' – prelievo')) : 'C3: libero'",
+          "expr": "tag('C3.Fault') ? 'C3: GUASTO' : tag('C3.Busy') ? ('C3: missione ' + tag('C3.Mission') + (tag('C3.Type') === 1 ? ' dep.' : ' prel.') + (tag('C3.Mission2') > 0 ? ' + ' + tag('C3.Mission2') + (tag('C3.Type2') === 1 ? ' dep.' : ' prel.') : '')) : 'C3: libero'",
           "kind": "expr"
         }
       },

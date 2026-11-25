@@ -319,7 +319,10 @@ export const COMPONENTS = {
             + textEl(10, h * 0.72, `coda ${a.queued} · ${a.done_hour} missioni/ora`, { size: fs, anchor: 'start', color: '#94a3b8' });
         }
         rows = [['Corsia', `${a.name} · traslo ${a.crane}`], ['Locazioni', tot], ['Occupate', `${t.occ} (${Math.round(t.occ * 100 / tot)}%)`], ['Libere', t.free], ['Bloccate', t.bl],
-          ['Missioni in coda', a.queued], ['In corso', a.active ? `#${a.active.id} ${a.active.kind === 'in' ? 'deposito' : 'prelievo'} ${a.active.lu}` : '—'], ['Completate/ora', a.done_hour]];
+          ['Missioni in coda', a.queued],
+          ['In corso' + (a.slots === 2 ? ' (posto 1)' : ''), a.active ? `#${a.active.id} ${a.active.kind === 'in' ? 'deposito' : 'prelievo'} ${a.active.lu}` : '—'],
+          ...(a.slots === 2 ? [['In corso (posto 2)', a.active2 ? `#${a.active2.id} ${a.active2.kind === 'in' ? 'deposito' : 'prelievo'} ${a.active2.lu}` : '—']] : []),
+          ['Completate/ora', a.done_hour]];
       } else {
         const t = sum.totals, m = sum.missions;
         rows = [['Locazioni', sum.geometry.total], ['Occupate', t.occupied], ['Prenotate', t.reserved], ['Libere', t.free], ['Bloccate', t.blocked],
@@ -353,7 +356,8 @@ export const COMPONENTS = {
       const code = (pp) => (pp.col === 0 ? 'P&D' : `${pp.side}-${String(pp.col).padStart(2, '0')}-${String(pp.lvl).padStart(2, '0')}`);
       list.forEach((m, i) => {
         const y = 22 + rh * i + rh / 2;
-        const vals = [m.id, m.kind === 'in' ? '⬇ dep.' : '⬆ prel.', m.lu, m.kind === 'in' ? `${m.bay} → ${code(m.dst)}` : `${code(m.src)} → ${m.bay}`, stl[m.state], m.aisle];
+        const vals = [m.id, m.kind === 'in' ? '⬇ dep.' : '⬆ prel.', m.lu, m.kind === 'in' ? `${m.bay} → ${code(m.dst)}` : `${code(m.src)} → ${m.bay}`, stl[m.state],
+          m.slot && m.state !== 'queued' ? `${m.aisle} · posto ${m.slot}` : m.aisle];
         vals.forEach((v, k) => (out += textEl(cols[k], y, String(v), { size: fs, anchor: 'start', color: k === 4 ? stc[m.state] : '#e2e8f0' })));
       });
       return out;

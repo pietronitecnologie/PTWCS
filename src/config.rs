@@ -140,6 +140,18 @@ pub struct AisleDef {
     pub name: String,
     /// Istanza UDT del traslo (telegramma missioni).
     pub crane: String,
+    /// Posti UdC sul traslo: 1 (singola) o 2 (doppia UdC: due missioni per ciclo).
+    #[serde(default = "one_slot")]
+    pub slots: u8,
+    /// Doppia UdC: attesa massima (s) per accoppiare una seconda missione.
+    #[serde(default = "pair_wait")]
+    pub pair_wait_s: f64,
+}
+fn one_slot() -> u8 {
+    1
+}
+fn pair_wait() -> f64 {
+    4.0
 }
 fn two() -> u16 {
     2
@@ -938,10 +950,20 @@ impl Config {
                 bail!("magazzino {}: definire almeno una baia d'uscita", w.name);
             }
             for a in &w.aisles {
-                for m in ["Mission", "Type", "SrcSide", "SrcCol", "SrcLvl", "DstSide", "DstCol", "DstLvl", "DstOut", "Start", "Busy", "Done", "Fault"] {
+                if !(1..=2).contains(&a.slots) {
+                    bail!("magazzino {} corsia {}: slots deve essere 1 o 2", w.name, a.name);
+                }
+                let base = ["Mission", "Type", "SrcSide", "SrcCol", "SrcLvl", "DstSide", "DstCol", "DstLvl", "DstOut", "Done"];
+                let mut need: Vec<String> = base.iter().map(|m| m.to_string()).collect();
+                need.extend(["Start", "Busy", "Fault"].map(String::from));
+                if a.slots == 2 {
+                    need.extend(base.iter().map(|m| format!("{m}2")));
+                }
+                for m in need {
                     let t = format!("{}.{m}", a.crane);
                     if !self.tags.iter().any(|x| x.name == t) {
-                        bail!("magazzino {} corsia {}: manca il tag {t} (telegramma missioni del traslo)", w.name, a.name);
+                        bail!("magazzino {} corsia {}: manca il tag {t} (telegramma missioni del traslo{})", w.name, a.name,
+                              if a.slots == 2 { " a doppia UdC" } else { "" });
                     }
                 }
             }

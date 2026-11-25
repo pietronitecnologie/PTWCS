@@ -32,7 +32,7 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - **Smistamento**: protocollo, regole, classi, WMS;
   - **Progetto**: aree, scan class, script a timer, driver.
 - **Magazzino automatico** (AS/RS): locazioni persistenti, allocazione celle, missioni ai trasli, viste aggregate e di dettaglio (esempio con 3000 locazioni).
-- **Libreria**: 72 simboli in 3 menu (Intralogistica, Macchine, Processo), 27 UDT standard per famiglia e **un faceplate per ogni simbolo**.
+- **Libreria**: 74 simboli in 3 menu (Intralogistica, Macchine, Processo), 27 UDT standard per famiglia e **un faceplate per ogni simbolo**.
 
 ## Avvio rapido (demo)
 
@@ -66,7 +66,7 @@ Runtime su http://localhost:8080/ e Designer su http://localhost:8080/designer.h
 
 ## Esempio: magazzino automatico pallet (MP1)
 
-Struttura: **2 ingressi, 2 uscite, 3 trasloelevatori, 3000 locazioni** (3 corsie × 2 lati × 50 colonne × 10 livelli).
+Struttura: **2 ingressi, 2 uscite, 3 trasloelevatori (uno a doppia UdC), 3000 locazioni** (3 corsie × 2 lati × 50 colonne × 10 livelli).
 
 | | |
 |---|---|
@@ -80,6 +80,12 @@ Struttura: **2 ingressi, 2 uscite, 3 trasloelevatori, 3000 locazioni** (3 corsie
   1. il WCS scrive tipo, origine e destinazione (colonna 0 = P&D), poi `Start` = 1;
   2. il PLC alza `Busy` e il WCS abbassa `Start`;
   3. a fine missione il PLC scrive `Done` = id missione e abbassa `Busy`.
+
+**Traslo a doppia UdC**: si attiva per corsia con `slots: 2` (nell'esempio è la corsia 3, UDT `TrasloDoppiaUdC`).
+- Il telegramma ha un secondo posto con i campi a suffisso `2`: `Mission2`, `Type2`, `Src…2`, `Dst…2`, `DstOut2`, `Done2`; inoltre `Loaded2` e `Fork2`.
+- Il dispatcher invia fino a **due missioni per ciclo**, scegliendo come compagna una missione dello stesso tipo con la cella più vicina. Con una sola missione in coda attende fino a `pair_wait_s` secondi prima di partire con il solo posto 1.
+- Il PLC scrive `Done` e `Done2` quando completa ciascuna missione, e i due posti si chiudono in modo indipendente.
+- In libreria ci sono i simboli `asrs_lane2` (pianta) e `asrs_crane_mast2` (fronte), con relativi faceplate.
 
 **Ingressi IN1/IN2**: telegramma request/reply (UDT `TelegrammaIngresso`) con regole grafiche:
 - NOREAD, sovrappeso e fuori sagoma → respinto, con il codice esito;

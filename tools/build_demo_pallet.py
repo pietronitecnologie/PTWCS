@@ -79,6 +79,24 @@ upsert(p["udt_types"], {
         m("Fork", "f32", 38, description="Forche (-100..100)"),
         m("PosX", "f32", 42, unit="m", description="Posizione corsia", historize=True), m("PosY", "f32", 46, unit="m", description="Posizione verticale"),
     ]})
+# traslo a doppia UdC: stesso telegramma + secondo posto (suffisso 2)
+_tm = next(t for t in p["udt_types"] if t["name"] == "TrasloMissioni")
+_m2 = [dict(x) for x in _tm["members"]]
+_off = 50
+for nm in ("Mission", "Type", "SrcSide", "SrcCol", "SrcLvl", "DstSide", "DstCol", "DstLvl", "DstOut", "Done", "Fork"):
+    src = next(x for x in _tm["members"] if x["name"] == nm)
+    typ = src["type"]
+    d = {k: v for k, v in src.items() if k not in ("address", "historize")}
+    d["name"] = nm + "2"
+    d["description"] = src.get("description", "") + " – posto 2"
+    d["address"] = "DB{DB}." + ("DBW" if typ == "u16" else "DBD") + "{Base+%d}" % _off
+    _off += 2 if typ == "u16" else 4
+    _m2.append(d)
+_m2.append(m("Loaded2", "bool", (0, 7), description="Pallet posto 2"))
+upsert(p["udt_types"], {"name": "TrasloDoppiaUdC",
+                        "description": "Trasloelevatore a doppia UdC: due missioni per ciclo (campi posto 2 con suffisso 2)",
+                        "params": _tm["params"], "members": _m2})
+
 upsert(p["udt_types"], {
     "name": "TelegrammaIngresso",
     "description": "Ingresso pallet: identificazione e controllo sagoma/peso, richiesta di stoccaggio al WCS",
@@ -102,9 +120,11 @@ upsert(p["udt_types"], {
                 m("Count", "u32", 6, description="Pallet consegnati")]})
 
 # ---------------------------------------------------------------- istanze e tag
+DOUBLE = {3}   # corsie con traslo a doppia UdC
 for i in (1, 2, 3):
-    upsert(p["udt_instances"], {"name": f"C{i}", "type": "TrasloMissioni", "driver": "WCS_INTERNO", "area": "MP-Trasli",
-                                "params": {"DB": 300 + i}, "description": f"Trasloelevatore corsia {i}"})
+    upsert(p["udt_instances"], {"name": f"C{i}", "type": "TrasloDoppiaUdC" if i in DOUBLE else "TrasloMissioni", "driver": "WCS_INTERNO",
+                                "area": "MP-Trasli", "params": {"DB": 300 + i},
+                                "description": f"Trasloelevatore corsia {i}" + (" (doppia UdC)" if i in DOUBLE else "")})
 for i in (1, 2):
     upsert(p["udt_instances"], {"name": f"IN{i}", "type": "TelegrammaIngresso", "driver": "WCS_INTERNO", "area": "MP-Ingressi",
                                 "params": {"DB": 310 + i}, "description": f"Ingresso {i}"})
@@ -131,7 +151,7 @@ for i in (1, 2):
                                   "handshake": "counter", "timeout_ms": 300, "fallback": {"destination": 0, "result": 4}, "area": "MP-Ingressi"})
 upsert(p["warehouses"], {
     "name": "MP1", "description": "Magazzino pallet 3 corsie – 3000 locazioni", "area": "MagPallet",
-    "aisles": [{"name": str(i), "crane": f"C{i}"} for i in (1, 2, 3)],
+    "aisles": [{"name": str(i), "crane": f"C{i}", "slots": 2 if i in DOUBLE else 1, "pair_wait_s": 15 if i in DOUBLE else 4} for i in (1, 2, 3)],
     "sides": 2, "columns": 50, "levels": 10, "block_cols": 5,
     "inputs": ["IN1", "IN2"], "outputs": ["BU1", "BU2"],
     "col_time_s": 0.6, "lvl_time_s": 1.2, "lu_prefix": "PAL", "initial_fill_pct": 62, "auto_outbound_s": 16})
@@ -206,14 +226,14 @@ C(v, "coll_lbl", "label", 300, 700, 120, 18, {"fontSize": 11, "color": "#64748b"
 # corsie
 for a in (1, 2, 3):
     y0 = 92 + (a - 1) * 188
-    C(v, f"a{a}_lbl", "label", 400, y0 - 2, 260, 20, {"text": f"CORSIA {a} – traslo C{a}", "fontSize": 13, "bold": True}, events=goto(a))
+    C(v, f"a{a}_lbl", "label", 400, y0 - 2, 360, 20, {"text": f"CORSIA {a} – traslo C{a}" + (" · doppia UdC" if a in DOUBLE else ""), "fontSize": 13, "bold": True}, events=goto(a))
     C(v, f"a{a}_s1", "whmap", 400, y0 + 22, 900, 46, {"wh": "MP1", "aisle": a, "side": 1, "mode": "plan", "title": "lato 1"}, events=goto(a))
-    S(v, f"a{a}_lane", "asrs_lane", 400, y0 + 72, 900, 32, f"C{a}")
+    S(v, f"a{a}_lane", "asrs_lane2" if a in DOUBLE else "asrs_lane", 400, y0 + 72, 900, 32, f"C{a}")
     C(v, f"a{a}_s2", "whmap", 400, y0 + 108, 900, 46, {"wh": "MP1", "aisle": a, "side": 2, "mode": "plan", "title": "lato 2"}, events=goto(a))
     C(v, f"a{a}_pdi", "lamp", 372, y0 + 72, 14, 14, {"colorOn": "#38bdf8"}, {"on": T(f"PD{a}.In")})
     C(v, f"a{a}_pdo", "lamp", 372, y0 + 90, 14, 14, {"colorOn": "#22c55e"}, {"on": T(f"PD{a}.Out")})
     C(v, f"a{a}_st", "label", 1312, y0 + 78, 270, 20, {"fontSize": 13, "bold": True}, {
-        "text": X(f"tag('C{a}.Fault') ? 'C{a}: GUASTO' : tag('C{a}.Busy') ? ('C{a}: missione ' + tag('C{a}.Mission') + (tag('C{a}.Type') === 1 ? ' – deposito' : ' – prelievo')) : 'C{a}: libero'"),
+        "text": X(f"tag('C{a}.Fault') ? 'C{a}: GUASTO' : tag('C{a}.Busy') ? ('C{a}: missione ' + tag('C{a}.Mission') + (tag('C{a}.Type') === 1 ? ' dep.' : ' prel.') + (tag('C{a}.Mission2') > 0 ? ' + ' + tag('C{a}.Mission2') + (tag('C{a}.Type2') === 1 ? ' dep.' : ' prel.') : '')) : 'C{a}: libero'"),
         "color": X(f"tag('C{a}.Fault') ? '#ef4444' : tag('C{a}.Busy') ? '#22c55e' : '#94a3b8'")})
     C(v, f"a{a}_det", "whsummary", 1312, y0 + 22, 270, 50, {"wh": "MP1", "aisle": a, "fontSize": 12})
 C(v, "pd_lbl", "label", 345, 650, 120, 14, {"text": "● P&D in / out", "fontSize": 10, "color": "#64748b"})
@@ -232,7 +252,7 @@ print("vista mag_pallet:", call("PUT", "/api/views/mag_pallet", view))
 
 # --- dettaglio corsia (parametro aisle)
 d = []
-C(d, "title", "label", 24, 12, 700, 34, {"text": "", "fontSize": 22, "bold": True}, {"text": X("'Corsia ' + param('aisle') + ' – traslo C' + param('aisle')")})
+C(d, "title", "label", 24, 12, 900, 34, {"text": "", "fontSize": 22, "bold": True}, {"text": X("'Corsia ' + param('aisle') + ' – traslo C' + param('aisle') + (tag('C' + param('aisle') + '.Mission2') !== undefined ? ' (doppia UdC)' : '')")})
 C(d, "back", "button", 1440, 12, 140, 36, {"text": "← Panoramica", "fill": "#334155"}, None, {"onClick": {"actions": [{"kind": "navigate", "view": "mag_pallet"}]}})
 for k, (a, txt) in enumerate([(1, "Corsia 1"), (2, "Corsia 2"), (3, "Corsia 3")]):
     C(d, f"go{a}", "button", 1000 + k * 140, 12, 130, 36, {"text": txt, "fill": "#1e293b", "activeFill": "#1d4ed8"}, {"active": X(f"param('aisle') == '{a}'")},
@@ -247,7 +267,13 @@ for side, y in ((1, 80), (2, 470)):
     S(d, f"crane{side}", "asrs_crane_mast", 24 + 26, y + 18, round(cw), H - 34, "C{aisle}", extra={
         "elements.mast.tx": X(f"(tag('{{device}}.PctX') || 0) / 100 * {round((W - 26 - cw) / k, 1)}"),
         "elements.carriage.ty": X(f"-(tag('{{device}}.PctY') || 0) / 100 * {round((H - 70) / k, 1)}"),
-        "elements.label.text": X("''")})
+        "elements.label.text": X("''"), "visible": X("tag('C{aisle}.Mission2') === undefined")})
+    d[-1]["props"]["opacity"] = 0.85
+    cw2 = 110 * k
+    S(d, f"crane2_{side}", "asrs_crane_mast2", 24 + 26, y + 18, round(cw2), H - 34, "C{aisle}", extra={
+        "elements.mast.tx": X(f"(tag('{{device}}.PctX') || 0) / 100 * {round((W - 26 - cw2) / k, 1)}"),
+        "elements.carriage.ty": X(f"-(tag('{{device}}.PctY') || 0) / 100 * {round((H - 70) / k, 1)}"),
+        "elements.label.text": X("''"), "visible": X("tag('C{aisle}.Mission2') !== undefined")})
     d[-1]["props"]["opacity"] = 0.85
 for k, (txt, col) in enumerate([("libera", "#1e293b"), ("occupata", "#b7793e"), ("prenotata (deposito in corso)", "#3b82f6"), ("in prelievo", "#22c55e"), ("bloccata", "#7f1d1d")]):
     x = 24 + [0, 100, 210, 450, 580][k]
@@ -256,12 +282,14 @@ for k, (txt, col) in enumerate([("libera", "#1e293b"), ("occupata", "#b7793e"), 
 C(d, "sum", "whsummary", 1200, 80, 380, 250, {"wh": "MP1", "aisle": "{aisle}", "fontSize": 13})
 C(d, "crane_lbl", "label", 1200, 345, 380, 20, {"text": "Traslo", "fontSize": 13, "bold": True})
 for k, (lbl, expr) in enumerate([("Stato", "tag('C{aisle}.Fault') ? 'GUASTO' : tag('C{aisle}.Busy') ? 'in missione' : 'libero'"),
-                                  ("Missione", "tag('C{aisle}.Busy') ? tag('C{aisle}.Mission') : '—'"),
+                                  ("Missione", "tag('C{aisle}.Busy') ? tag('C{aisle}.Mission') + (tag('C{aisle}.Mission2') > 0 ? ' + ' + tag('C{aisle}.Mission2') : '') : '—'"),
                                   ("Posizione X / Y", "(tag('C{aisle}.PosX') || 0).toFixed(1) + ' m / ' + (tag('C{aisle}.PosY') || 0).toFixed(1) + ' m'"),
                                   ("Missioni eseguite", "tag('C{aisle}.Missions') || 0")]):
     C(d, f"cv{k}", "value", 1200 + (k % 2) * 195, 385 + (k // 2) * 56, 185, 30, {"label": lbl, "fontSize": 14}, {"value": X(expr)})
-C(d, "fp", "button", 1200, 500, 185, 36, {"text": "Faceplate traslo", "fill": "#1d4ed8"}, None,
+C(d, "fp", "button", 1200, 500, 185, 36, {"text": "Faceplate traslo", "fill": "#1d4ed8"}, {"visible": X("tag('C{aisle}.Mission2') === undefined")},
   {"onClick": {"actions": [{"kind": "popup", "view": "fp_asrs_crane", "params": {"device": "C{aisle}"}}]}})
+C(d, "fp2", "button", 1200, 500, 185, 36, {"text": "Faceplate traslo (doppia UdC)", "fill": "#1d4ed8", "fontSize": 12}, {"visible": X("tag('C{aisle}.Mission2') !== undefined")},
+  {"onClick": {"actions": [{"kind": "popup", "view": "fp_asrs_crane_mast2", "params": {"device": "C{aisle}"}}]}})
 C(d, "rst", "button", 1395, 500, 185, 36, {"text": "Reset guasto", "fill": "#b45309"}, None,
   {"onClick": {"actions": [{"kind": "write", "tag": "C{aisle}.Cmd_Reset", "value": "true"}]}})
 C(d, "find", "button", 1200, 545, 380, 36, {"text": "🔍 Cerca UdC", "fill": "#334155"}, None,

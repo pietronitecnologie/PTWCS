@@ -1129,6 +1129,86 @@
    }
   }
  },
+ "asrs_lane2": {
+  "title": "Corsia traslo a doppia UdC (pianta, binario)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "TrasloDoppio",
+  "faceplate": "fp_asrs_lane2",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.crane.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.PctX') || 0) * 9.3"
+   },
+   "elements.forks.ty": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork') || 0) * 0.14"
+   },
+   "elements.forks2.ty": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork2') || 0) * 0.14"
+   },
+   "elements.load2.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded2"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'"
+   }
+  }
+ },
+ "asrs_crane_mast2": {
+  "title": "Traslo a doppia UdC (fronte, solo colonna)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "TrasloDoppio",
+  "faceplate": "fp_asrs_crane_mast2",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.mast.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.PctX') || 0) * 2"
+   },
+   "elements.carriage.ty": {
+    "kind": "expr",
+    "expr": "-(tag('{device}.PctY') || 0) * 1.4"
+   },
+   "elements.forks.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork') || 0) * 0.2"
+   },
+   "elements.forks2.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork2') || 0) * 0.2"
+   },
+   "elements.load2.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded2"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+   }
+  }
+ },
  "asrs_shuttle": {
   "title": "Shuttle (pianta)",
   "category": "Intralogistica/Magazzini automatici",

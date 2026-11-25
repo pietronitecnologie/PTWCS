@@ -820,6 +820,184 @@ udt_types:
     type: u32
     address: DB{DB}.DBD{Base+6}
     description: Pallet consegnati
+- name: TrasloDoppiaUdC
+  description: 'Trasloelevatore a doppia UdC: due missioni per ciclo (campi posto 2 con suffisso 2)'
+  params:
+  - name: DB
+    default: 300
+    description: DB del traslo
+  - name: Base
+    default: 0
+  members:
+  - name: Start
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    writable: true
+    description: Avvio missione (WCS)
+  - name: Busy
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Missione in esecuzione (PLC)
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Guasto
+    alarms:
+    - name: FAULT
+      op: ==
+      value: true
+      message: Traslo {Instance} in guasto
+      severity: alarm
+  - name: Auto
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: Automatico
+  - name: Moving
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    description: In movimento
+  - name: Loaded
+    type: bool
+    address: DB{DB}.DBX{Base+0}.5
+    description: Pallet a bordo
+  - name: Cmd_Reset
+    type: bool
+    address: DB{DB}.DBX{Base+0}.6
+    writable: true
+    description: Reset guasto
+  - name: Mission
+    type: u32
+    address: DB{DB}.DBD{Base+2}
+    writable: true
+    description: Id missione (WCS)
+  - name: Type
+    type: u16
+    address: DB{DB}.DBW{Base+6}
+    writable: true
+    description: 'Tipo: 1 deposito, 2 prelievo'
+  - name: SrcSide
+    type: u16
+    address: DB{DB}.DBW{Base+8}
+    writable: true
+    description: 'Origine: lato'
+  - name: SrcCol
+    type: u16
+    address: DB{DB}.DBW{Base+10}
+    writable: true
+    description: 'Origine: colonna (0 = P&D)'
+  - name: SrcLvl
+    type: u16
+    address: DB{DB}.DBW{Base+12}
+    writable: true
+    description: 'Origine: livello'
+  - name: DstSide
+    type: u16
+    address: DB{DB}.DBW{Base+14}
+    writable: true
+    description: 'Destinazione: lato'
+  - name: DstCol
+    type: u16
+    address: DB{DB}.DBW{Base+16}
+    writable: true
+    description: 'Destinazione: colonna (0 = P&D)'
+  - name: DstLvl
+    type: u16
+    address: DB{DB}.DBW{Base+18}
+    writable: true
+    description: 'Destinazione: livello'
+  - name: DstOut
+    type: u16
+    address: DB{DB}.DBW{Base+20}
+    writable: true
+    description: Baia d'uscita
+  - name: Done
+    type: u32
+    address: DB{DB}.DBD{Base+22}
+    description: Ultima missione completata (PLC)
+  - name: Missions
+    type: u32
+    address: DB{DB}.DBD{Base+26}
+    description: Missioni eseguite
+  - name: PctX
+    type: f32
+    address: DB{DB}.DBD{Base+30}
+    description: Posizione corsia %
+  - name: PctY
+    type: f32
+    address: DB{DB}.DBD{Base+34}
+    description: Posizione verticale %
+  - name: Fork
+    type: f32
+    address: DB{DB}.DBD{Base+38}
+    description: Forche (-100..100)
+  - name: PosX
+    type: f32
+    address: DB{DB}.DBD{Base+42}
+    description: Posizione corsia
+    unit: m
+    historize: true
+  - name: PosY
+    type: f32
+    address: DB{DB}.DBD{Base+46}
+    description: Posizione verticale
+    unit: m
+  - name: Mission2
+    type: u32
+    address: DB{DB}.DBD{Base+50}
+    writable: true
+    description: Id missione (WCS) – posto 2
+  - name: Type2
+    type: u16
+    address: DB{DB}.DBW{Base+54}
+    writable: true
+    description: 'Tipo: 1 deposito, 2 prelievo – posto 2'
+  - name: SrcSide2
+    type: u16
+    address: DB{DB}.DBW{Base+56}
+    writable: true
+    description: 'Origine: lato – posto 2'
+  - name: SrcCol2
+    type: u16
+    address: DB{DB}.DBW{Base+58}
+    writable: true
+    description: 'Origine: colonna (0 = P&D) – posto 2'
+  - name: SrcLvl2
+    type: u16
+    address: DB{DB}.DBW{Base+60}
+    writable: true
+    description: 'Origine: livello – posto 2'
+  - name: DstSide2
+    type: u16
+    address: DB{DB}.DBW{Base+62}
+    writable: true
+    description: 'Destinazione: lato – posto 2'
+  - name: DstCol2
+    type: u16
+    address: DB{DB}.DBW{Base+64}
+    writable: true
+    description: 'Destinazione: colonna (0 = P&D) – posto 2'
+  - name: DstLvl2
+    type: u16
+    address: DB{DB}.DBW{Base+66}
+    writable: true
+    description: 'Destinazione: livello – posto 2'
+  - name: DstOut2
+    type: u16
+    address: DB{DB}.DBW{Base+68}
+    writable: true
+    description: Baia d'uscita – posto 2
+  - name: Done2
+    type: u32
+    address: DB{DB}.DBD{Base+70}
+    description: Ultima missione completata (PLC) – posto 2
+  - name: Fork2
+    type: f32
+    address: DB{DB}.DBD{Base+74}
+    description: Forche (-100..100) – posto 2
+  - name: Loaded2
+    type: bool
+    address: DB{DB}.DBX{Base+0}.7
+    description: Pallet posto 2
 udt_instances:
 - name: CV1
   type: Nastro
@@ -952,12 +1130,12 @@ udt_instances:
     DB: 302
   description: Trasloelevatore corsia 2
 - name: C3
-  type: TrasloMissioni
+  type: TrasloDoppiaUdC
   driver: WCS_INTERNO
   area: MP-Trasli
   params:
     DB: 303
-  description: Trasloelevatore corsia 3
+  description: Trasloelevatore corsia 3 (doppia UdC)
 - name: IN1
   type: TelegrammaIngresso
   driver: WCS_INTERNO
@@ -1278,10 +1456,16 @@ warehouses:
   aisles:
   - name: '1'
     crane: C1
+    slots: 1
+    pair_wait_s: 4.0
   - name: '2'
     crane: C2
+    slots: 1
+    pair_wait_s: 4.0
   - name: '3'
     crane: C3
+    slots: 2
+    pair_wait_s: 15.0
   sides: 2
   columns: 50
   levels: 10

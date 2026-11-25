@@ -162,6 +162,12 @@ FAMILIES = {
         ("Mission", "u32", 0, "", "Missione in corso"), ("PosX", "f32", 0, "m", "Posizione corsia"),
         ("PosY", "f32", 0, "m", "Posizione verticale"), ("PctX", "f32", 0, "%", "Posizione corsia %"),
         ("PctY", "f32", 0, "%", "Posizione verticale %"), ("Fork", "f32", 0, "%", "Forche (-100..100)")]),
+    "TrasloDoppio": ("Traslo a doppia UdC", [
+        ("Moving", "bool", 0, "", "In movimento"), ("Fault", "bool", 0, "", "Guasto"), ("Auto", "bool", 0, "", "Automatico"),
+        ("Loaded", "bool", 0, "", "Pallet posto 1"), ("Loaded2", "bool", 0, "", "Pallet posto 2"), ("Busy", "bool", 0, "", "In missione"),
+        ("Cmd_Reset", "bool", 1, "", "Reset guasto"), ("Mission", "u32", 0, "", "Missione posto 1"), ("Mission2", "u32", 0, "", "Missione posto 2"),
+        ("PosX", "f32", 0, "m", "Posizione corsia"), ("PosY", "f32", 0, "m", "Posizione verticale"), ("PctX", "f32", 0, "%", "Posizione corsia %"),
+        ("PctY", "f32", 0, "%", "Posizione verticale %"), ("Fork", "f32", 0, "%", "Forche posto 1"), ("Fork2", "f32", 0, "%", "Forche posto 2")]),
     "Scaffale": ("Scaffalatura / magazzino", [
         *[(f"C{i}", "bool", 0, "", f"Cella {i} occupata") for i in range(1, 13)],
         ("Cells", "u16", 0, "", "Celle totali"), ("OccupiedCells", "u16", 0, "", "Celle occupate"),
@@ -643,6 +649,38 @@ sym("asrs_lane", "Corsia traslo (pianta, binario)", C_ASRS, "Traslo", "0 0 1000 
     {"elements.crane.tx": B("(tag('{device}.PctX') || 0) * 9.6"),
      "elements.forks.ty": B("(tag('{device}.Fork') || 0) * 0.14"),
      "elements.body.fill": B("tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'")})
+
+sym("asrs_lane2", "Corsia traslo a doppia UdC (pianta, binario)", C_ASRS, "TrasloDoppio", "0 0 1000 40",
+    E("rect", x=0, y=4, width=1000, height=32, fill="#0b1220")
+    + E("line", x1=0, y1=10, x2=1000, y2=10, stroke=FR, stroke_width=3) + E("line", x1=0, y1=30, x2=1000, y2=30, stroke=FR, stroke_width=3)
+    + E("rect", x=0, y=4, width=18, height=32, fill=ACC, opacity=0.35)
+    + G("crane", "Traslo (tx = posizione lungo la corsia)",
+        E("rect", "body", "Colore di stato (traslo)", x=2, y=2, width=62, height=36, rx=4, fill=BODY, stroke=DARK, stroke_width=2)
+        + E("rect", x=28, y=6, width=10, height=28, fill=DARK, opacity=0.6)
+        + G("forks", "Forche posto 1 (ty = sfilo)", E("rect", x=5, y=16, width=20, height=8, fill=ROL))
+        + G("forks2", "Forche posto 2 (ty = sfilo)", E("rect", x=41, y=16, width=20, height=8, fill=ROL))
+        + E("rect", "load", "Pallet posto 1 (visibile)", True, x=4, y=9, width=22, height=22, fill=LOAD, stroke=LOADD, stroke_width=2)
+        + E("rect", "load2", "Pallet posto 2 (visibile)", True, x=40, y=9, width=22, height=22, fill=LOAD, stroke=LOADD, stroke_width=2))
+    + text(500, 20, "", id="label", desc="Testo etichetta", size=12, fill="#64748b"),
+    {"elements.crane.tx": B("(tag('{device}.PctX') || 0) * 9.3"),
+     "elements.forks.ty": B("(tag('{device}.Fork') || 0) * 0.14"),
+     "elements.forks2.ty": B("(tag('{device}.Fork2') || 0) * 0.14"),
+     "elements.load2.visible": T("Loaded2"),
+     "elements.body.fill": B("tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'")})
+
+sym("asrs_crane_mast2", "Traslo a doppia UdC (fronte, solo colonna)", C_ASRS, "TrasloDoppio", "0 0 110 200",
+    G("mast", "Colonna (tx = posizione corsia)",
+      E("rect", "body", "Colore di stato (colonna)", x=48, y=4, width=14, height=184, fill=BODY, opacity=0.9)
+      + E("rect", x=10, y=186, width=90, height=12, rx=2, fill=FRD) + E("rect", x=40, y=0, width=30, height=8, fill=FRD)
+      + G("carriage", "Culla (ty = quota, negativa)", E("rect", x=4, y=160, width=102, height=18, rx=2, fill=ACC, stroke=DARK, stroke_width=2)
+          + G("forks", "Forche posto 1 (tx)", E("rect", x=8, y=173, width=40, height=4, fill=DARK))
+          + G("forks2", "Forche posto 2 (tx)", E("rect", x=62, y=173, width=40, height=4, fill=DARK))
+          + pallet(8, 146, 40, 14, id="load") + pallet(62, 146, 40, 14, id="load2"))
+      + fault_box(110, 200)) + text(55, -9, "TR2"),
+    {"elements.mast.tx": B("(tag('{device}.PctX') || 0) * 2"), "elements.carriage.ty": B("-(tag('{device}.PctY') || 0) * 1.4"),
+     "elements.forks.tx": B("(tag('{device}.Fork') || 0) * 0.2"), "elements.forks2.tx": B("(tag('{device}.Fork2') || 0) * 0.2"),
+     "elements.load2.visible": T("Loaded2"),
+     "elements.body.fill": B("tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'")})
 
 sym("asrs_shuttle", "Shuttle (pianta)", C_ASRS, "Veicolo", "0 0 110 64",
     E("rect", "body", "Colore di stato", x=4, y=4, width=102, height=56, rx=6, fill=BODY, stroke=DARK, stroke_width=2)

@@ -644,6 +644,127 @@
   ]
  },
  {
+  "name": "TrasloDoppio",
+  "description": "Traslo a doppia UdC – layout S7 di 34 byte a partire da Base",
+  "params": [
+   {
+    "name": "DB",
+    "default": 100,
+    "description": "Numero DB"
+   },
+   {
+    "name": "Base",
+    "default": 0,
+    "description": "Offset di partenza nel DB (byte)"
+   }
+  ],
+  "members": [
+   {
+    "name": "Moving",
+    "type": "bool",
+    "address": "DB{DB}.DBX{Base+0}.0",
+    "description": "In movimento"
+   },
+   {
+    "name": "Fault",
+    "type": "bool",
+    "address": "DB{DB}.DBX{Base+0}.1",
+    "description": "Guasto"
+   },
+   {
+    "name": "Auto",
+    "type": "bool",
+    "address": "DB{DB}.DBX{Base+0}.2",
+    "description": "Automatico"
+   },
+   {
+    "name": "Loaded",
+    "type": "bool",
+    "address": "DB{DB}.DBX{Base+0}.3",
+    "description": "Pallet posto 1"
+   },
+   {
+    "name": "Loaded2",
+    "type": "bool",
+    "address": "DB{DB}.DBX{Base+0}.4",
+    "description": "Pallet posto 2"
+   },
+   {
+    "name": "Busy",
+    "type": "bool",
+    "address": "DB{DB}.DBX{Base+0}.5",
+    "description": "In missione"
+   },
+   {
+    "name": "Cmd_Reset",
+    "type": "bool",
+    "address": "DB{DB}.DBX{Base+0}.6",
+    "writable": true,
+    "description": "Reset guasto"
+   },
+   {
+    "name": "Mission",
+    "type": "u32",
+    "address": "DB{DB}.DBD{Base+2}",
+    "description": "Missione posto 1"
+   },
+   {
+    "name": "Mission2",
+    "type": "u32",
+    "address": "DB{DB}.DBD{Base+6}",
+    "description": "Missione posto 2"
+   },
+   {
+    "name": "PosX",
+    "type": "f32",
+    "address": "DB{DB}.DBD{Base+10}",
+    "unit": "m",
+    "description": "Posizione corsia",
+    "historize": true
+   },
+   {
+    "name": "PosY",
+    "type": "f32",
+    "address": "DB{DB}.DBD{Base+14}",
+    "unit": "m",
+    "description": "Posizione verticale",
+    "historize": true
+   },
+   {
+    "name": "PctX",
+    "type": "f32",
+    "address": "DB{DB}.DBD{Base+18}",
+    "unit": "%",
+    "description": "Posizione corsia %",
+    "historize": true
+   },
+   {
+    "name": "PctY",
+    "type": "f32",
+    "address": "DB{DB}.DBD{Base+22}",
+    "unit": "%",
+    "description": "Posizione verticale %",
+    "historize": true
+   },
+   {
+    "name": "Fork",
+    "type": "f32",
+    "address": "DB{DB}.DBD{Base+26}",
+    "unit": "%",
+    "description": "Forche posto 1",
+    "historize": true
+   },
+   {
+    "name": "Fork2",
+    "type": "f32",
+    "address": "DB{DB}.DBD{Base+30}",
+    "unit": "%",
+    "description": "Forche posto 2",
+    "historize": true
+   }
+  ]
+ },
+ {
   "name": "Scaffale",
   "description": "Scaffalatura / magazzino – layout S7 di 10 byte a partire da Base",
   "params": [

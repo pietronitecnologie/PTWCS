@@ -76,3 +76,47 @@ warehouses:\n- {{ name: W, aisles: [ {{ name: '1', crane: K1 }}, {{ name: '2', c
     assert_eq!(s["missions"]["in_hour"], 1);
     assert_eq!(s["missions"]["out_hour"], 1);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn double_lu_crane_pairs_two_missions() {
+    let dir = std::env::temp_dir().join(format!("wcs_wh2_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("plant.yaml"), "plant: { name: T }\nserver: { database: t.db, web_root: . }\ndrivers: [ { name: SIM, protocol: sim, poll_ms: 20 } ]\n").unwrap();
+    let mut names: Vec<String> = ["Mission:u32", "Type:u16", "SrcSide:u16", "SrcCol:u16", "SrcLvl:u16", "DstSide:u16", "DstCol:u16", "DstLvl:u16", "DstOut:u16", "Done:u32"]
+        .iter().flat_map(|m| [m.to_string(), m.replacen(':', "2:", 1)]).collect();
+    names.extend(["Start:bool", "Busy:bool", "Fault:bool", "Auto:bool"].map(String::from));
+    let members: String = names.iter().map(|m| {
+        let (n, t) = m.split_once(':').unwrap();
+        format!("  - {{ name: {n}, type: {t}, address: '{{Instance}}.{n}', writable: true }}\n")
+    }).collect();
+    std::fs::write(dir.join("project.yaml"), format!(
+        "udt_types:\n- name: Tr2\n  members:\n{members}udt_instances:\n- {{ name: D1, type: Tr2, driver: SIM }}\n\
+warehouses:\n- {{ name: W, aisles: [ {{ name: '1', crane: D1, slots: 2, pair_wait_s: 10 }} ], sides: 2, columns: 5, levels: 2, outputs: [B1] }}\n")).unwrap();
+    let path = dir.join("plant.yaml");
+    let a = app::start(Config::load_base(&path).unwrap(), Config::load(&path).unwrap()).await.unwrap();
+    let w = a.warehouse("W").unwrap();
+    a.db.write("D1.Auto", Value::Bool(true)).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(150)).await;
+
+    // una sola missione: il traslo doppio attende la compagna (pair_wait_s)
+    w.allocate_inbound("A", "IN1", &[], false).unwrap();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert_eq!(a.db.value("D1.Start"), Value::Bool(false), "deve attendere la seconda missione");
+    // seconda missione: ciclo doppio
+    w.allocate_inbound("B", "IN2", &[], false).unwrap();
+    assert!(wait(|| a.db.value("D1.Start") == Value::Bool(true)).await, "ciclo doppio non inviato");
+    let (m1, m2) = (a.db.value("D1.Mission"), a.db.value("D1.Mission2"));
+    assert_ne!(m2, Value::Int(0));
+    assert_eq!((a.db.value("D1.Type"), a.db.value("D1.Type2")), (Value::Int(1), Value::Int(1)));
+    a.db.write("D1.Busy", Value::Bool(true)).await.unwrap();
+    assert!(wait(|| a.db.value("D1.Start") == Value::Bool(false)).await);
+    // il posto 2 termina per primo, poi il posto 1
+    a.db.write("D1.Done2", m2).await.unwrap();
+    assert!(wait(|| w.find("B").is_some_and(|(_, l)| l.state == wcs_scada::warehouse::LocState::Occupied)).await);
+    assert_eq!(w.find("A").unwrap().1.state, wcs_scada::warehouse::LocState::Reserved);
+    a.db.write("D1.Done", m1).await.unwrap();
+    a.db.write("D1.Busy", Value::Bool(false)).await.unwrap();
+    assert!(wait(|| w.find("A").is_some_and(|(_, l)| l.state == wcs_scada::warehouse::LocState::Occupied)).await);
+    assert_eq!(w.summary()["missions"]["in_hour"], 2);
+}
