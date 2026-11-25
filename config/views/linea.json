@@ -1,0 +1,886 @@
+{
+  "background": "#0b1220",
+  "components": [
+    {
+      "bindings": {},
+      "events": {},
+      "h": 36,
+      "id": "title",
+      "name": "title",
+      "props": {
+        "bold": true,
+        "fontSize": 24,
+        "text": "Linea smistamento colli"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 600,
+      "x": 30,
+      "y": 18
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 420,
+      "id": "panel",
+      "name": "panel",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 12,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 1240,
+      "x": 20,
+      "y": 80
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "CV1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "CV1.Run"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "CV1.Run",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Commutare marcia CV1?"
+        }
+      },
+      "h": 44,
+      "id": "CV1",
+      "name": "CV1",
+      "props": {
+        "label": "CV1 carico"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 300,
+      "x": 60,
+      "y": 260
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "CV2.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "CV2.Run"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "CV2.Run",
+              "value": "toggle"
+            }
+          ]
+        }
+      },
+      "h": 44,
+      "id": "CV2",
+      "name": "CV2",
+      "props": {
+        "label": "CV2 scanner"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 300,
+      "x": 380,
+      "y": 260
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "CV3.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "CV3.Run"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "CV3.Run",
+              "value": "toggle"
+            }
+          ]
+        }
+      },
+      "h": 44,
+      "id": "CV3",
+      "name": "CV3",
+      "props": {
+        "label": "CV3 smistamento"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 220,
+      "x": 700,
+      "y": 260
+    },
+    {
+      "bindings": {
+        "elements.beam.visible": {
+          "kind": "tag",
+          "tag": "SC1.PhotoEye"
+        },
+        "elements.led.fill": {
+          "expr": "tag('SC1.Result') === 0 ? '#22c55e' : '#ef4444'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 108,
+      "id": "SC1",
+      "name": "SC1",
+      "props": {
+        "symbol": "scanner"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 90,
+      "x": 480,
+      "y": 130
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SC1.Barcode"
+        }
+      },
+      "events": {},
+      "h": 34,
+      "id": "barcode",
+      "name": "barcode",
+      "props": {
+        "fontSize": 16,
+        "label": "Barcode"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 200,
+      "x": 590,
+      "y": 140
+    },
+    {
+      "bindings": {
+        "value": {
+          "expr": "(tag('SC1.Weight')/100).toFixed(2) + ' kg'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 34,
+      "id": "weight",
+      "name": "weight",
+      "props": {
+        "label": "Peso"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 200,
+      "x": 590,
+      "y": 200
+    },
+    {
+      "bindings": {
+        "elements.flap.fill": {
+          "kind": "tag",
+          "tag": "DV1.Position",
+          "transform": {
+            "default": "#f59e0b",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "99",
+                "out": "#ef4444"
+              }
+            ]
+          }
+        },
+        "elements.flap.rotate": {
+          "kind": "tag",
+          "tag": "DV1.Position",
+          "transform": {
+            "default": "0",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "1",
+                "out": "-50"
+              },
+              {
+                "in": "2",
+                "out": "0"
+              },
+              {
+                "in": "3",
+                "out": "50"
+              },
+              {
+                "in": "99",
+                "out": "180"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 120,
+      "id": "DV1",
+      "name": "DV1",
+      "props": {
+        "symbol": "diverter"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 120,
+      "x": 940,
+      "y": 222
+    },
+    {
+      "bindings": {
+        "flow": {
+          "expr": "tag('DV1.Position') === 1",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 6,
+      "id": "out1",
+      "name": "out1",
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 10
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 140,
+      "x": 1070,
+      "y": 140
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "OUT1.Count"
+        }
+      },
+      "events": {},
+      "h": 32,
+      "id": "cnt1",
+      "name": "cnt1",
+      "props": {
+        "fontSize": 17,
+        "label": "Uscita 1"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 110,
+      "x": 1090,
+      "y": 100
+    },
+    {
+      "bindings": {
+        "flow": {
+          "expr": "tag('DV1.Position') === 2",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 6,
+      "id": "out2",
+      "name": "out2",
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 10
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 140,
+      "x": 1070,
+      "y": 290
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "OUT2.Count"
+        }
+      },
+      "events": {},
+      "h": 32,
+      "id": "cnt2",
+      "name": "cnt2",
+      "props": {
+        "fontSize": 17,
+        "label": "Uscita 2"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 110,
+      "x": 1090,
+      "y": 250
+    },
+    {
+      "bindings": {
+        "flow": {
+          "expr": "tag('DV1.Position') === 3",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 6,
+      "id": "out3",
+      "name": "out3",
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 10
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 140,
+      "x": 1070,
+      "y": 440
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "OUT3.Count"
+        }
+      },
+      "events": {},
+      "h": 32,
+      "id": "cnt3",
+      "name": "cnt3",
+      "props": {
+        "fontSize": 17,
+        "label": "Uscita 3"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 110,
+      "x": 1090,
+      "y": 400
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "REJECT.Count"
+        }
+      },
+      "events": {},
+      "h": 32,
+      "id": "rej",
+      "name": "rej",
+      "props": {
+        "color": "#fca5a5",
+        "fontSize": 17,
+        "label": "Scarto"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 110,
+      "x": 960,
+      "y": 400
+    },
+    {
+      "bindings": {
+        "visible": {
+          "expr": "!tag('WCS.Out3Enabled')",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 24,
+      "id": "out3dis",
+      "name": "out3dis",
+      "props": {
+        "bold": true,
+        "color": "#f59e0b",
+        "fontSize": 12,
+        "text": "USCITA 3 DISABILITATA"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 180,
+      "x": 1080,
+      "y": 470
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "CV1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "CV1.Run"
+        }
+      },
+      "events": {},
+      "h": 56,
+      "id": "M1",
+      "name": "M1",
+      "props": {
+        "label": "M-CV1"
+      },
+      "rotation": 0,
+      "type": "motor",
+      "w": 56,
+      "x": 80,
+      "y": 340
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "CV1.Speed",
+          "transform": {
+            "expr": "value/10",
+            "kind": "expr"
+          }
+        }
+      },
+      "events": {},
+      "h": 20,
+      "id": "speed",
+      "name": "speed",
+      "props": {
+        "max": 60
+      },
+      "rotation": 0,
+      "type": "bar",
+      "w": 200,
+      "x": 160,
+      "y": 350
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "CV1.Speed",
+          "transform": {
+            "expr": "value/10",
+            "kind": "expr"
+          }
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "speedv",
+      "name": "speedv",
+      "props": {
+        "decimals": 1,
+        "fontSize": 15,
+        "unit": "m/min"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 200,
+      "x": 160,
+      "y": 380
+    },
+    {
+      "bindings": {
+        "color": {
+          "kind": "tag",
+          "tag": "CV1.Temp",
+          "transform": {
+            "default": "#e2e8f0",
+            "kind": "map",
+            "rules": [
+              {
+                "in": ">450",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        },
+        "value": {
+          "kind": "tag",
+          "tag": "CV1.Temp",
+          "transform": {
+            "expr": "value/10",
+            "kind": "expr"
+          }
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "temp",
+      "name": "temp",
+      "props": {
+        "decimals": 1,
+        "fontSize": 15,
+        "label": "Temperatura motore",
+        "unit": "°C"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 200,
+      "x": 160,
+      "y": 440
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "CV1.Fault"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "l1",
+      "name": "l1",
+      "props": {
+        "colorOn": "#ef4444",
+        "label": "Guasto CV1"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 22,
+      "x": 420,
+      "y": 350
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "CV2.Fault"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "l2",
+      "name": "l2",
+      "props": {
+        "colorOn": "#ef4444",
+        "label": "Guasto CV2"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 22,
+      "x": 420,
+      "y": 380
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "CV3.Fault"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "l3",
+      "name": "l3",
+      "props": {
+        "colorOn": "#ef4444",
+        "label": "Guasto CV3"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 22,
+      "x": 420,
+      "y": 410
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "SC1.PhotoEye"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "l4",
+      "name": "l4",
+      "props": {
+        "colorOn": "#38bdf8",
+        "label": "Collo allo scanner"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 22,
+      "x": 420,
+      "y": 440
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "Line.EStop"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "l5",
+      "name": "l5",
+      "props": {
+        "colorOn": "#dc2626",
+        "label": "Emergenza"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 22,
+      "x": 600,
+      "y": 350
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "fn": "start_line",
+              "kind": "script"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "start",
+      "name": "start",
+      "props": {
+        "fill": "#15803d",
+        "text": "▶ Avvia linea"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 150,
+      "x": 30,
+      "y": 530
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "fn": "stop_line",
+              "kind": "script"
+            }
+          ],
+          "confirm": "Fermare la linea?"
+        }
+      },
+      "h": 46,
+      "id": "stop",
+      "name": "stop",
+      "props": {
+        "fill": "#b91c1c",
+        "text": "■ Ferma linea"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 150,
+      "x": 195,
+      "y": 530
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "fn": "reset_faults",
+              "kind": "script"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "reset",
+      "name": "reset",
+      "props": {
+        "fill": "#1d4ed8",
+        "text": "↺ Reset guasti"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 150,
+      "x": 360,
+      "y": 530
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "WCS.Out3Enabled"
+        },
+        "text": {
+          "kind": "tag",
+          "tag": "WCS.Out3Enabled",
+          "transform": {
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "Uscita 3: ON"
+              },
+              {
+                "in": "false",
+                "out": "Uscita 3: OFF"
+              }
+            ]
+          }
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "WCS.Out3Enabled",
+              "value": "toggle"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "out3",
+      "name": "out3",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "text": "Uscita 3 abilitata"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 190,
+      "x": 525,
+      "y": 530
+    },
+    {
+      "bindings": {
+        "text": {
+          "kind": "tag",
+          "tag": "WCS.MaxWeight",
+          "transform": {
+            "expr": "'Peso max: ' + (value/100) + ' kg'",
+            "kind": "expr"
+          }
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "WCS.MaxWeight",
+              "value": "prompt"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "maxw",
+      "name": "maxw",
+      "props": {
+        "fill": "#475569",
+        "text": "Peso max"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 190,
+      "x": 730,
+      "y": 530
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "fn": "get_stats",
+              "kind": "script"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "stats",
+      "name": "stats",
+      "props": {
+        "fill": "#7c3aed",
+        "text": "Statistiche"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 150,
+      "x": 935,
+      "y": 530
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "Sim.InjectFault",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "fault",
+      "name": "fault",
+      "props": {
+        "fill": "#9a3412",
+        "text": "⚡ Simula guasto"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 150,
+      "x": 1100,
+      "y": 530
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "hint",
+      "name": "hint",
+      "props": {
+        "color": "#64748b",
+        "fontSize": 13,
+        "text": "Click sui nastri per marcia/arresto · i pulsanti chiamano funzioni Python in scripts/rules.py"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 1200,
+      "x": 30,
+      "y": 600
+    }
+  ],
+  "height": 640,
+  "home": true,
+  "title": "Linea",
+  "width": 1280
+}

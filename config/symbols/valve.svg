@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 80">
+  <rect x="45" y="8" width="10" height="26" fill="#475569"/>
+  <rect id="actuator" x="30" y="2" width="40" height="12" rx="3" fill="#94a3b8" stroke="#0f172a" stroke-width="2"/>
+  <polygon id="body" points="5,30 50,55 5,78" fill="#64748b" stroke="#0f172a" stroke-width="3"/>
+  <polygon id="body2" points="95,30 50,55 95,78" fill="#64748b" stroke="#0f172a" stroke-width="3"/>
+</svg>

@@ -1,0 +1,29 @@
+[package]
+name = "wcs_scada"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.105"
+async-opcua = { version = "0.19", default-features = false, features = ["client"], optional = true }
+async-trait = "0.1.92"
+axum = { version = "0.8.9", features = ["ws"] }
+bytes = { version = "1", optional = true }
+chrono = "0.4.45"
+futures = "0.3.34"
+rand = "0.10.4"
+rseip = { version = "0.3", optional = true }
+rusqlite = { version = "0.43.0", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+serde_yaml = "0.9.34"
+tokio = { version = "1.54.1", features = ["full"] }
+tokio-modbus = { version = "0.17.0", default-features = false, features = ["tcp", "tcp-server"] }
+tower-http = { version = "0.7.1", features = ["fs"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+[features]
+default = []
+opcua = ["dep:async-opcua"]
+eip = ["dep:rseip", "dep:bytes"]

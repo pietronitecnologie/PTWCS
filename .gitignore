@@ -1,0 +1,6 @@
+/target
+config/*.db
+config/*.db-*
+scripts/__pycache__/
+*.py.bak
+*.py.check

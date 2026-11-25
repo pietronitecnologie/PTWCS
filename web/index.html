@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WCS-SCADA</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="top">
+    <span class="brand" id="plant">WCS-SCADA</span>
+    <nav id="nav"></nav>
+    <span class="grow"></span>
+    <span class="row muted" title="Connessione al server"><span class="dot" id="conn"></span><span id="clock"></span></span>
+    <a href="designer.html" style="color:var(--muted)" id="designerLink">Designer ↗</a>
+  </header>
+  <main class="page" id="page"></main>
+  <footer class="alarmbar" id="alarmbar"><span class="muted">Nessun allarme attivo</span></footer>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
