@@ -2,6 +2,7 @@
 
 use crate::app::{AppState, Event};
 use crate::decision::{apply_script_writes, json_to_value, tags_ctx, value_to_json};
+use crate::config::TagDef;
 use crate::tagdb::now_ms;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{DefaultBodyLimit, Path, Query, State};
@@ -44,8 +45,14 @@ pub fn router(app: Arc<AppState>) -> Router {
     let web_root = app.cfg.resolve(&app.cfg.server.web_root);
     Router::new()
         .route("/api/info", get(info))
-        .route("/api/tags", get(tags))
+        .route("/api/tags", get(tags).post(create_tag))
         .route("/api/tags/write", post(write_tag))
+        .route("/api/tags/def/{name}", axum::routing::put(update_tag).delete(delete_tag))
+        .route("/api/drivers", get(drivers_list))
+        .route("/api/rules", get(rules_list))
+        .route("/api/rules/{point}", get(rules_get).put(rules_put))
+        .route("/api/rules/{point}/test", post(rules_test))
+        .route("/api/rules/{point}/reset", post(rules_reset))
         .route("/api/alarms", get(alarms))
         .route("/api/alarms/ack", post(ack))
         .route("/api/alarms/history", get(alarm_history))
@@ -96,20 +103,151 @@ async fn info(State(app): S) -> Json<J> {
 
 async fn tags(State(app): S) -> Json<J> {
     let snap = app.db.snapshot();
+    let editable = app.editable_tags.read().unwrap().clone();
     let list: Vec<J> = app
-        .cfg
-        .tags
+        .db
+        .defs()
         .iter()
         .map(|t| {
-            let st = &snap[&t.name];
-            json!({
-                "name": t.name, "driver": t.driver, "address": t.address, "type": t.dtype,
-                "writable": t.writable, "description": t.description, "unit": t.unit,
-                "value": value_to_json(&st.value), "quality": st.quality, "ts": st.ts,
-            })
+            let st = snap.get(&t.name);
+            let mut j = serde_json::to_value(t).unwrap_or(J::Null);
+            j["len"] = json!(t.len);
+            j["value"] = st.map(|s| value_to_json(&s.value)).unwrap_or(J::Null);
+            j["quality"] = json!(st.map(|s| s.quality));
+            j["ts"] = json!(st.map(|s| s.ts));
+            j["editable"] = json!(editable.contains(&t.name));
+            j
         })
         .collect();
     Json(J::Array(list))
+}
+
+// ---------------------------------------------------------------- gestione tag (Designer)
+
+async fn drivers_list(State(app): S) -> Json<J> {
+    Json(json!(app.cfg.drivers.iter().map(|d| json!({"name": d.name, "protocol": d.protocol})).collect::<Vec<_>>()))
+}
+
+async fn create_tag(State(app): S, Json(t): Json<TagDef>) -> R<Json<J>> {
+    require_designer(&app)?;
+    let _g = app.edit_lock.lock().await;
+    let mut tags = app.db.defs();
+    if tags.iter().any(|x| x.name == t.name) {
+        return Err(bad(format!("esiste già un tag '{}'", t.name)));
+    }
+    let mut editable = app.editable_tags.read().unwrap().clone();
+    editable.insert(t.name.clone());
+    let name = t.name.clone();
+    tags.push(t);
+    app.apply_tags(tags, editable)?;
+    app.audit("designer", "create_tag", name);
+    Ok(Json(json!({"ok": true})))
+}
+
+async fn update_tag(State(app): S, Path(name): Path<String>, Json(t): Json<TagDef>) -> R<Json<J>> {
+    require_designer(&app)?;
+    let _g = app.edit_lock.lock().await;
+    let mut editable = app.editable_tags.read().unwrap().clone();
+    if !editable.contains(&name) {
+        return Err(bad(format!("il tag '{name}' è definito nel file di impianto e non è modificabile dal Designer")));
+    }
+    let mut tags = app.db.defs();
+    let Some(i) = tags.iter().position(|x| x.name == name) else {
+        return Err(ApiError(StatusCode::NOT_FOUND, format!("tag {name} non trovato")));
+    };
+    if t.name != name && tags.iter().any(|x| x.name == t.name) {
+        return Err(bad(format!("esiste già un tag '{}'", t.name)));
+    }
+    editable.remove(&name);
+    editable.insert(t.name.clone());
+    tags[i] = t;
+    app.apply_tags(tags, editable)?;
+    app.audit("designer", "update_tag", name);
+    Ok(Json(json!({"ok": true})))
+}
+
+async fn delete_tag(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
+    require_designer(&app)?;
+    let _g = app.edit_lock.lock().await;
+    let mut editable = app.editable_tags.read().unwrap().clone();
+    if !editable.remove(&name) {
+        return Err(bad(format!("il tag '{name}' non è modificabile dal Designer")));
+    }
+    let tags: Vec<TagDef> = app.db.defs().into_iter().filter(|x| x.name != name).collect();
+    app.apply_tags(tags, editable)?;
+    app.audit("designer", "delete_tag", name);
+    Ok(Json(json!({"ok": true})))
+}
+
+// ---------------------------------------------------------------- regole di smistamento
+
+fn point(app: &AppState, name: &str) -> R<crate::config::DecisionPointDef> {
+    app.cfg
+        .decision_points
+        .iter()
+        .find(|d| d.name == name)
+        .cloned()
+        .ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("punto di decisione {name} non trovato")))
+}
+
+async fn rules_list(State(app): S) -> Json<J> {
+    Json(json!(app.cfg.decision_points.iter().map(|d| json!({
+        "name": d.name, "description": d.description, "function": d.function,
+        "inputs": d.inputs, "outputs": d.outputs, "fallback": d.fallback,
+        "rules": app.rules.get(&d.name).map(|r| r.rules.len()).unwrap_or(0),
+    })).collect::<Vec<_>>()))
+}
+
+async fn rules_get(State(app): S, Path(p): Path<String>) -> R<Json<J>> {
+    let dp = point(&app, &p)?;
+    Ok(Json(json!({
+        "point": {"name": dp.name, "description": dp.description, "function": dp.function,
+                  "inputs": dp.inputs, "outputs": dp.outputs, "fallback": dp.fallback},
+        "ruleset": app.rules.get(&p).unwrap_or_default(),
+        "hits": app.rules.hits(&p),
+        "functions": app.scripts.status().functions,
+    })))
+}
+
+async fn rules_put(State(app): S, Path(p): Path<String>, Json(set): Json<crate::rules::RuleSet>) -> R<Json<J>> {
+    require_designer(&app)?;
+    let dp = point(&app, &p)?;
+    app.rules.save(&dp, set, &|t| app.db.def(t).is_some())?;
+    app.audit("designer", "save_rules", p);
+    Ok(Json(json!({"ok": true})))
+}
+
+#[derive(Deserialize)]
+struct RuleTest {
+    #[serde(default)]
+    inputs: HashMap<String, J>,
+    /// Regole non ancora salvate da provare (opzionale).
+    #[serde(default)]
+    ruleset: Option<crate::rules::RuleSet>,
+}
+
+/// Prova le regole con input di esempio, senza toccare contatori né PLC.
+async fn rules_test(State(app): S, Path(p): Path<String>, Json(t): Json<RuleTest>) -> R<Json<J>> {
+    let dp = point(&app, &p)?;
+    let inputs: HashMap<String, crate::value::Value> = t.inputs.iter().map(|(k, v)| (k.clone(), json_to_value(v))).collect();
+    let tag = |n: &str| app.db.value(n);
+    let (outcome, trace) = match t.ruleset {
+        Some(set) => {
+            // motore temporaneo in memoria per provare la bozza
+            let dir = std::env::temp_dir().join(format!("wcs_rules_try_{}", std::process::id()));
+            let eng = crate::rules::RulesEngine::load(dir, &[])?;
+            eng.save(&dp, set, &|n| app.db.def(n).is_some())?;
+            eng.evaluate(&p, &inputs, &tag, true)
+        }
+        None => app.rules.evaluate(&p, &inputs, &tag, true),
+    };
+    Ok(Json(json!({"outcome": outcome, "trace": trace, "function": dp.function, "fallback": dp.fallback})))
+}
+
+async fn rules_reset(State(app): S, Path(p): Path<String>) -> R<Json<J>> {
+    require_designer(&app)?;
+    app.rules.reset_hits(&p);
+    Ok(Json(json!({"ok": true})))
 }
 
 #[derive(Deserialize)]

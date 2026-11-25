@@ -15,7 +15,15 @@ pub struct Config {
     #[serde(default)]
     pub scripting: ScriptingConfig,
     pub drivers: Vec<DriverConfig>,
+    /// Tag definiti nel file di impianto (sola lettura dal Designer).
+    #[serde(default)]
     pub tags: Vec<TagDef>,
+    /// File dei tag gestiti dal Designer (creazione/modifica a caldo).
+    #[serde(default = "default_tags_file")]
+    pub tags_file: String,
+    /// Directory delle regole di smistamento grafiche (un JSON per punto di decisione).
+    #[serde(default = "default_rules_dir")]
+    pub rules_dir: String,
     #[serde(default)]
     pub decision_points: Vec<DecisionPointDef>,
     #[serde(default)]
@@ -23,6 +31,15 @@ pub struct Config {
     /// Directory del file di configurazione: i path relativi partono da qui.
     #[serde(skip)]
     pub base_dir: PathBuf,
+    /// Nomi dei tag che provengono da `tags_file` (modificabili dal Designer).
+    #[serde(skip)]
+    pub editable_tags: HashSet<String>,
+}
+fn default_tags_file() -> String {
+    "tags.yaml".into()
+}
+fn default_rules_dir() -> String {
+    "rules".into()
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -173,20 +190,26 @@ pub struct TagDef {
     #[serde(rename = "type")]
     pub dtype: DataType,
     /// Lunghezza in caratteri per i tag `string`.
-    #[serde(default = "default_str_len")]
+    #[serde(default = "default_str_len", skip_serializing_if = "is_default_len")]
     pub len: usize,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub writable: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub unit: String,
     /// Registra i cambi valore nello storico (trend).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub historize: bool,
     /// Valore iniziale (solo driver `sim`).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial: Option<Value>,
+}
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+fn is_default_len(n: &usize) -> bool {
+    *n == default_str_len()
 }
 fn default_str_len() -> usize {
     20
@@ -209,8 +232,10 @@ pub struct DecisionPointDef {
     /// Dati scritti al PLC come risposta: alias -> tag.
     #[serde(default)]
     pub outputs: BTreeMap<String, String>,
-    /// Funzione Python da invocare: `def f(req, ctx) -> dict`.
-    pub function: String,
+    /// Funzione Python da invocare: `def f(req, ctx) -> dict`. Opzionale se il
+    /// punto usa le regole grafiche (in tal caso è chiamata se nessuna regola scatta).
+    #[serde(default)]
+    pub function: Option<String>,
     #[serde(default = "default_decision_timeout")]
     pub timeout_ms: u64,
     /// Uscite di fallback se lo script fallisce o va in timeout.
@@ -260,8 +285,30 @@ impl Config {
         let mut cfg: Config = serde_yaml::from_str(&text)
             .with_context(|| format!("parsing config {}", path.display()))?;
         cfg.base_dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
+        let tf = cfg.resolve(&cfg.tags_file);
+        if tf.exists() {
+            let text = std::fs::read_to_string(&tf).with_context(|| format!("lettura {}", tf.display()))?;
+            let extra: Vec<TagDef> = if text.trim().is_empty() {
+                vec![]
+            } else {
+                serde_yaml::from_str(&text).with_context(|| format!("parsing {}", tf.display()))?
+            };
+            cfg.editable_tags = extra.iter().map(|t| t.name.clone()).collect();
+            cfg.tags.extend(extra);
+        }
         cfg.validate()?;
         Ok(cfg)
+    }
+
+    /// Salva i tag modificabili nel file gestito dal Designer (scrittura atomica).
+    pub fn save_editable_tags(&self, tags: &[TagDef]) -> Result<()> {
+        let list: Vec<&TagDef> = tags.iter().filter(|t| self.editable_tags.contains(&t.name)).collect();
+        let path = self.resolve(&self.tags_file);
+        let tmp = path.with_extension("yaml.tmp");
+        let header = "# Tag gestiti dal Designer di WCS-SCADA: modificabili anche a mano (a WCS fermo).\n";
+        std::fs::write(&tmp, format!("{header}{}", serde_yaml::to_string(&list)?))?;
+        std::fs::rename(tmp, path)?;
+        Ok(())
     }
 
     pub fn resolve(&self, rel: &str) -> PathBuf {
@@ -320,8 +367,8 @@ impl Config {
                 }
             }
         }
-        if !self.decision_points.is_empty() && self.scripting.module.is_none() {
-            bail!("ci sono decision_points ma manca scripting.module");
+        if self.decision_points.iter().any(|d| d.function.is_some()) && self.scripting.module.is_none() {
+            bail!("ci sono decision_points con 'function' ma manca scripting.module");
         }
         for a in &self.alarms {
             need_tag(&format!("allarme {}", a.id), &a.tag)?;

@@ -2193,6 +2193,7 @@ dependencies = [
  "chrono",
  "futures",
  "rand 0.10.4",
+ "regex",
  "rseip",
  "rusqlite",
  "serde",

@@ -4,6 +4,7 @@ pub mod app;
 pub mod config;
 pub mod decision;
 pub mod drivers;
+pub mod rules;
 pub mod script;
 pub mod store;
 pub mod tagdb;

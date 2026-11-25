@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "description": "Smistamento colli allo scanner SC1 per prefisso barcode",
+  "rules": [
+    { "id": "r1", "name": "Lettura fallita", "when": [ { "field": "barcode", "op": "in", "value": "NOREAD," } ],
+      "then": { "outputs": { "destination": "99", "result": "1" }, "log": "NOREAD → scarto" } },
+    { "id": "r2", "name": "Sovrappeso", "when": [ { "field": "weight", "op": "gt", "value": "tag:WCS.MaxWeight" } ],
+      "then": { "outputs": { "destination": "99", "result": "2" }, "log": "{barcode} sovrappeso ({weight})" } },
+    { "id": "r3", "name": "Nord Italia → Uscita 1", "mode": "any",
+      "when": [ { "field": "barcode", "op": "starts_with", "value": "IT-MI" }, { "field": "barcode", "op": "starts_with", "value": "IT-TO" }, { "field": "barcode", "op": "starts_with", "value": "IT-BO" } ],
+      "then": { "outputs": { "destination": "1", "result": "0" } } },
+    { "id": "r4", "name": "Centro-Sud → Uscita 2", "when": [ { "field": "barcode", "op": "regex", "value": "^IT-(RM|NA|FI)" } ],
+      "then": { "outputs": { "destination": "2", "result": "0" } } },
+    { "id": "r5", "name": "Estero → Uscita 3", "when": [ { "field": "barcode", "op": "regex", "value": "^(DE|FR|ES)-" }, { "field": "tag:WCS.Out3Enabled", "op": "eq", "value": "true" } ],
+      "then": { "outputs": { "destination": "3", "result": "0" } } },
+    { "id": "r6", "name": "Estero, uscita 3 disabilitata → bilancia 1/2", "when": [ { "field": "barcode", "op": "regex", "value": "^(DE|FR|ES)-" } ],
+      "then": { "outputs": { "destination": "1|2", "result": "0" }, "log": "{barcode}: uscita 3 disabilitata, bilanciamento" } }
+  ],
+  "default": { "outputs": { "destination": "99", "result": "3" }, "log": "{barcode}: destinazione sconosciuta" }
+}

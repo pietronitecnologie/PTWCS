@@ -12,6 +12,7 @@ bytes = { version = "1", optional = true }
 chrono = "0.4.45"
 futures = "0.3.34"
 rand = "0.10.4"
+regex = "1"
 rseip = { version = "0.3", optional = true }
 rusqlite = { version = "0.43.0", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }

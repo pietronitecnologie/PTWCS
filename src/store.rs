@@ -24,6 +24,8 @@ pub struct DecisionRecord {
     /// ok | fallback | error
     pub status: String,
     pub error: Option<String>,
+    /// Regola grafica che ha deciso (None = script o fallback).
+    pub rule: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -55,6 +57,8 @@ impl Store {
              CREATE INDEX IF NOT EXISTS ix_hist ON history(tag, ts);
              CREATE TABLE IF NOT EXISTS audit(ts INTEGER, user TEXT, action TEXT, detail TEXT);",
         )?;
+        // migrazione: colonna 'rule' aggiunta in seguito (errore ignorato se esiste già)
+        let _ = conn.execute("ALTER TABLE decisions ADD COLUMN rule TEXT", []);
         Ok(Self { conn: Arc::new(Mutex::new(conn)) })
     }
 
@@ -69,8 +73,8 @@ impl Store {
     pub async fn log_decision(&self, r: DecisionRecord) -> Result<()> {
         self.run(move |c| {
             c.execute(
-                "INSERT INTO decisions VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
-                params![r.ts, r.point, r.request_id, r.inputs.to_string(), r.outputs.to_string(), r.duration_ms, r.status, r.error],
+                "INSERT INTO decisions(ts,point,request_id,inputs,outputs,duration_ms,status,error,rule) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+                params![r.ts, r.point, r.request_id, r.inputs.to_string(), r.outputs.to_string(), r.duration_ms, r.status, r.error, r.rule],
             )
         })
         .await?;
@@ -80,7 +84,7 @@ impl Store {
     pub async fn decisions(&self, point: Option<String>, limit: u32) -> Result<Vec<DecisionRecord>> {
         self.run(move |c| {
             let mut st = c.prepare(
-                "SELECT ts,point,request_id,inputs,outputs,duration_ms,status,error FROM decisions
+                "SELECT ts,point,request_id,inputs,outputs,duration_ms,status,error,rule FROM decisions
                  WHERE (?1 IS NULL OR point=?1) ORDER BY ts DESC, rowid DESC LIMIT ?2",
             )?;
             st.query_map(params![point, limit], |r| {
@@ -93,6 +97,7 @@ impl Store {
                     duration_ms: r.get(5)?,
                     status: r.get(6)?,
                     error: r.get(7)?,
+                    rule: r.get(8)?,
                 })
             })?
             .collect()

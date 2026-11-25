@@ -93,27 +93,54 @@ async fn handle(app: &AppState, dp: &DecisionPointDef, req: i64) -> Result<()> {
         dp.inputs.iter().map(|(alias, tag)| (alias.clone(), value_to_json(&app.db.value(tag)))).collect();
     let mut payload = inputs.clone();
     payload.insert("request_id".into(), json!(req));
-    let ctx = json!({"tags": tags_ctx(app), "point": dp.name});
-
-    let (outputs, status, error, extra_writes) = match app
-        .scripts
-        .call(&dp.function, Json::Object(payload), ctx, Duration::from_millis(dp.timeout_ms))
-        .await
-        .and_then(|r| validate(dp, &r.result).map(|o| (o, r)))
-    {
-        Ok((o, r)) => {
-            for l in &r.logs {
-                app.log("info", &dp.name, l.clone());
-            }
-            (o, "ok", None, r.writes)
+    // 1) regole grafiche
+    let rule_inputs: std::collections::HashMap<String, Value> =
+        payload.iter().map(|(k, v)| (k.clone(), json_to_value(v))).collect();
+    let (outcome, _) = app.rules.evaluate(&dp.name, &rule_inputs, &|t| app.db.value(t), false);
+    let mut rule_name: Option<String> = None;
+    let mut rule_outputs: Option<BTreeMap<String, Value>> = None;
+    let mut script_fn = dp.function.clone();
+    if let Some(o) = outcome {
+        if let Some(l) = &o.log {
+            app.log("info", &dp.name, l.clone());
         }
+        rule_name = Some(o.rule_name.clone());
+        if o.script.is_some() {
+            script_fn = o.script.clone();
+        }
+        if !o.outputs.is_empty() && o.script.is_none() {
+            rule_outputs = Some(o.outputs);
+        }
+    }
+
+    let result: Result<(BTreeMap<String, Value>, Vec<(String, Json)>)> = if let Some(o) = rule_outputs {
+        // uscite non specificate dalla regola -> fallback del punto
+        complete(dp, o).map(|o| (o, vec![]))
+    } else if let Some(func) = &script_fn {
+        // 2) funzione Python (delegata da regola, o nessuna regola scattata)
+        let ctx = json!({"tags": tags_ctx(app), "point": dp.name});
+        match app.scripts.call(func, Json::Object(payload), ctx, Duration::from_millis(dp.timeout_ms)).await {
+            Ok(r) => {
+                for l in &r.logs {
+                    app.log("info", &dp.name, l.clone());
+                }
+                validate(dp, &r.result).map(|o| (o, r.writes))
+            }
+            Err(e) => Err(e),
+        }
+    } else {
+        Err(anyhow!("nessuna regola applicabile e nessuno script configurato"))
+    };
+
+    let (outputs, status, error, extra_writes) = match result {
+        Ok((o, w)) => (o, "ok", None, w),
         Err(e) => {
             let msg = format!("{e:#}");
-            tracing::warn!(point = %dp.name, req, "script fallito: {msg}");
+            tracing::warn!(point = %dp.name, req, "decisione fallita: {msg}");
             if dp.fallback.is_empty() {
                 // Nessun fallback: non rispondiamo, il PLC andrà in timeout
                 // e applicherà la propria logica di default.
-                record(app, dp, req, inputs, BTreeMap::new(), t0, "error", Some(msg.clone())).await;
+                record(app, dp, req, inputs, BTreeMap::new(), t0, "error", Some(msg.clone()), rule_name).await;
                 return Ok(());
             }
             (dp.fallback.clone(), "fallback", Some(msg), vec![])
@@ -129,7 +156,7 @@ async fn handle(app: &AppState, dp: &DecisionPointDef, req: i64) -> Result<()> {
     for e in apply_script_writes(app, &extra_writes, &dp.name).await {
         app.log("warn", &dp.name, format!("scrittura script fallita {e}"));
     }
-    record(app, dp, req, inputs, outputs, t0, status, error).await;
+    record(app, dp, req, inputs, outputs, t0, status, error, rule_name).await;
     Ok(())
 }
 
@@ -144,6 +171,11 @@ fn validate(dp: &DecisionPointDef, res: &Json) -> Result<BTreeMap<String, Value>
         }
         out.insert(k.clone(), json_to_value(v));
     }
+    complete(dp, out)
+}
+
+/// Completa le uscite mancanti con il fallback del punto.
+fn complete(dp: &DecisionPointDef, mut out: BTreeMap<String, Value>) -> Result<BTreeMap<String, Value>> {
     for k in dp.outputs.keys() {
         if !out.contains_key(k) {
             let fb = dp.fallback.get(k).ok_or_else(|| anyhow!("uscita '{k}' mancante e senza fallback"))?;
@@ -163,6 +195,7 @@ async fn record(
     t0: Instant,
     status: &str,
     error: Option<String>,
+    rule: Option<String>,
 ) {
     let rec = DecisionRecord {
         ts: now_ms(),
@@ -173,6 +206,7 @@ async fn record(
         duration_ms: t0.elapsed().as_secs_f64() * 1000.0,
         status: status.into(),
         error,
+        rule,
     };
     tracing::info!(point = %rec.point, req, status, ms = format!("{:.1}", rec.duration_ms), "decisione {}", rec.outputs);
     let _ = app.events.send(Event::Decision(rec.clone()));

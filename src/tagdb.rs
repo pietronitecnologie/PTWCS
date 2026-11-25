@@ -43,11 +43,25 @@ pub struct WriteCmd {
     pub ack: oneshot::Sender<Result<()>>,
 }
 
+/// Definizioni dei tag (ordine di configurazione + indice per nome).
+#[derive(Default)]
+struct Defs {
+    list: Vec<TagDef>,
+    idx: HashMap<String, usize>,
+}
+
+impl Defs {
+    fn new(list: Vec<TagDef>) -> Self {
+        let idx = list.iter().enumerate().map(|(i, d)| (d.name.clone(), i)).collect();
+        Self { list, idx }
+    }
+}
+
 pub struct TagDb {
-    defs: HashMap<String, TagDef>,
+    defs: RwLock<Defs>,
     states: RwLock<HashMap<String, TagState>>,
     tx: broadcast::Sender<TagUpdate>,
-    writers: HashMap<String, mpsc::Sender<WriteCmd>>,
+    writers: RwLock<HashMap<String, mpsc::Sender<WriteCmd>>>,
 }
 
 pub fn now_ms() -> i64 {
@@ -55,28 +69,58 @@ pub fn now_ms() -> i64 {
 }
 
 impl TagDb {
-    pub fn new(defs: &[TagDef], writers: HashMap<String, mpsc::Sender<WriteCmd>>) -> Arc<Self> {
+    pub fn new(defs: &[TagDef]) -> Arc<Self> {
         let (tx, _) = broadcast::channel(8192);
-        let states = defs
-            .iter()
-            .map(|d| {
-                (d.name.clone(), TagState { value: Value::Null, quality: Quality::Init, ts: now_ms() })
-            })
-            .collect();
-        Arc::new(Self {
-            defs: defs.iter().map(|d| (d.name.clone(), d.clone())).collect(),
-            states: RwLock::new(states),
+        let db = Arc::new(Self {
+            defs: RwLock::new(Defs::default()),
+            states: RwLock::new(HashMap::new()),
             tx,
-            writers,
-        })
+            writers: RwLock::new(HashMap::new()),
+        });
+        db.set_defs(defs.to_vec());
+        db
+    }
+
+    /// Sostituisce le definizioni (modifica a caldo dal Designer). I tag
+    /// nuovi partono in qualità Init, quelli rimossi spariscono, quelli
+    /// rimasti conservano il valore.
+    pub fn set_defs(&self, list: Vec<TagDef>) {
+        {
+            let mut st = self.states.write().unwrap();
+            st.retain(|k, _| list.iter().any(|d| &d.name == k));
+            for d in &list {
+                st.entry(d.name.clone())
+                    .or_insert_with(|| TagState { value: Value::Null, quality: Quality::Init, ts: now_ms() });
+            }
+        }
+        *self.defs.write().unwrap() = Defs::new(list);
+    }
+
+    /// Registra (o sostituisce) la coda di scrittura di un driver.
+    pub fn set_writer(&self, driver: &str, tx: Option<mpsc::Sender<WriteCmd>>) {
+        let mut w = self.writers.write().unwrap();
+        match tx {
+            Some(tx) => {
+                w.insert(driver.to_string(), tx);
+            }
+            None => {
+                w.remove(driver);
+            }
+        }
+    }
+
+    /// Elenco delle definizioni nell'ordine di configurazione.
+    pub fn defs(&self) -> Vec<TagDef> {
+        self.defs.read().unwrap().list.clone()
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<TagUpdate> {
         self.tx.subscribe()
     }
 
-    pub fn def(&self, name: &str) -> Option<&TagDef> {
-        self.defs.get(name)
+    pub fn def(&self, name: &str) -> Option<TagDef> {
+        let d = self.defs.read().unwrap();
+        d.idx.get(name).map(|&i| d.list[i].clone())
     }
 
     pub fn get(&self, name: &str) -> Option<TagState> {
@@ -112,8 +156,15 @@ impl TagDb {
 
     /// Marca come Bad tutti i tag di un driver (connessione persa).
     pub fn set_driver_bad(&self, driver: &str) {
-        let names: Vec<_> =
-            self.defs.values().filter(|d| d.driver == driver).map(|d| d.name.clone()).collect();
+        let names: Vec<_> = self
+            .defs
+            .read()
+            .unwrap()
+            .list
+            .iter()
+            .filter(|d| d.driver == driver)
+            .map(|d| d.name.clone())
+            .collect();
         for n in names {
             let v = self.value(&n);
             self.update(&n, v, Quality::Bad);
@@ -123,14 +174,17 @@ impl TagDb {
     /// Scrive un valore sul PLC tramite il driver proprietario del tag.
     /// Ritorna solo dopo la conferma del driver (o errore/timeout).
     pub async fn write(&self, name: &str, value: Value) -> Result<()> {
-        let def = self.defs.get(name).ok_or_else(|| anyhow!("tag sconosciuto: {name}"))?;
+        let def = self.def(name).ok_or_else(|| anyhow!("tag sconosciuto: {name}"))?;
         if !def.writable {
             return Err(anyhow!("tag {name} non scrivibile"));
         }
         let value = value.coerce(def.dtype)?;
         let tx = self
             .writers
+            .read()
+            .unwrap()
             .get(&def.driver)
+            .cloned()
             .ok_or_else(|| anyhow!("driver {} non attivo", def.driver))?;
         let (ack, rx) = oneshot::channel();
         tx.send(WriteCmd { tag: def.clone(), value: value.clone(), ack })
