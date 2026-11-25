@@ -215,6 +215,10 @@ Le richieste hanno timeout breve e cache. Per i token negli header usa `${VARIAB
 - **Elementi SVG animabili** (per `id`): `fill`, `stroke`, `visible`, `opacity`, `text`, `rotate` (con perno `data-pivot`), `tx`/`ty` (traslazione), `flow` (flusso), `blink`, `spin`.
 - **Componenti**: nastro, motore, lampada, valore, testo, pulsante, serbatoio, barra, forme, linea/tubo animato, simbolo SVG, vista incorporata, **trend** (storico più live).
 
+**Scala della libreria**: 30 unità corrispondono alla larghezza di un nastro.
+- I trasporti (nastri, rulliere, accumulo, catenarie, sorter, corsie traslo, tubazioni) sono a **lunghezza variabile**: allungandoli aumenta il numero di rulli, non la loro dimensione; aumentandone la larghezza crescono rulli e dettagli. I binding possono usare `param('_len')`, la lunghezza corrente del simbolo.
+- Tutti gli altri simboli hanno una **dimensione nativa** coerente con questa scala (usata al drop) e si ridimensionano senza deformarsi.
+
 La libreria si rigenera con `python3 tools/gen_library.py config`. Il generatore produce simboli, UDT, binding predefiniti e faceplate partendo dalle stesse definizioni.
 
 ## Script Python (`scripts/rules.py`)

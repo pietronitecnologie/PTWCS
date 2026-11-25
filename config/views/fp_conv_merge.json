@@ -72,7 +72,7 @@
    "x": 300,
    "y": 40,
    "w": 140,
-   "h": 77,
+   "h": 78,
    "rotation": 0,
    "props": {
     "symbol": "conv_merge"

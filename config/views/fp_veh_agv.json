@@ -70,9 +70,9 @@
    "type": "symbol",
    "name": "preview",
    "x": 300,
-   "y": 30,
+   "y": 31,
    "w": 140,
-   "h": 97,
+   "h": 96,
    "rotation": 0,
    "props": {
     "symbol": "veh_agv"

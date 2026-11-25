@@ -47,9 +47,11 @@ export const COMPONENTS = {
     ],
     render(p, w, h) {
       const col = bool(p.fault) ? p.colorFault : bool(p.running) ? p.colorRun : p.colorStop;
+      // stessa scala della libreria: rulli larghi h/6 con passo h/4 (più lungo = più rulli)
       const r = Math.min(h / 2, 14);
       let rollers = '';
-      for (let x = r; x < w - r + 1; x += Math.max(2 * r, 24)) rollers += `<circle cx="${x}" cy="${h / 2}" r="${r * 0.35}" fill="#0f172a" opacity=".55"/>`;
+      const pitch = h / 4, rw = h / 6;
+      for (let x = pitch / 2; x < w - rw; x += pitch) rollers += `<rect x="${(x - rw / 2).toFixed(1)}" y="${(h * 0.12).toFixed(1)}" width="${rw.toFixed(1)}" height="${(h * 0.76).toFixed(1)}" rx="${(rw / 3).toFixed(1)}" fill="#0f172a" opacity=".35"/>`;
       const dir = p.direction === 'left' ? -1 : 1;
       const ax = w / 2, ay = h / 2, s = Math.min(h * 0.3, 10);
       const arrow = `<path d="M${ax - dir * s} ${ay - s} L${ax + dir * s} ${ay} L${ax - dir * s} ${ay + s}" fill="none" stroke="#fff" stroke-width="2.5" opacity=".85"/>`;
@@ -177,7 +179,11 @@ export const COMPONENTS = {
     render(p, w, h, ctx) {
       const s = ctx.symbols?.[p.symbol];
       if (!s) return `<rect width="${w}" height="${h}" fill="#1e293b" stroke="#ef4444" stroke-dasharray="4"/>${textEl(w / 2, h / 2, p.symbol ? `? ${p.symbol}` : 'simbolo', { size: 12 })}`;
-      return `<svg width="${w}" height="${h}" viewBox="${esc(s.viewBox)}" preserveAspectRatio="none" overflow="visible"
+      // length: lunghezza variabile in scala (pattern ripetuti); uniform: proporzioni fisse; altrimenti stira (SVG importati)
+      let vb = s.viewBox, par = 'none';
+      if (s.fit === 'length') { const vh = s.vb[3]; vb = `${s.vb[0]} ${s.vb[1]} ${(w * vh / h).toFixed(2)} ${vh}`; }
+      else if (s.fit === 'uniform') par = 'xMidYMid meet';
+      return `<svg width="${w}" height="${h}" viewBox="${esc(vb)}" preserveAspectRatio="${par}" overflow="visible"
         ${p.fill ? `fill="${esc(p.fill)}"` : ''}>${s.body.replaceAll('__P__', `${ctx.uid}_`)}</svg>`;
     },
     // Applica le proprietà per elemento (props.elements.<id>.<attr>)
@@ -463,7 +469,7 @@ export function sanitizeSvg(text) {
   return new XMLSerializer().serializeToString(svg);
 }
 
-const NON_BINDABLE = ['defs', 'lineargradient', 'radialgradient', 'stop', 'clippath', 'mask', 'style', 'title', 'desc'];
+const NON_BINDABLE = ['defs', 'lineargradient', 'radialgradient', 'stop', 'clippath', 'mask', 'style', 'title', 'desc', 'pattern'];
 
 /** Prepara un simbolo: id unici per istanza (prefisso __P__), elementi marcati con data-el, metadati. */
 export function compileSymbol(svgText) {
@@ -484,8 +490,11 @@ export function compileSymbol(svgText) {
     body = body.replace(new RegExp(`url\\(\\s*#${e}\\s*\\)`, 'g'), `url(#__P__${id})`)
       .replace(new RegExp(`href="#${e}"`, 'g'), `href="#__P__${id}"`);
   }
+  const viewBox = svg.getAttribute('viewBox') || '0 0 100 100';
+  const native = (svg.getAttribute('data-native') || '').split(/[\s,]+/).map(Number).filter((x) => x > 0);
   return {
-    viewBox: svg.getAttribute('viewBox') || '0 0 100 100', body, title,
+    viewBox, body, title, vb: viewBox.split(/[\s,]+/).map(Number),
+    fit: svg.getAttribute('data-fit') || '', native: native.length === 2 ? native : null,
     category: svg.getAttribute('data-category') || 'Importati',
     udt: svg.getAttribute('data-udt') || '', faceplate: svg.getAttribute('data-faceplate') || '',
     elements: ids.filter((x) => !NON_BINDABLE.includes(x.tag)),
@@ -699,6 +708,15 @@ export class ViewRenderer {
       const def = COMPONENTS[c.type];
       if (!def) return;
       const scope = scopeFor(c, this.scope);
+      if (c.type === 'symbol') {
+        // lunghezza corrente (unità del simbolo) e scala, per i binding dipendenti dalla lunghezza
+        const sd = this.symbols[c.props?.symbol];
+        if (sd) {
+          const wpx = Math.max(1, num(c.w, 100)), hpx = Math.max(1, num(c.h, 100));
+          scope._scale = sd.fit === 'length' ? hpx / sd.vb[3] : Math.min(wpx / sd.vb[2], hpx / sd.vb[3]);
+          scope._len = sd.fit === 'length' ? wpx / scope._scale : sd.vb[2];
+        }
+      }
       const { props, bad, errors } = resolveProps(c, this.live, scope);
       if (c.type === 'trend') props.tags = subst(String(props.tags || ''), scope);
       for (const k of ['wh', 'aisle', 'highlight', 'title']) if (typeof props[k] === 'string') props[k] = subst(props[k], scope);

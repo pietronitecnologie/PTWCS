@@ -31,7 +31,7 @@ header.top nav a.active, header.top nav a:hover { color: var(--text); background
 .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--alarm); color: #fff; font-size: 11px; text-align: center; margin-left: 4px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--alarm); display: inline-block; }
 .dot.on { background: var(--ok); }
-main.page { height: calc(100% - 48px - 34px); overflow: auto; padding: 14px; }
+main.page { height: calc(100% - 48px - 34px - 46px); overflow: auto; padding: 14px; }
 main.page.view { padding: 0; overflow: hidden; }
 .viewhost { width: 100%; height: 100%; }
 .viewhost svg { width: 100%; height: 100%; display: block; }
@@ -88,3 +88,29 @@ text { user-select: none; }
 .area-card.sev-warning { border-left-color: var(--warn); } .area-card.sev-alarm { border-left-color: var(--alarm); } .area-card.sev-critical { border-left-color: var(--crit); background: #2a0f12; }
 .area-card .big { font-size: 26px; font-weight: 700; }
 .grid-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-bottom: 8px; }
+
+/* barra aree (panoramica impianto, stile PCS7) */
+.areabar { height: 46px; display: flex; align-items: stretch; gap: 4px; padding: 5px 10px; background: #0d1628; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.areabtn { position: relative; display: flex; flex-direction: column; justify-content: center; min-width: 118px; padding: 2px 10px 2px 12px;
+  background: #1a2540; border: 1px solid #2c3b5e; border-radius: 4px; cursor: pointer; user-select: none; line-height: 1.15; }
+.areabtn:hover { border-color: var(--accent); }
+.areabtn.open { border-color: var(--accent); background: #22305a; }
+.areabtn .an { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
+.areabtn .ai { display: flex; gap: 3px; margin-top: 2px; }
+.areabtn .ai span { min-width: 16px; height: 13px; border-radius: 2px; font-size: 10px; font-weight: 700; text-align: center; line-height: 13px; padding: 0 2px; background: #2a3552; color: #64748b; }
+.areabtn .ai .c.on { background: var(--crit); color: #fff; } .areabtn .ai .a.on { background: var(--alarm); color: #fff; }
+.areabtn .ai .w.on { background: var(--warn); color: #111; } .areabtn .ai .i.on { background: var(--info); color: #082f49; }
+.areabtn .ai .q.on { background: #7c3aed; color: #fff; }
+.areabtn::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; border-radius: 4px 0 0 4px; background: var(--ok); }
+.areabtn.sev-info::before { background: var(--info); } .areabtn.sev-warning::before { background: var(--warn); }
+.areabtn.sev-alarm::before { background: var(--alarm); } .areabtn.sev-critical::before { background: var(--crit); }
+.areabtn.blink::before, .areabtn.blink .ai .on { animation: abl 0.9s steps(2, jump-none) infinite; }
+@keyframes abl { 50% { opacity: .25; } }
+.areabtn.current .an { color: #93c5fd; }
+.areamenu { position: fixed; z-index: 700; min-width: 260px; max-height: 70vh; overflow: auto; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 16px 40px #000c; padding: 6px; }
+.areamenu .grp { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; padding: 8px 8px 4px; display: flex; gap: 6px; align-items: center; }
+.areamenu a { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 5px; color: var(--text); text-decoration: none; }
+.areamenu a:hover { background: var(--panel2); }
+.areamenu .dotsev { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); flex: none; }
+.areamenu .dotsev.warning { background: var(--warn); } .areamenu .dotsev.alarm { background: var(--alarm); } .areamenu .dotsev.critical { background: var(--crit); } .areamenu .dotsev.info { background: var(--info); }

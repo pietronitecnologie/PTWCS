@@ -6,7 +6,7 @@ import {
 } from './render.js';
 import { P, loadProject, saveProject, onProject } from './project.js';
 import { whCellDialog } from './render.js';
-import { kvEditor } from './forms.js';
+import { kvEditor, makeSplitter } from './forms.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
@@ -329,14 +329,16 @@ $('#center').addEventListener('drop', (e) => {
     const vb = (s?.viewBox || '0 0 100 100').split(/[\s,]+/).map(Number);
     const k = 100 / Math.max(vb[2], vb[3]);
     const m = S.lib[sym];
-    const extra = { w: Math.round(vb[2] * k), h: Math.round(vb[3] * k), props: { symbol: sym } };
+    // dimensione nativa in scala (nastro = 30) se definita dalla libreria
+    const [nw, nh] = s?.native || [Math.round(vb[2] * k), Math.round(vb[3] * k)];
+    const extra = { w: nw, h: nh, props: { symbol: sym } };
     if (m) {
       // simbolo di libreria: proprietà personalizzata 'device' (istanza UDT), binding e faceplate
       extra.custom = { device: '' };
       extra.bindings = structuredClone(m.bindings || {});
       extra.events = { onClick: { actions: [{ kind: 'popup', view: m.faceplate, params: { device: '{device}' } }] } };
     }
-    addComponent('symbol', p.x - vb[2] * k / 2, p.y - vb[3] * k / 2, extra);
+    addComponent('symbol', p.x - nw / 2, p.y - nh / 2, extra);
   } else if (tag) {
     // su un componente esistente: collega la proprietà principale
     const g = document.elementFromPoint(e.clientX, e.clientY)?.closest('g[data-id]');
@@ -886,6 +888,8 @@ live.on('tags', () => {
 live.on('status', (st) => { if (JSON.stringify(st.scripts.functions) !== JSON.stringify(S.scripts.functions)) S.scripts = st.scripts; });
 
 // ================================================================ workspace
+makeSplitter($('[data-split="left"]'), $('#ws-views'), '--lw', { dir: 1, min: 180, max: 520, def: 250 });
+makeSplitter($('[data-split="right"]'), $('#ws-views'), '--rw', { dir: -1, min: 240, max: 720, def: 330 });
 const wsLoaded = {};
 async function showWorkspace(ws) {
   document.querySelectorAll('.wstabs [data-ws]').forEach((b) => b.classList.toggle('on', b.dataset.ws === ws));
@@ -894,7 +898,18 @@ async function showWorkspace(ws) {
   localStorage.setItem('designer.ws', ws);
   if (ws === 'views') { renderProps(); return; }
   const mod = { tags: './ws_tags.js', sort: './ws_sort.js', project: './ws_project.js' }[ws];
-  if (!wsLoaded[ws]) wsLoaded[ws] = (await import(mod)).mount($(`#ws-${ws}`), { live, S, toast });
+  if (!wsLoaded[ws]) {
+    wsLoaded[ws] = (await import(mod)).mount($(`#ws-${ws}`), { live, S, toast });
+    // separatore del pannello laterale del workspace
+    const wsl = $(`#ws-${ws} .wsl`);
+    if (wsl && !wsl.querySelector('.splitter')) {
+      const h = document.createElement('div');
+      h.className = 'splitter';
+      h.title = 'Trascina per ridimensionare (doppio click = predefinito)';
+      wsl.insertBefore(h, wsl.children[1]);
+      makeSplitter(h, wsl, '--sw', { dir: 1, min: 180, max: 600, def: 260, key: `split-ws-${ws}` });
+    }
+  }
   else wsLoaded[ws].show?.();
 }
 document.querySelectorAll('.wstabs [data-ws]').forEach((b) => (b.onclick = () => showWorkspace(b.dataset.ws)));

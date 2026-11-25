@@ -70,9 +70,9 @@
    "type": "symbol",
    "name": "preview",
    "x": 300,
-   "y": 31,
+   "y": 30,
    "w": 140,
-   "h": 96,
+   "h": 97,
    "rotation": 0,
    "props": {
     "symbol": "div_pusher"

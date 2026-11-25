@@ -1,4 +1,2388 @@
 {
+ "conv_telescopic": {
+  "title": "Nastro telescopico (carico camion)",
+  "category": "Intralogistica/Nastri e rulliere",
+  "udt": "Trasporto",
+  "faceplate": "fp_conv_telescopic",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   125,
+   34
+  ]
+ },
+ "conv_merge": {
+  "title": "Confluenza 45°",
+  "category": "Intralogistica/Curve e confluenze",
+  "udt": "Trasporto",
+  "faceplate": "fp_conv_merge",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.branch.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.flow2.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow2.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   130,
+   72
+  ]
+ },
+ "conv_spiral": {
+  "title": "Spirale (vista in pianta)",
+  "category": "Intralogistica/Curve e confluenze",
+  "udt": "Trasporto",
+  "faceplate": "fp_conv_spiral",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   120,
+   120
+  ]
+ },
+ "div_swing": {
+  "title": "Deviatore a paletta",
+  "category": "Intralogistica/Deviatori e trasferimenti",
+  "udt": "Deviatore",
+  "faceplate": "fp_div_swing",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Position') > 0 ? '#f59e0b' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flap.rotate": {
+    "kind": "tag",
+    "tag": "{device}.Position",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "0",
+       "out": "0"
+      },
+      {
+       "in": ">0",
+       "out": "-28"
+      }
+     ],
+     "default": "0"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   106,
+   69
+  ]
+ },
+ "div_pusher": {
+  "title": "Deviatore a spintore",
+  "category": "Intralogistica/Deviatori e trasferimenti",
+  "udt": "Deviatore",
+  "faceplate": "fp_div_pusher",
+  "bindings": {
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Position') > 0 ? '#f59e0b' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.pusher.ty": {
+    "kind": "tag",
+    "tag": "{device}.Position",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": ">0",
+       "out": "42"
+      }
+     ],
+     "default": "0"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   100,
+   69
+  ]
+ },
+ "div_popup": {
+  "title": "Deviatore a ruote pop-up",
+  "category": "Intralogistica/Deviatori e trasferimenti",
+  "udt": "Deviatore",
+  "faceplate": "fp_div_popup",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.wheels.rotate": {
+    "kind": "tag",
+    "tag": "{device}.Position",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "1",
+       "out": "-45"
+      },
+      {
+       "in": "2",
+       "out": "45"
+      }
+     ],
+     "default": "0"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   30,
+   30
+  ]
+ },
+ "div_transfer": {
+  "title": "Trasferitore a catene 90°",
+  "category": "Intralogistica/Deviatori e trasferimenti",
+  "udt": "Deviatore",
+  "faceplate": "fp_div_transfer",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.chains.fill": {
+    "kind": "tag",
+    "tag": "{device}.Position",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": ">0",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#334155"
+    }
+   },
+   "elements.flow2.visible": {
+    "kind": "expr",
+    "expr": "tag('{device}.Position') > 0"
+   },
+   "elements.flow2.flow": {
+    "kind": "expr",
+    "expr": "tag('{device}.Position') > 0"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   30,
+   30
+  ]
+ },
+ "div_turntable": {
+  "title": "Tavola rotante",
+  "category": "Intralogistica/Deviatori e trasferimenti",
+  "udt": "Deviatore",
+  "faceplate": "fp_div_turntable",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.table.rotate": {
+    "kind": "tag",
+    "tag": "{device}.Angle"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   42,
+   42
+  ]
+ },
+ "sort_chute": {
+  "title": "Scivolo / baia di uscita",
+  "category": "Intralogistica/Sorter",
+  "udt": "Scivolo",
+  "faceplate": "fp_sort_chute",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Enabled') === false ? '#334155' : '#64748b'"
+   },
+   "elements.full.visible": {
+    "kind": "tag",
+    "tag": "{device}.Full"
+   },
+   "elements.lamp.fill": {
+    "kind": "tag",
+    "tag": "{device}.Lamp",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#334155"
+    }
+   },
+   "elements.lamp.blink": {
+    "kind": "tag",
+    "tag": "{device}.Lamp"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   40,
+   75
+  ]
+ },
+ "sort_induct": {
+  "title": "Stazione di induzione",
+  "category": "Intralogistica/Sorter",
+  "udt": "Trasporto",
+  "faceplate": "fp_sort_induct",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   144,
+   81
+  ]
+ },
+ "lift_vertical": {
+  "title": "Elevatore verticale (vista laterale)",
+  "category": "Intralogistica/Elevatori e lift",
+  "udt": "Elevatore",
+  "faceplate": "fp_lift_vertical",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
+   },
+   "elements.carriage.ty": {
+    "kind": "expr",
+    "expr": "-(tag('{device}.PosPct') || 0) * 1.2"
+   },
+   "elements.drive.fill": {
+    "kind": "tag",
+    "tag": "{device}.Moving",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#22c55e"
+      }
+     ],
+     "default": "#334155"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   84,
+   111
+  ]
+ },
+ "lift_platform": {
+  "title": "Lift (vista in pianta)",
+  "category": "Intralogistica/Elevatori e lift",
+  "udt": "Elevatore",
+  "faceplate": "fp_lift_platform",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
+   },
+   "elements.level.text": {
+    "kind": "expr",
+    "expr": "'P' + (tag('{device}.Level') ?? '-')"
+   },
+   "elements.up.visible": {
+    "kind": "expr",
+    "expr": "tag('{device}.Moving') && tag('{device}.Target') > tag('{device}.Level')"
+   },
+   "elements.down.visible": {
+    "kind": "expr",
+    "expr": "tag('{device}.Moving') && tag('{device}.Target') < tag('{device}.Level')"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   40,
+   40
+  ]
+ },
+ "door_rapid": {
+  "title": "Porta rapida avvolgibile",
+  "category": "Intralogistica/Porte",
+  "udt": "Porta",
+  "faceplate": "fp_door_rapid",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.curtain.ty": {
+    "kind": "expr",
+    "expr": "-(tag('{device}.OpenPct') || 0) * 1.25"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
+   },
+   "elements.lamp.fill": {
+    "kind": "tag",
+    "tag": "{device}.Moving",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#334155"
+    }
+   },
+   "elements.lamp.blink": {
+    "kind": "tag",
+    "tag": "{device}.Moving"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   56,
+   60
+  ]
+ },
+ "door_fire": {
+  "title": "Porta tagliafuoco scorrevole (pianta)",
+  "category": "Intralogistica/Porte",
+  "udt": "Porta",
+  "faceplate": "fp_door_fire",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.panel.tx": {
+    "kind": "expr",
+    "expr": "-(tag('{device}.OpenPct') || 0) * 0.95"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   99,
+   27
+  ]
+ },
+ "door_dock": {
+  "title": "Baia di carico con portone sezionale",
+  "category": "Intralogistica/Porte",
+  "udt": "Porta",
+  "faceplate": "fp_door_dock",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.panel.ty": {
+    "kind": "expr",
+    "expr": "-(tag('{device}.OpenPct') || 0) * 1.3"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : '#64748b'"
+   },
+   "elements.lamp_green.fill": {
+    "kind": "tag",
+    "tag": "{device}.Open",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#22c55e"
+      }
+     ],
+     "default": "#14532d"
+    }
+   },
+   "elements.lamp_red.fill": {
+    "kind": "tag",
+    "tag": "{device}.Open",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "false",
+       "out": "#ef4444"
+      }
+     ],
+     "default": "#7f1d1d"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   75,
+   80
+  ]
+ },
+ "asrs_rack": {
+  "title": "Scaffalatura porta-pallet (fronte)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "Scaffale",
+  "faceplate": "fp_asrs_rack",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.c1.visible": {
+    "kind": "tag",
+    "tag": "{device}.C1"
+   },
+   "elements.c2.visible": {
+    "kind": "tag",
+    "tag": "{device}.C2"
+   },
+   "elements.c3.visible": {
+    "kind": "tag",
+    "tag": "{device}.C3"
+   },
+   "elements.c4.visible": {
+    "kind": "tag",
+    "tag": "{device}.C4"
+   },
+   "elements.c5.visible": {
+    "kind": "tag",
+    "tag": "{device}.C5"
+   },
+   "elements.c6.visible": {
+    "kind": "tag",
+    "tag": "{device}.C6"
+   },
+   "elements.c7.visible": {
+    "kind": "tag",
+    "tag": "{device}.C7"
+   },
+   "elements.c8.visible": {
+    "kind": "tag",
+    "tag": "{device}.C8"
+   },
+   "elements.c9.visible": {
+    "kind": "tag",
+    "tag": "{device}.C9"
+   },
+   "elements.c10.visible": {
+    "kind": "tag",
+    "tag": "{device}.C10"
+   },
+   "elements.c11.visible": {
+    "kind": "tag",
+    "tag": "{device}.C11"
+   },
+   "elements.c12.visible": {
+    "kind": "tag",
+    "tag": "{device}.C12"
+   },
+   "elements.body.fill": {
+    "kind": "tag",
+    "tag": "{device}.FillPct",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": ">90",
+       "out": "#ef4444"
+      },
+      {
+       "in": ">70",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#22c55e"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   168,
+   134
+  ]
+ },
+ "asrs_crane": {
+  "title": "Traslo (fronte)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "Traslo",
+  "faceplate": "fp_asrs_crane",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.mast.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.PctX') || 0) * 2"
+   },
+   "elements.carriage.ty": {
+    "kind": "expr",
+    "expr": "-(tag('{device}.PctY') || 0) * 1.4"
+   },
+   "elements.forks.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork') || 0) * 0.3"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   58,
+   166
+  ]
+ },
+ "asrs_crane_mast": {
+  "title": "Traslo (fronte, solo colonna – da sovrapporre al prospetto)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "Traslo",
+  "faceplate": "fp_asrs_crane_mast",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.mast.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.PctX') || 0) * 2"
+   },
+   "elements.carriage.ty": {
+    "kind": "expr",
+    "expr": "-(tag('{device}.PctY') || 0) * 1.4"
+   },
+   "elements.forks.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork') || 0) * 0.3"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   58,
+   166
+  ]
+ },
+ "asrs_aisle": {
+  "title": "Corsia magazzino con traslo (pianta)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "Traslo",
+  "faceplate": "fp_asrs_aisle",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.crane.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.PctX') || 0) * 2.2"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   260,
+   110
+  ]
+ },
+ "asrs_crane_mast2": {
+  "title": "Traslo a doppia UdC (fronte, solo colonna)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "TrasloDoppio",
+  "faceplate": "fp_asrs_crane_mast2",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.mast.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.PctX') || 0) * 2"
+   },
+   "elements.carriage.ty": {
+    "kind": "expr",
+    "expr": "-(tag('{device}.PctY') || 0) * 1.4"
+   },
+   "elements.forks.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork') || 0) * 0.2"
+   },
+   "elements.forks2.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork2') || 0) * 0.2"
+   },
+   "elements.load2.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded2"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   91,
+   166
+  ]
+ },
+ "asrs_shuttle": {
+  "title": "Shuttle (pianta)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "Veicolo",
+  "faceplate": "fp_asrs_shuttle",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+   },
+   "elements.led.blink": {
+    "kind": "tag",
+    "tag": "{device}.Moving"
+   },
+   "elements.led.fill": {
+    "kind": "tag",
+    "tag": "{device}.Moving",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#22c55e"
+      }
+     ],
+     "default": "#334155"
+    }
+   },
+   "elements.battery.fill": {
+    "kind": "tag",
+    "tag": "{device}.Battery",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "<20",
+       "out": "#ef4444"
+      },
+      {
+       "in": "<50",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#22c55e"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   61,
+   35
+  ]
+ },
+ "asrs_vlm": {
+  "title": "Magazzino verticale a vassoi (VLM)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "VLM",
+  "faceplate": "fp_asrs_vlm",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.tray.ty": {
+    "kind": "expr",
+    "expr": "(100 - (tag('{device}.TrayPct') ?? 100)) * -0.9"
+   },
+   "elements.display.text": {
+    "kind": "expr",
+    "expr": "'V' + (tag('{device}.Tray') ?? '--')"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   55,
+   100
+  ]
+ },
+ "veh_agv": {
+  "title": "AGV / AMR",
+  "category": "Intralogistica/Veicoli",
+  "udt": "Veicolo",
+  "faceplate": "fp_veh_agv",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Charging') ? '#38bdf8' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+   },
+   "elements.lidar.blink": {
+    "kind": "tag",
+    "tag": "{device}.Moving"
+   },
+   "elements.led.fill": {
+    "kind": "tag",
+    "tag": "{device}.State",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "0",
+       "out": "#334155"
+      },
+      {
+       "in": "1",
+       "out": "#22c55e"
+      },
+      {
+       "in": "2",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#ef4444"
+    }
+   },
+   "elements.battery.fill": {
+    "kind": "tag",
+    "tag": "{device}.Battery",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "<20",
+       "out": "#ef4444"
+      },
+      {
+       "in": "<50",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#22c55e"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   61,
+   42
+  ]
+ },
+ "veh_forklift": {
+  "title": "Carrello elevatore",
+  "category": "Intralogistica/Veicoli",
+  "udt": "Veicolo",
+  "faceplate": "fp_veh_forklift",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : '#eab308'"
+   },
+   "elements.led.blink": {
+    "kind": "tag",
+    "tag": "{device}.Moving"
+   },
+   "elements.forks.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork') || 0) * 0.1"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   77,
+   42
+  ]
+ },
+ "dev_photocell": {
+  "title": "Fotocellula",
+  "category": "Intralogistica/Dispositivi di campo",
+  "udt": "Sensore",
+  "faceplate": "fp_dev_photocell",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.beam.stroke": {
+    "kind": "tag",
+    "tag": "{device}.Blocked",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#22c55e"
+    }
+   },
+   "elements.led.fill": {
+    "kind": "tag",
+    "tag": "{device}.Blocked",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#334155"
+    }
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Dirty') ? '#f59e0b' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   50,
+   25
+  ]
+ },
+ "dev_scanner": {
+  "title": "Lettore barcode (pianta)",
+  "category": "Intralogistica/Dispositivi di campo",
+  "udt": "Scanner",
+  "faceplate": "fp_dev_scanner",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.led.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.NoRead') ? '#ef4444' : tag('{device}.ReadOk') ? '#22c55e' : '#334155'"
+   },
+   "elements.beam.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.NoRead') ? '#ef4444' : '#22c55e'"
+   },
+   "elements.code.text": {
+    "kind": "tag",
+    "tag": "{device}.LastCode"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   40,
+   36
+  ]
+ },
+ "dev_scale": {
+  "title": "Bilancia dinamica",
+  "category": "Intralogistica/Dispositivi di campo",
+  "udt": "Bilancia",
+  "faceplate": "fp_dev_scale",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.display.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Weight') ?? 0).toFixed(2) + ' kg'"
+   },
+   "elements.load.visible": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Weight') || 0) > 0.05"
+   },
+   "elements.led.fill": {
+    "kind": "tag",
+    "tag": "{device}.Stable",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#22c55e"
+      }
+     ],
+     "default": "#334155"
+    }
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   64,
+   32
+  ]
+ },
+ "dev_dimensioner": {
+  "title": "Volumetro (portale)",
+  "category": "Intralogistica/Dispositivi di campo",
+  "udt": "Bilancia",
+  "faceplate": "fp_dev_dimensioner",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
+   },
+   "elements.load.visible": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Length') || 0) > 0"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   56,
+   44
+  ]
+ },
+ "dev_lighttower": {
+  "title": "Colonna luminosa",
+  "category": "Intralogistica/Dispositivi di campo",
+  "udt": "Segnalatore",
+  "faceplate": "fp_dev_lighttower",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.red.visible": {
+    "kind": "tag",
+    "tag": "{device}.Red"
+   },
+   "elements.yellow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Yellow"
+   },
+   "elements.green.visible": {
+    "kind": "tag",
+    "tag": "{device}.Green"
+   },
+   "elements.blue.visible": {
+    "kind": "tag",
+    "tag": "{device}.Blue"
+   },
+   "elements.red.blink": {
+    "kind": "tag",
+    "tag": "{device}.Blink"
+   },
+   "elements.yellow.blink": {
+    "kind": "tag",
+    "tag": "{device}.Blink"
+   },
+   "elements.green.blink": {
+    "kind": "tag",
+    "tag": "{device}.Blink"
+   },
+   "elements.blue.blink": {
+    "kind": "tag",
+    "tag": "{device}.Blink"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   12,
+   45
+  ]
+ },
+ "dev_estop": {
+  "title": "Pulsante di emergenza",
+  "category": "Intralogistica/Dispositivi di campo",
+  "udt": "Emergenza",
+  "faceplate": "fp_dev_estop",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.ring.blink": {
+    "kind": "tag",
+    "tag": "{device}.Pressed"
+   },
+   "elements.ring.visible": {
+    "kind": "tag",
+    "tag": "{device}.Pressed"
+   },
+   "elements.body.fill": {
+    "kind": "tag",
+    "tag": "{device}.Pressed",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#ef4444"
+      }
+     ],
+     "default": "#b91c1c"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   21,
+   21
+  ]
+ },
+ "dev_station": {
+  "title": "Postazione picking",
+  "category": "Intralogistica/Dispositivi di campo",
+  "udt": "Postazione",
+  "faceplate": "fp_dev_station",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.operator.visible": {
+    "kind": "tag",
+    "tag": "{device}.Operator"
+   },
+   "elements.screen.text": {
+    "kind": "tag",
+    "tag": "{device}.Order"
+   },
+   "elements.lamp.fill": {
+    "kind": "tag",
+    "tag": "{device}.Lamp",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#334155"
+    }
+   },
+   "elements.lamp.blink": {
+    "kind": "tag",
+    "tag": "{device}.Lamp"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   80,
+   55
+  ]
+ },
+ "load_pallet": {
+  "title": "Pallet con carico",
+  "category": "Intralogistica/Unità di carico",
+  "udt": "UdC",
+  "faceplate": "fp_load_pallet",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Present"
+   },
+   "elements.code.text": {
+    "kind": "tag",
+    "tag": "{device}.Id"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   30,
+   25
+  ]
+ },
+ "load_carton": {
+  "title": "Collo / cartone",
+  "category": "Intralogistica/Unità di carico",
+  "udt": "UdC",
+  "faceplate": "fp_load_carton",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Present"
+   },
+   "elements.code.text": {
+    "kind": "tag",
+    "tag": "{device}.Id"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   24,
+   20
+  ]
+ },
+ "load_tote": {
+  "title": "Cassetta / tote",
+  "category": "Intralogistica/Unità di carico",
+  "udt": "UdC",
+  "faceplate": "fp_load_tote",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Present"
+   },
+   "elements.code.text": {
+    "kind": "tag",
+    "tag": "{device}.Id"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   23,
+   15
+  ]
+ },
+ "mac_palletizer": {
+  "title": "Robot pallettizzatore",
+  "category": "Macchine/Fine linea",
+  "udt": "Macchina",
+  "faceplate": "fp_mac_palletizer",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Ready"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.arm.rotate": {
+    "kind": "tag",
+    "tag": "{device}.Angle"
+   },
+   "elements.gripper.fill": {
+    "kind": "tag",
+    "tag": "{device}.Occupied",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#475569"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   108,
+   108
+  ]
+ },
+ "mac_wrapper": {
+  "title": "Avvolgitore / fasciapallet",
+  "category": "Macchine/Fine linea",
+  "udt": "Macchina",
+  "faceplate": "fp_mac_wrapper",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.table.spin": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.film.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   85,
+   85
+  ]
+ },
+ "mac_case_erector": {
+  "title": "Formatrice cartoni",
+  "category": "Macchine/Confezionamento",
+  "udt": "Macchina",
+  "faceplate": "fp_mac_case_erector",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   100,
+   50
+  ]
+ },
+ "mac_sealer": {
+  "title": "Nastratrice",
+  "category": "Macchine/Confezionamento",
+  "udt": "Macchina",
+  "faceplate": "fp_mac_sealer",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.roll.spin": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   150,
+   75
+  ]
+ },
+ "mac_strapper": {
+  "title": "Reggiatrice",
+  "category": "Macchine/Confezionamento",
+  "udt": "Macchina",
+  "faceplate": "fp_mac_strapper",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "'none'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.body.stroke": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.strap.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   150,
+   82
+  ]
+ },
+ "mac_labeler": {
+  "title": "Etichettatrice print & apply",
+  "category": "Macchine/Confezionamento",
+  "udt": "Macchina",
+  "faceplate": "fp_mac_labeler",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Occupied"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.roll.spin": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.pad.ty": {
+    "kind": "tag",
+    "tag": "{device}.Occupied",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "6"
+      }
+     ],
+     "default": "0"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   112,
+   88
+  ]
+ },
+ "mac_depalletizer": {
+  "title": "Depallettizzatore a strati",
+  "category": "Macchine/Fine linea",
+  "udt": "Macchina",
+  "faceplate": "fp_mac_depalletizer",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.head.ty": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Progress') || 0) * 0.5"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   90,
+   75
+  ]
+ },
+ "mac_shrink": {
+  "title": "Tunnel di termoretrazione",
+  "category": "Macchine/Confezionamento",
+  "udt": "Macchina",
+  "faceplate": "fp_mac_shrink",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.heat.visible": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   },
+   "elements.heat.blink": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   176,
+   80
+  ]
+ },
+ "mac_robot": {
+  "title": "Robot antropomorfo (vista laterale)",
+  "category": "Macchine/Robotica",
+  "udt": "Macchina",
+  "faceplate": "fp_mac_robot",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.arm.rotate": {
+    "kind": "tag",
+    "tag": "{device}.Angle"
+   },
+   "elements.gripper.fill": {
+    "kind": "tag",
+    "tag": "{device}.Occupied",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#475569"
+    }
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   80,
+   80
+  ]
+ },
+ "proc_pump": {
+  "title": "Pompa centrifuga",
+  "category": "Processo/Pompe e motori",
+  "udt": "Motore",
+  "faceplate": "fp_proc_pump",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.impeller.spin": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   45,
+   45
+  ]
+ },
+ "proc_motor": {
+  "title": "Motore elettrico",
+  "category": "Processo/Pompe e motori",
+  "udt": "Motore",
+  "faceplate": "fp_proc_motor",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   48,
+   32
+  ]
+ },
+ "proc_fan": {
+  "title": "Ventilatore",
+  "category": "Processo/Pompe e motori",
+  "udt": "Motore",
+  "faceplate": "fp_proc_fan",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.blades.spin": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   45,
+   45
+  ]
+ },
+ "proc_compressor": {
+  "title": "Compressore",
+  "category": "Processo/Pompe e motori",
+  "udt": "Motore",
+  "faceplate": "fp_proc_compressor",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   60,
+   50
+  ]
+ },
+ "proc_mixer": {
+  "title": "Miscelatore / agitatore",
+  "category": "Processo/Pompe e motori",
+  "udt": "Motore",
+  "faceplate": "fp_proc_mixer",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
+   "elements.impeller.spin": {
+    "kind": "tag",
+    "tag": "{device}.Run"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   50,
+   70
+  ]
+ },
+ "proc_valve": {
+  "title": "Valvola on/off",
+  "category": "Processo/Valvole",
+  "udt": "Valvola",
+  "faceplate": "fp_proc_valve",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : tag('{device}.Closed') ? '#64748b' : '#f59e0b'"
+   },
+   "elements.body2.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : tag('{device}.Closed') ? '#64748b' : '#f59e0b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   35,
+   28
+  ]
+ },
+ "proc_valve_ctrl": {
+  "title": "Valvola di regolazione",
+  "category": "Processo/Valvole",
+  "udt": "ValvolaReg",
+  "faceplate": "fp_proc_valve_ctrl",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Position') ?? 0).toFixed(0) + '%'"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : (tag('{device}.Position') || 0) > 1 ? '#22c55e' : '#64748b'"
+   },
+   "elements.body2.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : (tag('{device}.Position') || 0) > 1 ? '#22c55e' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   35,
+   35
+  ]
+ },
+ "proc_valve3": {
+  "title": "Valvola a 3 vie",
+  "category": "Processo/Valvole",
+  "udt": "Valvola",
+  "faceplate": "fp_proc_valve3",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Open') ? '#22c55e' : '#64748b'"
+   },
+   "elements.body3.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Open') ? '#64748b' : '#22c55e'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   35,
+   35
+  ]
+ },
+ "proc_tank": {
+  "title": "Serbatoio",
+  "category": "Processo/Serbatoi",
+  "udt": "Serbatoio",
+  "faceplate": "fp_proc_tank",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.liquid.ty": {
+    "kind": "expr",
+    "expr": "144 - Math.max(0, Math.min(100, tag('{device}.Level') || 0)) * 1.44"
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Level') ?? 0).toFixed(0) + '%'"
+   },
+   "elements.hi.visible": {
+    "kind": "tag",
+    "tag": "{device}.HighLevel"
+   },
+   "elements.lo.visible": {
+    "kind": "tag",
+    "tag": "{device}.LowLevel"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   50,
+   80
+  ]
+ },
+ "proc_silo": {
+  "title": "Silo",
+  "category": "Processo/Serbatoi",
+  "udt": "Serbatoio",
+  "faceplate": "fp_proc_silo",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.liquid.ty": {
+    "kind": "expr",
+    "expr": "144 - Math.max(0, Math.min(100, tag('{device}.Level') || 0)) * 1.44"
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Level') ?? 0).toFixed(0) + '%'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   55,
+   99
+  ]
+ },
+ "proc_hopper": {
+  "title": "Tramoggia",
+  "category": "Processo/Serbatoi",
+  "udt": "Serbatoio",
+  "faceplate": "fp_proc_hopper",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.liquid.ty": {
+    "kind": "expr",
+    "expr": "92 - Math.max(0, Math.min(100, tag('{device}.Level') || 0)) * 0.92"
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Level') ?? 0).toFixed(0) + '%'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   60,
+   55
+  ]
+ },
+ "proc_hx": {
+  "title": "Scambiatore di calore",
+  "category": "Processo/Apparecchiature",
+  "udt": "Scambiatore",
+  "faceplate": "fp_proc_hx",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.TempIn') ?? 0).toFixed(1) + ' → ' + (tag('{device}.TempOut') ?? 0).toFixed(1) + ' °C'"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   81,
+   36
+  ]
+ },
+ "proc_filter": {
+  "title": "Filtro",
+  "category": "Processo/Apparecchiature",
+  "udt": "Filtro",
+  "faceplate": "fp_proc_filter",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.body.fill": {
+    "kind": "tag",
+    "tag": "{device}.Clogged",
+    "transform": {
+     "kind": "map",
+     "rules": [
+      {
+       "in": "true",
+       "out": "#f59e0b"
+      }
+     ],
+     "default": "#64748b"
+    }
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "'ΔP ' + (tag('{device}.DeltaP') ?? 0).toFixed(2) + ' bar'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   36,
+   54
+  ]
+ },
+ "proc_flow": {
+  "title": "Misuratore di portata",
+  "category": "Processo/Strumentazione",
+  "udt": "Strumento",
+  "faceplate": "fp_proc_flow",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Value') ?? 0).toFixed(1) + ' m³/h'"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#fecaca' : (tag('{device}.HH') || tag('{device}.LL')) ? '#fca5a5' : (tag('{device}.H') || tag('{device}.L')) ? '#fde68a' : '#f8fafc'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   36,
+   36
+  ]
+ },
+ "proc_pressure": {
+  "title": "Trasmettitore di pressione",
+  "category": "Processo/Strumentazione",
+  "udt": "Strumento",
+  "faceplate": "fp_proc_pressure",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Value') ?? 0).toFixed(1) + ' bar'"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#fecaca' : (tag('{device}.HH') || tag('{device}.LL')) ? '#fca5a5' : (tag('{device}.H') || tag('{device}.L')) ? '#fde68a' : '#f8fafc'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   36,
+   36
+  ]
+ },
+ "proc_level": {
+  "title": "Trasmettitore di livello",
+  "category": "Processo/Strumentazione",
+  "udt": "Strumento",
+  "faceplate": "fp_proc_level",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Value') ?? 0).toFixed(1) + ' %'"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#fecaca' : (tag('{device}.HH') || tag('{device}.LL')) ? '#fca5a5' : (tag('{device}.H') || tag('{device}.L')) ? '#fde68a' : '#f8fafc'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   36,
+   36
+  ]
+ },
+ "proc_temp": {
+  "title": "Sonda di temperatura",
+  "category": "Processo/Strumentazione",
+  "udt": "Strumento",
+  "faceplate": "fp_proc_temp",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.value.text": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Value') ?? 0).toFixed(1) + ' °C'"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#fecaca' : (tag('{device}.HH') || tag('{device}.LL')) ? '#fca5a5' : (tag('{device}.H') || tag('{device}.L')) ? '#fde68a' : '#f8fafc'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   36,
+   36
+  ]
+ },
+ "proc_elbow": {
+  "title": "Curva tubazione 90°",
+  "category": "Processo/Tubazioni",
+  "udt": "Tubazione",
+  "faceplate": "fp_proc_elbow",
+  "bindings": {
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Flowing"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Flowing"
+   },
+   "elements.body.stroke": {
+    "kind": "expr",
+    "expr": "'#94a3b8'"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   30,
+   30
+  ]
+ },
+ "proc_tee": {
+  "title": "Raccordo a T",
+  "category": "Processo/Tubazioni",
+  "udt": "Tubazione",
+  "faceplate": "fp_proc_tee",
+  "bindings": {
+   "elements.flow.flow": {
+    "kind": "tag",
+    "tag": "{device}.Flowing"
+   },
+   "elements.flow.visible": {
+    "kind": "tag",
+    "tag": "{device}.Flowing"
+   },
+   "elements.flow2.flow": {
+    "kind": "tag",
+    "tag": "{device}.Flowing"
+   },
+   "elements.flow2.visible": {
+    "kind": "tag",
+    "tag": "{device}.Flowing"
+   }
+  },
+  "fit": "uniform",
+  "native": [
+   60,
+   30
+  ]
+ },
  "conv_belt": {
   "title": "Nastro a tappeto",
   "category": "Intralogistica/Nastri e rulliere",
@@ -29,7 +2413,12 @@
     "kind": "tag",
     "tag": "{device}.Run"
    }
-  }
+  },
+  "fit": "length",
+  "native": [
+   120,
+   30
+  ]
  },
  "conv_roller": {
   "title": "Rulliera motorizzata",
@@ -61,7 +2450,12 @@
     "kind": "tag",
     "tag": "{device}.Run"
    }
-  }
+  },
+  "fit": "length",
+  "native": [
+   120,
+   30
+  ]
  },
  "conv_gravity": {
   "title": "Rulliera a gravità",
@@ -81,7 +2475,12 @@
     "kind": "expr",
     "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
    }
-  }
+  },
+  "fit": "length",
+  "native": [
+   120,
+   30
+  ]
  },
  "conv_accum": {
   "title": "Rulliera ad accumulo (4 zone)",
@@ -181,7 +2580,12 @@
      "default": "#334155"
     }
    }
-  }
+  },
+  "fit": "length",
+  "native": [
+   160,
+   30
+  ]
  },
  "conv_chain": {
   "title": "Catenaria per pallet",
@@ -213,351 +2617,12 @@
     "kind": "tag",
     "tag": "{device}.Run"
    }
-  }
- },
- "conv_telescopic": {
-  "title": "Nastro telescopico (carico camion)",
-  "category": "Intralogistica/Nastri e rulliere",
-  "udt": "Trasporto",
-  "faceplate": "fp_conv_telescopic",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "conv_curve90": {
-  "title": "Curva 90° a rulli",
-  "category": "Intralogistica/Curve e confluenze",
-  "udt": "Trasporto",
-  "faceplate": "fp_conv_curve90",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "conv_merge": {
-  "title": "Confluenza 45°",
-  "category": "Intralogistica/Curve e confluenze",
-  "udt": "Trasporto",
-  "faceplate": "fp_conv_merge",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.branch.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow2.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow2.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "conv_spiral": {
-  "title": "Spirale (vista in pianta)",
-  "category": "Intralogistica/Curve e confluenze",
-  "udt": "Trasporto",
-  "faceplate": "fp_conv_spiral",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "div_swing": {
-  "title": "Deviatore a paletta",
-  "category": "Intralogistica/Deviatori e trasferimenti",
-  "udt": "Deviatore",
-  "faceplate": "fp_div_swing",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Position') > 0 ? '#f59e0b' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flap.rotate": {
-    "kind": "tag",
-    "tag": "{device}.Position",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "0",
-       "out": "0"
-      },
-      {
-       "in": ">0",
-       "out": "-28"
-      }
-     ],
-     "default": "0"
-    }
-   }
-  }
- },
- "div_pusher": {
-  "title": "Deviatore a spintore",
-  "category": "Intralogistica/Deviatori e trasferimenti",
-  "udt": "Deviatore",
-  "faceplate": "fp_div_pusher",
-  "bindings": {
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Position') > 0 ? '#f59e0b' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.pusher.ty": {
-    "kind": "tag",
-    "tag": "{device}.Position",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": ">0",
-       "out": "42"
-      }
-     ],
-     "default": "0"
-    }
-   }
-  }
- },
- "div_popup": {
-  "title": "Deviatore a ruote pop-up",
-  "category": "Intralogistica/Deviatori e trasferimenti",
-  "udt": "Deviatore",
-  "faceplate": "fp_div_popup",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.wheels.rotate": {
-    "kind": "tag",
-    "tag": "{device}.Position",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "1",
-       "out": "-45"
-      },
-      {
-       "in": "2",
-       "out": "45"
-      }
-     ],
-     "default": "0"
-    }
-   }
-  }
- },
- "div_transfer": {
-  "title": "Trasferitore a catene 90°",
-  "category": "Intralogistica/Deviatori e trasferimenti",
-  "udt": "Deviatore",
-  "faceplate": "fp_div_transfer",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.chains.fill": {
-    "kind": "tag",
-    "tag": "{device}.Position",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": ">0",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#334155"
-    }
-   },
-   "elements.flow2.visible": {
-    "kind": "expr",
-    "expr": "tag('{device}.Position') > 0"
-   },
-   "elements.flow2.flow": {
-    "kind": "expr",
-    "expr": "tag('{device}.Position') > 0"
-   }
-  }
- },
- "div_turntable": {
-  "title": "Tavola rotante",
-  "category": "Intralogistica/Deviatori e trasferimenti",
-  "udt": "Deviatore",
-  "faceplate": "fp_div_turntable",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.table.rotate": {
-    "kind": "tag",
-    "tag": "{device}.Angle"
-   }
-  }
+  },
+  "fit": "length",
+  "native": [
+   120,
+   30
+  ]
  },
  "sort_crossbelt": {
   "title": "Sorter cross-belt",
@@ -585,7 +2650,12 @@
     "kind": "tag",
     "tag": "{device}.Run"
    }
-  }
+  },
+  "fit": "length",
+  "native": [
+   160,
+   30
+  ]
  },
  "sort_shoe": {
   "title": "Sorter a pattini",
@@ -617,7 +2687,12 @@
     "kind": "tag",
     "tag": "{device}.Divert"
    }
-  }
+  },
+  "fit": "length",
+  "native": [
+   160,
+   30
+  ]
  },
  "sort_tilttray": {
   "title": "Sorter a vassoi basculanti",
@@ -659,447 +2734,12 @@
      "default": "0"
     }
    }
-  }
- },
- "sort_chute": {
-  "title": "Scivolo / baia di uscita",
-  "category": "Intralogistica/Sorter",
-  "udt": "Scivolo",
-  "faceplate": "fp_sort_chute",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Enabled') === false ? '#334155' : '#64748b'"
-   },
-   "elements.full.visible": {
-    "kind": "tag",
-    "tag": "{device}.Full"
-   },
-   "elements.lamp.fill": {
-    "kind": "tag",
-    "tag": "{device}.Lamp",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#334155"
-    }
-   },
-   "elements.lamp.blink": {
-    "kind": "tag",
-    "tag": "{device}.Lamp"
-   }
-  }
- },
- "sort_induct": {
-  "title": "Stazione di induzione",
-  "category": "Intralogistica/Sorter",
-  "udt": "Trasporto",
-  "faceplate": "fp_sort_induct",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "lift_vertical": {
-  "title": "Elevatore verticale (vista laterale)",
-  "category": "Intralogistica/Elevatori e lift",
-  "udt": "Elevatore",
-  "faceplate": "fp_lift_vertical",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
-   },
-   "elements.carriage.ty": {
-    "kind": "expr",
-    "expr": "-(tag('{device}.PosPct') || 0) * 1.2"
-   },
-   "elements.drive.fill": {
-    "kind": "tag",
-    "tag": "{device}.Moving",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#22c55e"
-      }
-     ],
-     "default": "#334155"
-    }
-   }
-  }
- },
- "lift_platform": {
-  "title": "Lift (vista in pianta)",
-  "category": "Intralogistica/Elevatori e lift",
-  "udt": "Elevatore",
-  "faceplate": "fp_lift_platform",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
-   },
-   "elements.level.text": {
-    "kind": "expr",
-    "expr": "'P' + (tag('{device}.Level') ?? '-')"
-   },
-   "elements.up.visible": {
-    "kind": "expr",
-    "expr": "tag('{device}.Moving') && tag('{device}.Target') > tag('{device}.Level')"
-   },
-   "elements.down.visible": {
-    "kind": "expr",
-    "expr": "tag('{device}.Moving') && tag('{device}.Target') < tag('{device}.Level')"
-   }
-  }
- },
- "door_rapid": {
-  "title": "Porta rapida avvolgibile",
-  "category": "Intralogistica/Porte",
-  "udt": "Porta",
-  "faceplate": "fp_door_rapid",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.curtain.ty": {
-    "kind": "expr",
-    "expr": "-(tag('{device}.OpenPct') || 0) * 1.25"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
-   },
-   "elements.lamp.fill": {
-    "kind": "tag",
-    "tag": "{device}.Moving",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#334155"
-    }
-   },
-   "elements.lamp.blink": {
-    "kind": "tag",
-    "tag": "{device}.Moving"
-   }
-  }
- },
- "door_fire": {
-  "title": "Porta tagliafuoco scorrevole (pianta)",
-  "category": "Intralogistica/Porte",
-  "udt": "Porta",
-  "faceplate": "fp_door_fire",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.panel.tx": {
-    "kind": "expr",
-    "expr": "-(tag('{device}.OpenPct') || 0) * 0.95"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
-   }
-  }
- },
- "door_dock": {
-  "title": "Baia di carico con portone sezionale",
-  "category": "Intralogistica/Porte",
-  "udt": "Porta",
-  "faceplate": "fp_door_dock",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.panel.ty": {
-    "kind": "expr",
-    "expr": "-(tag('{device}.OpenPct') || 0) * 1.3"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : '#64748b'"
-   },
-   "elements.lamp_green.fill": {
-    "kind": "tag",
-    "tag": "{device}.Open",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#22c55e"
-      }
-     ],
-     "default": "#14532d"
-    }
-   },
-   "elements.lamp_red.fill": {
-    "kind": "tag",
-    "tag": "{device}.Open",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "false",
-       "out": "#ef4444"
-      }
-     ],
-     "default": "#7f1d1d"
-    }
-   }
-  }
- },
- "asrs_rack": {
-  "title": "Scaffalatura porta-pallet (fronte)",
-  "category": "Intralogistica/Magazzini automatici",
-  "udt": "Scaffale",
-  "faceplate": "fp_asrs_rack",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.c1.visible": {
-    "kind": "tag",
-    "tag": "{device}.C1"
-   },
-   "elements.c2.visible": {
-    "kind": "tag",
-    "tag": "{device}.C2"
-   },
-   "elements.c3.visible": {
-    "kind": "tag",
-    "tag": "{device}.C3"
-   },
-   "elements.c4.visible": {
-    "kind": "tag",
-    "tag": "{device}.C4"
-   },
-   "elements.c5.visible": {
-    "kind": "tag",
-    "tag": "{device}.C5"
-   },
-   "elements.c6.visible": {
-    "kind": "tag",
-    "tag": "{device}.C6"
-   },
-   "elements.c7.visible": {
-    "kind": "tag",
-    "tag": "{device}.C7"
-   },
-   "elements.c8.visible": {
-    "kind": "tag",
-    "tag": "{device}.C8"
-   },
-   "elements.c9.visible": {
-    "kind": "tag",
-    "tag": "{device}.C9"
-   },
-   "elements.c10.visible": {
-    "kind": "tag",
-    "tag": "{device}.C10"
-   },
-   "elements.c11.visible": {
-    "kind": "tag",
-    "tag": "{device}.C11"
-   },
-   "elements.c12.visible": {
-    "kind": "tag",
-    "tag": "{device}.C12"
-   },
-   "elements.body.fill": {
-    "kind": "tag",
-    "tag": "{device}.FillPct",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": ">90",
-       "out": "#ef4444"
-      },
-      {
-       "in": ">70",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#22c55e"
-    }
-   }
-  }
- },
- "asrs_crane": {
-  "title": "Traslo (fronte)",
-  "category": "Intralogistica/Magazzini automatici",
-  "udt": "Traslo",
-  "faceplate": "fp_asrs_crane",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Loaded"
-   },
-   "elements.mast.tx": {
-    "kind": "expr",
-    "expr": "(tag('{device}.PctX') || 0) * 2"
-   },
-   "elements.carriage.ty": {
-    "kind": "expr",
-    "expr": "-(tag('{device}.PctY') || 0) * 1.4"
-   },
-   "elements.forks.tx": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Fork') || 0) * 0.3"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
-   }
-  }
- },
- "asrs_crane_mast": {
-  "title": "Traslo (fronte, solo colonna – da sovrapporre al prospetto)",
-  "category": "Intralogistica/Magazzini automatici",
-  "udt": "Traslo",
-  "faceplate": "fp_asrs_crane_mast",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Loaded"
-   },
-   "elements.mast.tx": {
-    "kind": "expr",
-    "expr": "(tag('{device}.PctX') || 0) * 2"
-   },
-   "elements.carriage.ty": {
-    "kind": "expr",
-    "expr": "-(tag('{device}.PctY') || 0) * 1.4"
-   },
-   "elements.forks.tx": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Fork') || 0) * 0.3"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
-   }
-  }
- },
- "asrs_aisle": {
-  "title": "Corsia magazzino con traslo (pianta)",
-  "category": "Intralogistica/Magazzini automatici",
-  "udt": "Traslo",
-  "faceplate": "fp_asrs_aisle",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Loaded"
-   },
-   "elements.crane.tx": {
-    "kind": "expr",
-    "expr": "(tag('{device}.PctX') || 0) * 2.2"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
-   }
-  }
+  },
+  "fit": "length",
+  "native": [
+   160,
+   30
+  ]
  },
  "asrs_lane": {
   "title": "Corsia traslo (pianta, binario)",
@@ -1117,17 +2757,22 @@
    },
    "elements.crane.tx": {
     "kind": "expr",
-    "expr": "(tag('{device}.PctX') || 0) * 9.6"
+    "expr": "(tag('{device}.PctX') || 0) / 100 * (param('_len') - 28)"
    },
    "elements.forks.ty": {
     "kind": "expr",
-    "expr": "(tag('{device}.Fork') || 0) * 0.14"
+    "expr": "(tag('{device}.Fork') || 0) * 0.1"
    },
    "elements.body.fill": {
     "kind": "expr",
     "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'"
    }
-  }
+  },
+  "fit": "length",
+  "native": [
+   600,
+   30
+  ]
  },
  "asrs_lane2": {
   "title": "Corsia traslo a doppia UdC (pianta, binario)",
@@ -1145,15 +2790,15 @@
    },
    "elements.crane.tx": {
     "kind": "expr",
-    "expr": "(tag('{device}.PctX') || 0) * 9.3"
+    "expr": "(tag('{device}.PctX') || 0) / 100 * (param('_len') - 50)"
    },
    "elements.forks.ty": {
     "kind": "expr",
-    "expr": "(tag('{device}.Fork') || 0) * 0.14"
+    "expr": "(tag('{device}.Fork') || 0) * 0.1"
    },
    "elements.forks2.ty": {
     "kind": "expr",
-    "expr": "(tag('{device}.Fork2') || 0) * 0.14"
+    "expr": "(tag('{device}.Fork2') || 0) * 0.1"
    },
    "elements.load2.visible": {
     "kind": "tag",
@@ -1163,1281 +2808,12 @@
     "kind": "expr",
     "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'"
    }
-  }
- },
- "asrs_crane_mast2": {
-  "title": "Traslo a doppia UdC (fronte, solo colonna)",
-  "category": "Intralogistica/Magazzini automatici",
-  "udt": "TrasloDoppio",
-  "faceplate": "fp_asrs_crane_mast2",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Loaded"
-   },
-   "elements.mast.tx": {
-    "kind": "expr",
-    "expr": "(tag('{device}.PctX') || 0) * 2"
-   },
-   "elements.carriage.ty": {
-    "kind": "expr",
-    "expr": "-(tag('{device}.PctY') || 0) * 1.4"
-   },
-   "elements.forks.tx": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Fork') || 0) * 0.2"
-   },
-   "elements.forks2.tx": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Fork2') || 0) * 0.2"
-   },
-   "elements.load2.visible": {
-    "kind": "tag",
-    "tag": "{device}.Loaded2"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
-   }
-  }
- },
- "asrs_shuttle": {
-  "title": "Shuttle (pianta)",
-  "category": "Intralogistica/Magazzini automatici",
-  "udt": "Veicolo",
-  "faceplate": "fp_asrs_shuttle",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Loaded"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
-   },
-   "elements.led.blink": {
-    "kind": "tag",
-    "tag": "{device}.Moving"
-   },
-   "elements.led.fill": {
-    "kind": "tag",
-    "tag": "{device}.Moving",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#22c55e"
-      }
-     ],
-     "default": "#334155"
-    }
-   },
-   "elements.battery.fill": {
-    "kind": "tag",
-    "tag": "{device}.Battery",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "<20",
-       "out": "#ef4444"
-      },
-      {
-       "in": "<50",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#22c55e"
-    }
-   }
-  }
- },
- "asrs_vlm": {
-  "title": "Magazzino verticale a vassoi (VLM)",
-  "category": "Intralogistica/Magazzini automatici",
-  "udt": "VLM",
-  "faceplate": "fp_asrs_vlm",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.tray.ty": {
-    "kind": "expr",
-    "expr": "(100 - (tag('{device}.TrayPct') ?? 100)) * -0.9"
-   },
-   "elements.display.text": {
-    "kind": "expr",
-    "expr": "'V' + (tag('{device}.Tray') ?? '--')"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#f59e0b' : '#64748b'"
-   }
-  }
- },
- "veh_agv": {
-  "title": "AGV / AMR",
-  "category": "Intralogistica/Veicoli",
-  "udt": "Veicolo",
-  "faceplate": "fp_veh_agv",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Loaded"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Charging') ? '#38bdf8' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
-   },
-   "elements.lidar.blink": {
-    "kind": "tag",
-    "tag": "{device}.Moving"
-   },
-   "elements.led.fill": {
-    "kind": "tag",
-    "tag": "{device}.State",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "0",
-       "out": "#334155"
-      },
-      {
-       "in": "1",
-       "out": "#22c55e"
-      },
-      {
-       "in": "2",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#ef4444"
-    }
-   },
-   "elements.battery.fill": {
-    "kind": "tag",
-    "tag": "{device}.Battery",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "<20",
-       "out": "#ef4444"
-      },
-      {
-       "in": "<50",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#22c55e"
-    }
-   }
-  }
- },
- "veh_forklift": {
-  "title": "Carrello elevatore",
-  "category": "Intralogistica/Veicoli",
-  "udt": "Veicolo",
-  "faceplate": "fp_veh_forklift",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Loaded"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : '#eab308'"
-   },
-   "elements.led.blink": {
-    "kind": "tag",
-    "tag": "{device}.Moving"
-   },
-   "elements.forks.tx": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Fork') || 0) * 0.1"
-   }
-  }
- },
- "dev_photocell": {
-  "title": "Fotocellula",
-  "category": "Intralogistica/Dispositivi di campo",
-  "udt": "Sensore",
-  "faceplate": "fp_dev_photocell",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.beam.stroke": {
-    "kind": "tag",
-    "tag": "{device}.Blocked",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#22c55e"
-    }
-   },
-   "elements.led.fill": {
-    "kind": "tag",
-    "tag": "{device}.Blocked",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#334155"
-    }
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Dirty') ? '#f59e0b' : '#64748b'"
-   }
-  }
- },
- "dev_scanner": {
-  "title": "Lettore barcode (pianta)",
-  "category": "Intralogistica/Dispositivi di campo",
-  "udt": "Scanner",
-  "faceplate": "fp_dev_scanner",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.led.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.NoRead') ? '#ef4444' : tag('{device}.ReadOk') ? '#22c55e' : '#334155'"
-   },
-   "elements.beam.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.NoRead') ? '#ef4444' : '#22c55e'"
-   },
-   "elements.code.text": {
-    "kind": "tag",
-    "tag": "{device}.LastCode"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
-   }
-  }
- },
- "dev_scale": {
-  "title": "Bilancia dinamica",
-  "category": "Intralogistica/Dispositivi di campo",
-  "udt": "Bilancia",
-  "faceplate": "fp_dev_scale",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.display.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Weight') ?? 0).toFixed(2) + ' kg'"
-   },
-   "elements.load.visible": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Weight') || 0) > 0.05"
-   },
-   "elements.led.fill": {
-    "kind": "tag",
-    "tag": "{device}.Stable",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#22c55e"
-      }
-     ],
-     "default": "#334155"
-    }
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
-   }
-  }
- },
- "dev_dimensioner": {
-  "title": "Volumetro (portale)",
-  "category": "Intralogistica/Dispositivi di campo",
-  "udt": "Bilancia",
-  "faceplate": "fp_dev_dimensioner",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
-   },
-   "elements.load.visible": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Length') || 0) > 0"
-   }
-  }
- },
- "dev_lighttower": {
-  "title": "Colonna luminosa",
-  "category": "Intralogistica/Dispositivi di campo",
-  "udt": "Segnalatore",
-  "faceplate": "fp_dev_lighttower",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.red.visible": {
-    "kind": "tag",
-    "tag": "{device}.Red"
-   },
-   "elements.yellow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Yellow"
-   },
-   "elements.green.visible": {
-    "kind": "tag",
-    "tag": "{device}.Green"
-   },
-   "elements.blue.visible": {
-    "kind": "tag",
-    "tag": "{device}.Blue"
-   },
-   "elements.red.blink": {
-    "kind": "tag",
-    "tag": "{device}.Blink"
-   },
-   "elements.yellow.blink": {
-    "kind": "tag",
-    "tag": "{device}.Blink"
-   },
-   "elements.green.blink": {
-    "kind": "tag",
-    "tag": "{device}.Blink"
-   },
-   "elements.blue.blink": {
-    "kind": "tag",
-    "tag": "{device}.Blink"
-   }
-  }
- },
- "dev_estop": {
-  "title": "Pulsante di emergenza",
-  "category": "Intralogistica/Dispositivi di campo",
-  "udt": "Emergenza",
-  "faceplate": "fp_dev_estop",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.ring.blink": {
-    "kind": "tag",
-    "tag": "{device}.Pressed"
-   },
-   "elements.ring.visible": {
-    "kind": "tag",
-    "tag": "{device}.Pressed"
-   },
-   "elements.body.fill": {
-    "kind": "tag",
-    "tag": "{device}.Pressed",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#ef4444"
-      }
-     ],
-     "default": "#b91c1c"
-    }
-   }
-  }
- },
- "dev_station": {
-  "title": "Postazione picking",
-  "category": "Intralogistica/Dispositivi di campo",
-  "udt": "Postazione",
-  "faceplate": "fp_dev_station",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.operator.visible": {
-    "kind": "tag",
-    "tag": "{device}.Operator"
-   },
-   "elements.screen.text": {
-    "kind": "tag",
-    "tag": "{device}.Order"
-   },
-   "elements.lamp.fill": {
-    "kind": "tag",
-    "tag": "{device}.Lamp",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#334155"
-    }
-   },
-   "elements.lamp.blink": {
-    "kind": "tag",
-    "tag": "{device}.Lamp"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
-   }
-  }
- },
- "load_pallet": {
-  "title": "Pallet con carico",
-  "category": "Intralogistica/Unità di carico",
-  "udt": "UdC",
-  "faceplate": "fp_load_pallet",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Present"
-   },
-   "elements.code.text": {
-    "kind": "tag",
-    "tag": "{device}.Id"
-   }
-  }
- },
- "load_carton": {
-  "title": "Collo / cartone",
-  "category": "Intralogistica/Unità di carico",
-  "udt": "UdC",
-  "faceplate": "fp_load_carton",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Present"
-   },
-   "elements.code.text": {
-    "kind": "tag",
-    "tag": "{device}.Id"
-   }
-  }
- },
- "load_tote": {
-  "title": "Cassetta / tote",
-  "category": "Intralogistica/Unità di carico",
-  "udt": "UdC",
-  "faceplate": "fp_load_tote",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Present"
-   },
-   "elements.code.text": {
-    "kind": "tag",
-    "tag": "{device}.Id"
-   }
-  }
- },
- "mac_palletizer": {
-  "title": "Robot pallettizzatore",
-  "category": "Macchine/Fine linea",
-  "udt": "Macchina",
-  "faceplate": "fp_mac_palletizer",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Ready"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.arm.rotate": {
-    "kind": "tag",
-    "tag": "{device}.Angle"
-   },
-   "elements.gripper.fill": {
-    "kind": "tag",
-    "tag": "{device}.Occupied",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#475569"
-    }
-   }
-  }
- },
- "mac_wrapper": {
-  "title": "Avvolgitore / fasciapallet",
-  "category": "Macchine/Fine linea",
-  "udt": "Macchina",
-  "faceplate": "fp_mac_wrapper",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.table.spin": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.film.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "mac_case_erector": {
-  "title": "Formatrice cartoni",
-  "category": "Macchine/Confezionamento",
-  "udt": "Macchina",
-  "faceplate": "fp_mac_case_erector",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "mac_sealer": {
-  "title": "Nastratrice",
-  "category": "Macchine/Confezionamento",
-  "udt": "Macchina",
-  "faceplate": "fp_mac_sealer",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.roll.spin": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "mac_strapper": {
-  "title": "Reggiatrice",
-  "category": "Macchine/Confezionamento",
-  "udt": "Macchina",
-  "faceplate": "fp_mac_strapper",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "'none'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.body.stroke": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.strap.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "mac_labeler": {
-  "title": "Etichettatrice print & apply",
-  "category": "Macchine/Confezionamento",
-  "udt": "Macchina",
-  "faceplate": "fp_mac_labeler",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.load.visible": {
-    "kind": "tag",
-    "tag": "{device}.Occupied"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.roll.spin": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.pad.ty": {
-    "kind": "tag",
-    "tag": "{device}.Occupied",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "6"
-      }
-     ],
-     "default": "0"
-    }
-   }
-  }
- },
- "mac_depalletizer": {
-  "title": "Depallettizzatore a strati",
-  "category": "Macchine/Fine linea",
-  "udt": "Macchina",
-  "faceplate": "fp_mac_depalletizer",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.head.ty": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Progress') || 0) * 0.5"
-   }
-  }
- },
- "mac_shrink": {
-  "title": "Tunnel di termoretrazione",
-  "category": "Macchine/Confezionamento",
-  "udt": "Macchina",
-  "faceplate": "fp_mac_shrink",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.heat.visible": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   },
-   "elements.heat.blink": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "mac_robot": {
-  "title": "Robot antropomorfo (vista laterale)",
-  "category": "Macchine/Robotica",
-  "udt": "Macchina",
-  "faceplate": "fp_mac_robot",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.arm.rotate": {
-    "kind": "tag",
-    "tag": "{device}.Angle"
-   },
-   "elements.gripper.fill": {
-    "kind": "tag",
-    "tag": "{device}.Occupied",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#475569"
-    }
-   }
-  }
- },
- "proc_pump": {
-  "title": "Pompa centrifuga",
-  "category": "Processo/Pompe e motori",
-  "udt": "Motore",
-  "faceplate": "fp_proc_pump",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.impeller.spin": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "proc_motor": {
-  "title": "Motore elettrico",
-  "category": "Processo/Pompe e motori",
-  "udt": "Motore",
-  "faceplate": "fp_proc_motor",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   }
-  }
- },
- "proc_fan": {
-  "title": "Ventilatore",
-  "category": "Processo/Pompe e motori",
-  "udt": "Motore",
-  "faceplate": "fp_proc_fan",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.blades.spin": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "proc_compressor": {
-  "title": "Compressore",
-  "category": "Processo/Pompe e motori",
-  "udt": "Motore",
-  "faceplate": "fp_proc_compressor",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   }
-  }
- },
- "proc_mixer": {
-  "title": "Miscelatore / agitatore",
-  "category": "Processo/Pompe e motori",
-  "udt": "Motore",
-  "faceplate": "fp_proc_mixer",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
-   },
-   "elements.impeller.spin": {
-    "kind": "tag",
-    "tag": "{device}.Run"
-   }
-  }
- },
- "proc_valve": {
-  "title": "Valvola on/off",
-  "category": "Processo/Valvole",
-  "udt": "Valvola",
-  "faceplate": "fp_proc_valve",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : tag('{device}.Closed') ? '#64748b' : '#f59e0b'"
-   },
-   "elements.body2.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Open') ? '#22c55e' : tag('{device}.Closed') ? '#64748b' : '#f59e0b'"
-   }
-  }
- },
- "proc_valve_ctrl": {
-  "title": "Valvola di regolazione",
-  "category": "Processo/Valvole",
-  "udt": "ValvolaReg",
-  "faceplate": "fp_proc_valve_ctrl",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Position') ?? 0).toFixed(0) + '%'"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : (tag('{device}.Position') || 0) > 1 ? '#22c55e' : '#64748b'"
-   },
-   "elements.body2.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : (tag('{device}.Position') || 0) > 1 ? '#22c55e' : '#64748b'"
-   }
-  }
- },
- "proc_valve3": {
-  "title": "Valvola a 3 vie",
-  "category": "Processo/Valvole",
-  "udt": "Valvola",
-  "faceplate": "fp_proc_valve3",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Open') ? '#22c55e' : '#64748b'"
-   },
-   "elements.body3.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Open') ? '#64748b' : '#22c55e'"
-   }
-  }
- },
- "proc_tank": {
-  "title": "Serbatoio",
-  "category": "Processo/Serbatoi",
-  "udt": "Serbatoio",
-  "faceplate": "fp_proc_tank",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.liquid.ty": {
-    "kind": "expr",
-    "expr": "144 - Math.max(0, Math.min(100, tag('{device}.Level') || 0)) * 1.44"
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Level') ?? 0).toFixed(0) + '%'"
-   },
-   "elements.hi.visible": {
-    "kind": "tag",
-    "tag": "{device}.HighLevel"
-   },
-   "elements.lo.visible": {
-    "kind": "tag",
-    "tag": "{device}.LowLevel"
-   }
-  }
- },
- "proc_silo": {
-  "title": "Silo",
-  "category": "Processo/Serbatoi",
-  "udt": "Serbatoio",
-  "faceplate": "fp_proc_silo",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.liquid.ty": {
-    "kind": "expr",
-    "expr": "144 - Math.max(0, Math.min(100, tag('{device}.Level') || 0)) * 1.44"
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Level') ?? 0).toFixed(0) + '%'"
-   }
-  }
- },
- "proc_hopper": {
-  "title": "Tramoggia",
-  "category": "Processo/Serbatoi",
-  "udt": "Serbatoio",
-  "faceplate": "fp_proc_hopper",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.liquid.ty": {
-    "kind": "expr",
-    "expr": "92 - Math.max(0, Math.min(100, tag('{device}.Level') || 0)) * 0.92"
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Level') ?? 0).toFixed(0) + '%'"
-   }
-  }
- },
- "proc_hx": {
-  "title": "Scambiatore di calore",
-  "category": "Processo/Apparecchiature",
-  "udt": "Scambiatore",
-  "faceplate": "fp_proc_hx",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.fault.visible": {
-    "kind": "tag",
-    "tag": "{device}.Fault"
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.TempIn') ?? 0).toFixed(1) + ' → ' + (tag('{device}.TempOut') ?? 0).toFixed(1) + ' °C'"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
-   }
-  }
- },
- "proc_filter": {
-  "title": "Filtro",
-  "category": "Processo/Apparecchiature",
-  "udt": "Filtro",
-  "faceplate": "fp_proc_filter",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.body.fill": {
-    "kind": "tag",
-    "tag": "{device}.Clogged",
-    "transform": {
-     "kind": "map",
-     "rules": [
-      {
-       "in": "true",
-       "out": "#f59e0b"
-      }
-     ],
-     "default": "#64748b"
-    }
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "'ΔP ' + (tag('{device}.DeltaP') ?? 0).toFixed(2) + ' bar'"
-   }
-  }
- },
- "proc_flow": {
-  "title": "Misuratore di portata",
-  "category": "Processo/Strumentazione",
-  "udt": "Strumento",
-  "faceplate": "fp_proc_flow",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Value') ?? 0).toFixed(1) + ' m³/h'"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#fecaca' : (tag('{device}.HH') || tag('{device}.LL')) ? '#fca5a5' : (tag('{device}.H') || tag('{device}.L')) ? '#fde68a' : '#f8fafc'"
-   }
-  }
- },
- "proc_pressure": {
-  "title": "Trasmettitore di pressione",
-  "category": "Processo/Strumentazione",
-  "udt": "Strumento",
-  "faceplate": "fp_proc_pressure",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Value') ?? 0).toFixed(1) + ' bar'"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#fecaca' : (tag('{device}.HH') || tag('{device}.LL')) ? '#fca5a5' : (tag('{device}.H') || tag('{device}.L')) ? '#fde68a' : '#f8fafc'"
-   }
-  }
- },
- "proc_level": {
-  "title": "Trasmettitore di livello",
-  "category": "Processo/Strumentazione",
-  "udt": "Strumento",
-  "faceplate": "fp_proc_level",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Value') ?? 0).toFixed(1) + ' %'"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#fecaca' : (tag('{device}.HH') || tag('{device}.LL')) ? '#fca5a5' : (tag('{device}.H') || tag('{device}.L')) ? '#fde68a' : '#f8fafc'"
-   }
-  }
- },
- "proc_temp": {
-  "title": "Sonda di temperatura",
-  "category": "Processo/Strumentazione",
-  "udt": "Strumento",
-  "faceplate": "fp_proc_temp",
-  "bindings": {
-   "elements.label.text": {
-    "kind": "expr",
-    "expr": "param('device') || ''"
-   },
-   "elements.value.text": {
-    "kind": "expr",
-    "expr": "(tag('{device}.Value') ?? 0).toFixed(1) + ' °C'"
-   },
-   "elements.body.fill": {
-    "kind": "expr",
-    "expr": "tag('{device}.Fault') ? '#fecaca' : (tag('{device}.HH') || tag('{device}.LL')) ? '#fca5a5' : (tag('{device}.H') || tag('{device}.L')) ? '#fde68a' : '#f8fafc'"
-   }
-  }
+  },
+  "fit": "length",
+  "native": [
+   600,
+   30
+  ]
  },
  "proc_pipe": {
   "title": "Tubazione dritta",
@@ -2453,50 +2829,44 @@
     "kind": "tag",
     "tag": "{device}.Flowing"
    }
-  }
+  },
+  "fit": "length",
+  "native": [
+   120,
+   12
+  ]
  },
- "proc_elbow": {
-  "title": "Curva tubazione 90°",
-  "category": "Processo/Tubazioni",
-  "udt": "Tubazione",
-  "faceplate": "fp_proc_elbow",
+ "conv_curve90": {
+  "title": "Curva 90° a rulli",
+  "category": "Intralogistica/Curve e confluenze",
+  "udt": "Trasporto",
+  "faceplate": "fp_conv_curve90",
   "bindings": {
-   "elements.flow.flow": {
-    "kind": "tag",
-    "tag": "{device}.Flowing"
-   },
-   "elements.flow.visible": {
-    "kind": "tag",
-    "tag": "{device}.Flowing"
-   },
-   "elements.body.stroke": {
+   "elements.label.text": {
     "kind": "expr",
-    "expr": "'#94a3b8'"
-   }
-  }
- },
- "proc_tee": {
-  "title": "Raccordo a T",
-  "category": "Processo/Tubazioni",
-  "udt": "Tubazione",
-  "faceplate": "fp_proc_tee",
-  "bindings": {
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+   },
    "elements.flow.flow": {
     "kind": "tag",
-    "tag": "{device}.Flowing"
+    "tag": "{device}.Run"
    },
    "elements.flow.visible": {
     "kind": "tag",
-    "tag": "{device}.Flowing"
-   },
-   "elements.flow2.flow": {
-    "kind": "tag",
-    "tag": "{device}.Flowing"
-   },
-   "elements.flow2.visible": {
-    "kind": "tag",
-    "tag": "{device}.Flowing"
+    "tag": "{device}.Run"
    }
-  }
+  },
+  "fit": "uniform",
+  "native": [
+   60,
+   60
+  ]
  }
 }

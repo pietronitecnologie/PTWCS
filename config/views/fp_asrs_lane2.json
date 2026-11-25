@@ -70,9 +70,9 @@
    "type": "symbol",
    "name": "preview",
    "x": 300,
-   "y": 76,
+   "y": 75,
    "w": 140,
-   "h": 6,
+   "h": 7,
    "rotation": 0,
    "props": {
     "symbol": "asrs_lane2"
@@ -88,15 +88,15 @@
     },
     "elements.crane.tx": {
      "kind": "expr",
-     "expr": "(tag('{device}.PctX') || 0) * 9.3"
+     "expr": "(tag('{device}.PctX') || 0) / 100 * (param('_len') - 50)"
     },
     "elements.forks.ty": {
      "kind": "expr",
-     "expr": "(tag('{device}.Fork') || 0) * 0.14"
+     "expr": "(tag('{device}.Fork') || 0) * 0.1"
     },
     "elements.forks2.ty": {
      "kind": "expr",
-     "expr": "(tag('{device}.Fork2') || 0) * 0.14"
+     "expr": "(tag('{device}.Fork2') || 0) * 0.1"
     },
     "elements.load2.visible": {
      "kind": "tag",

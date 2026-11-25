@@ -1023,6 +1023,202 @@ sym("proc_tee", "Raccordo a T", C_PIPE, "Tubazione", "0 0 200 100",
     {"elements.flow.flow": T("Flowing"), "elements.flow.visible": T("Flowing"), "elements.flow2.flow": T("Flowing"), "elements.flow2.visible": T("Flowing")})
 
 
+# ------------------------------------------------------------------ scala uniforme e trasporti a lunghezza variabile
+# Scala comune della libreria: 30 unità = larghezza di un nastro/rulliera.
+# - fit "length": trasporti a lunghezza variabile. Altezza nativa fissa (30 per i
+#   trasporti), lunghezza libera: il disegno usa pattern ripetuti e coordinate in
+#   percentuale, quindi allungando il simbolo aumenta il NUMERO di rulli, mentre
+#   aumentando la larghezza crescono proporzionalmente rulli e dettagli.
+# - fit "uniform": simboli a proporzioni fisse, scalati in modo uniforme.
+#   La dimensione nativa (default al drop) è coerente con la scala dei nastri.
+
+FIT = {}   # id -> ("length"|"uniform", (w, h) nativi)
+
+
+def resym(id, title, cat, fam, vb, body, extra=None, native=None):
+    """Sostituisce un simbolo già definito con una versione a lunghezza variabile."""
+    global SYMBOLS
+    SYMBOLS = [x for x in SYMBOLS if x[0] != id]
+    sym(id, title, cat, fam, vb, body, extra)
+    FIT[id] = ("length", native or (120, 30))
+
+
+def pat(pid, w, h, inner):
+    return E("pattern", pid, None, inner=inner, width=w, height=h, patternUnits="userSpaceOnUse")
+
+
+def center(inner):
+    """Contenuto disegnato attorno a x=0 e posizionato a metà lunghezza."""
+    return f'<svg x="50%" y="0" overflow="visible">{inner}</svg>'
+
+
+def tfault(h=30):
+    return E("rect", "fault", "Segnalazione guasto (visibile)", True, x=0.5, y=0.5, width="99%", height=h - 1,
+             fill="none", stroke=FAULT, stroke_width=1.5, stroke_dasharray="5 3", rx=2)
+
+
+def tflow(y=15, w=3, dash="9 7", op=0.45, id="flow"):
+    dl = sum(int(x) for x in dash.split())
+    return E("line", id, "Flusso animato (in marcia)", x1=0, y1=y, x2="100%", y2=y, stroke="#ffffff", stroke_width=w,
+             stroke_dasharray=dash, opacity=op, style=f"--dl:{dl}")
+
+
+tarrow = center(E("path", "dir", "Freccia di direzione", d="M-4 10 L4 15 L-4 20", fill="none", stroke="#ffffff",
+                  stroke_width=2, opacity=0.85, stroke_linejoin="round"))
+tlabel = text("50%", -6, "CV", size=8)
+tcarton = center(carton(-11, 5, 22, 20))
+ROLLERS = pat("rollp", 7.5, 30, E("rect", x=1.25, y=3.5, width=5, height=23, rx=1.5, fill=ROL)
+              + E("rect", x=2.2, y=3.5, width=1.2, height=23, fill="#ffffff", opacity=0.25))
+
+resym("conv_belt", "Nastro a tappeto", C_CONV, "Trasporto", "0 0 120 30",
+      E("defs", inner=pat("beltp", 8, 30, E("line", x1=0.5, y1=4, x2=0.5, y2=26, stroke="#ffffff", stroke_opacity=0.09)))
+      + E("rect", x=0, y=0, width="100%", height=30, rx=2, fill=FR)
+      + E("rect", "body", "Colore di stato (marcia/fermo/guasto)", x=0, y=3, width="100%", height=24, fill=BODY)
+      + E("rect", x=0, y=3, width="100%", height=24, fill="url(#beltp)")
+      + tflow() + tarrow + tcarton + tfault() + tlabel)
+
+resym("conv_roller", "Rulliera motorizzata", C_CONV, "Trasporto", "0 0 120 30",
+      E("defs", inner=ROLLERS)
+      + E("rect", x=0, y=3, width="100%", height=24, fill=BELT)
+      + E("rect", x=0, y=3, width="100%", height=24, fill="url(#rollp)")
+      + G("body", "Colore di stato (sponde)", E("rect", x=0, y=0, width="100%", height=3, fill=BODY) + E("rect", x=0, y=27, width="100%", height=3, fill=BODY))
+      + tflow(op=0.3) + tarrow + tcarton + tfault() + text("50%", -6, "RC", size=8))
+
+resym("conv_gravity", "Rulliera a gravità", C_CONV, "Trasporto", "0 0 120 30",
+      E("defs", inner=pat("gravp", 6, 30, E("rect", x=1.5, y=4, width=3, height=22, rx=1, fill="#cbd5e1"))
+        + pat("slopep", 40, 30, E("path", d="M16 11 L22 15 L16 19", stroke=ACC, stroke_width=1.5, fill="none", opacity=0.7)))
+      + E("rect", x=0, y=3, width="100%", height=24, fill=BELT)
+      + E("rect", x=0, y=3, width="100%", height=24, fill="url(#gravp)")
+      + E("rect", x=0, y=3, width="100%", height=24, fill="url(#slopep)")
+      + G("body", "Colore sponde", E("rect", x=0, y=0, width="100%", height=3, fill=FR) + E("rect", x=0, y=27, width="100%", height=3, fill=FR))
+      + tcarton + text("50%", -6, "RG", size=8))
+
+acc = (E("defs", inner=ROLLERS) + E("rect", x=0, y=3, width="100%", height=24, fill=BELT)
+       + E("rect", x=0, y=3, width="100%", height=24, fill="url(#rollp)")
+       + G("body", "Colore di stato (sponde)", E("rect", x=0, y=0, width="100%", height=3, fill=BODY) + E("rect", x=0, y=27, width="100%", height=3, fill=BODY)))
+for i in range(4):
+    acc += E("rect", f"zone{i + 1}", f"Zona {i + 1} occupata (visibile)", True, x=f"{i * 25 + 2}%", y=5, width="21%", height=20,
+             fill=LOAD, stroke=LOADD, stroke_width=1, rx=1)
+    acc += E("circle", f"pe{i + 1}", f"Fotocellula zona {i + 1}", cx=f"{i * 25 + 24}%", cy=28.5, r=1.6, fill="#334155", stroke=DARK, stroke_width=0.5)
+    if i:
+        acc += E("line", x1=f"{i * 25}%", y1=1, x2=f"{i * 25}%", y2=29, stroke=ACC, stroke_width=0.8, stroke_dasharray="3 2")
+resym("conv_accum", "Rulliera ad accumulo (4 zone)", C_CONV, "Accumulo", "0 0 160 30", acc + tflow(op=0.3) + tfault() + text("50%", -6, "ACC", size=8),
+      {**{f"elements.zone{i}.visible": T(f"Zone{i}") for i in range(1, 5)},
+       **{f"elements.pe{i}.fill": T(f"Zone{i}", kind="map", rules=[{"in": "true", "out": WARN}], default="#334155") for i in range(1, 5)}},
+      native=(160, 30))
+
+resym("conv_chain", "Catenaria per pallet", C_CONV, "Trasporto", "0 0 120 30",
+      E("rect", "body", "Colore di stato (telaio)", x=0, y=0, width="100%", height=30, rx=2, fill=BODY)
+      + E("rect", x=0, y=2, width="100%", height=26, fill=BELT)
+      + E("rect", x=0, y=4, width="100%", height=4, fill=DARK) + E("rect", x=0, y=22, width="100%", height=4, fill=DARK)
+      + G("flow", "Catene in movimento (in marcia)",
+          E("line", x1=0, y1=6, x2="100%", y2=6, stroke="#94a3b8", stroke_width=2.5, stroke_dasharray="3 3")
+          + E("line", x1=0, y1=24, x2="100%", y2=24, stroke="#94a3b8", stroke_width=2.5, stroke_dasharray="3 3"), style="--dl:6")
+      + center(pallet(-14, 2, 28, 26)) + tfault() + text("50%", -6, "CT", size=8))
+
+resym("sort_crossbelt", "Sorter cross-belt", C_SORT, "Sorter", "0 0 160 30",
+      E("rect", "body", "Colore di stato (binario)", x=0, y=0, width="100%", height=30, rx=3, fill=BODY)
+      + E("rect", x=0, y=2, width="100%", height=26, fill=DARK)
+      + E("line", "carriers", "Carrelli in movimento (flow)", x1=0, y1=15, x2="100%", y2=15, stroke=FR, stroke_width=22,
+          stroke_dasharray="15 3", style="--dl:18")
+      + center(carton(-7, 8, 14, 14)) + tfault() + text("50%", -6, "XB", size=8),
+      {"elements.carriers.flow": T("Run")}, native=(160, 30))
+
+resym("sort_shoe", "Sorter a pattini", C_SORT, "Sorter", "0 0 160 30",
+      E("rect", "body", "Colore di stato (telaio)", x=0, y=0, width="100%", height=30, rx=2, fill=BODY)
+      + E("line", "slats", "Stecche in movimento (flow)", x1=0, y1=15, x2="100%", y2=15, stroke="#94a3b8", stroke_width=26,
+          stroke_dasharray="3 1", style="--dl:4")
+      + center(G("shoes", "Pattini di deviazione (visibile)", "".join(E("rect", x=-12 + i * 4.5, y=3 + i * 4, width=3, height=3, fill=ACC) for i in range(6)), hidden=True))
+      + center(carton(-26, 8, 14, 14)) + tfault() + text("50%", -6, "SH", size=8),
+      {"elements.slats.flow": T("Run"), "elements.shoes.visible": T("Divert")}, native=(160, 30))
+
+resym("sort_tilttray", "Sorter a vassoi basculanti", C_SORT, "Sorter", "0 0 160 30",
+      E("rect", "body", "Colore di stato (binario)", x=0, y=0, width="100%", height=30, rx=3, fill=BODY)
+      + E("rect", x=0, y=2, width="100%", height=26, fill=DARK)
+      + E("line", "carriers", "Vassoi in movimento (flow)", x1=0, y1=15, x2="100%", y2=15, stroke="#0f766e", stroke_width=20,
+          stroke_dasharray="14 4", style="--dl:18")
+      + center(G("tray", "Vassoio in basculamento (rotate)", E("rect", x=-8, y=5, width=16, height=20, rx=1.5, fill="#14b8a6", stroke=DARK, stroke_width=0.6)
+                 + carton(-6, 8, 12, 14), data_pivot="0 15"))
+      + tfault() + text("50%", -6, "TS", size=8),
+      {"elements.carriers.flow": T("Run"), "elements.tray.rotate": T("Divert", kind="map", rules=[{"in": "true", "out": "25"}], default="0")},
+      native=(160, 30))
+
+LANE_BG = (E("rect", x=0, y=0, width="100%", height=30, fill="#0b1220")
+           + E("line", x1=0, y1=5, x2="100%", y2=5, stroke=FR, stroke_width=2) + E("line", x1=0, y1=25, x2="100%", y2=25, stroke=FR, stroke_width=2)
+           + E("rect", x=0, y=0, width=8, height=30, fill=ACC, opacity=0.35))
+CRANE_STATE = B("tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'")
+resym("asrs_lane", "Corsia traslo (pianta, binario)", C_ASRS, "Traslo", "0 0 600 30",
+      LANE_BG + G("crane", "Traslo (tx = posizione lungo la corsia)",
+                  E("rect", "body", "Colore di stato (traslo)", x=1, y=1, width=26, height=28, rx=3, fill=BODY, stroke=DARK, stroke_width=1.5)
+                  + E("rect", x=10, y=5, width=8, height=20, fill=DARK, opacity=0.6)
+                  + G("forks", "Forche (ty = sfilo verso i lati)", E("rect", x=5, y=12, width=18, height=6, fill=ROL))
+                  + E("rect", "load", "Pallet a bordo (visibile)", True, x=4, y=6, width=20, height=18, fill=LOAD, stroke=LOADD, stroke_width=1.5))
+      + text("50%", 15, "", id="label", desc="Testo etichetta", size=9, fill="#64748b"),
+      {"elements.crane.tx": B("(tag('{device}.PctX') || 0) / 100 * (param('_len') - 28)"),
+       "elements.forks.ty": B("(tag('{device}.Fork') || 0) * 0.1"), "elements.body.fill": CRANE_STATE},
+      native=(600, 30))
+resym("asrs_lane2", "Corsia traslo a doppia UdC (pianta, binario)", C_ASRS, "TrasloDoppio", "0 0 600 30",
+      LANE_BG + G("crane", "Traslo (tx = posizione lungo la corsia)",
+                  E("rect", "body", "Colore di stato (traslo)", x=1, y=1, width=48, height=28, rx=3, fill=BODY, stroke=DARK, stroke_width=1.5)
+                  + E("rect", x=21, y=4, width=8, height=22, fill=DARK, opacity=0.6)
+                  + G("forks", "Forche posto 1 (ty = sfilo)", E("rect", x=3, y=12, width=16, height=6, fill=ROL))
+                  + G("forks2", "Forche posto 2 (ty = sfilo)", E("rect", x=31, y=12, width=16, height=6, fill=ROL))
+                  + E("rect", "load", "Pallet posto 1 (visibile)", True, x=2, y=6, width=18, height=18, fill=LOAD, stroke=LOADD, stroke_width=1.5)
+                  + E("rect", "load2", "Pallet posto 2 (visibile)", True, x=30, y=6, width=18, height=18, fill=LOAD, stroke=LOADD, stroke_width=1.5))
+      + text("50%", 15, "", id="label", desc="Testo etichetta", size=9, fill="#64748b"),
+      {"elements.crane.tx": B("(tag('{device}.PctX') || 0) / 100 * (param('_len') - 50)"),
+       "elements.forks.ty": B("(tag('{device}.Fork') || 0) * 0.1"), "elements.forks2.ty": B("(tag('{device}.Fork2') || 0) * 0.1"),
+       "elements.load2.visible": T("Loaded2"), "elements.body.fill": CRANE_STATE},
+      native=(600, 30))
+resym("proc_pipe", "Tubazione dritta", C_PIPE, "Tubazione", "0 0 120 12",
+      E("rect", "body", "Tubo (colore)", x=0, y=1, width="100%", height=10, fill="#94a3b8", stroke=FR, stroke_width=1)
+      + E("rect", x=0, y=3, width="100%", height=2, fill="#ffffff", opacity=0.25)
+      + E("line", "flow", "Flusso (flow)", x1=0, y1=6, x2="100%", y2=6, stroke="#38bdf8", stroke_width=2, stroke_dasharray="6 6", opacity=0.9, style="--dl:12"),
+      {"elements.flow.flow": T("Flowing"), "elements.flow.visible": T("Flowing")}, native=(120, 12))
+
+# curva 90° in scala: fascia 30, raggio interno 30
+cx, cy, r0, r1 = 0, 60, 30, 60
+o0, o1 = arc_pt(cx, cy, r1, -90), arc_pt(cx, cy, r1, 0)
+i0, i1 = arc_pt(cx, cy, r0, 0), arc_pt(cx, cy, r0, -90)
+ring = f"M{o0[0]:.1f} {o0[1]:.1f} A{r1} {r1} 0 0 1 {o1[0]:.1f} {o1[1]:.1f} L{i0[0]:.1f} {i0[1]:.1f} A{r0} {r0} 0 0 0 {i1[0]:.1f} {i1[1]:.1f} Z"
+rads = ""
+for deg in range(-87, -2, 7):
+    a, b = arc_pt(cx, cy, r0 + 2, deg), arc_pt(cx, cy, r1 - 2, deg)
+    rads += E("line", x1=f"{a[0]:.1f}", y1=f"{a[1]:.1f}", x2=f"{b[0]:.1f}", y2=f"{b[1]:.1f}", stroke=ROL, stroke_width=3.2, stroke_linecap="round", opacity=0.9)
+m0, m1 = arc_pt(cx, cy, 45, -88), arc_pt(cx, cy, 45, -2)
+SYMBOLS = [x for x in SYMBOLS if x[0] != "conv_curve90"]
+sym("conv_curve90", "Curva 90° a rulli", C_CURVE, "Trasporto", "0 0 60 60",
+    E("path", "body", "Colore di stato", d=ring, fill=BODY, stroke=FR, stroke_width=2.5)
+    + G(None, None, rads)
+    + E("path", "flow", "Flusso animato (in marcia)", d=f"M{m0[0]:.1f} {m0[1]:.1f} A45 45 0 0 1 {m1[0]:.1f} {m1[1]:.1f}",
+        fill="none", stroke="#ffffff", stroke_width=3, stroke_dasharray="9 7", opacity=0.4, style="--dl:16")
+    + E("path", "fault", "Segnalazione guasto (visibile)", True, d=ring, fill="none", stroke=FAULT, stroke_width=1.5, stroke_dasharray="5 3")
+    + text(14, 64, "CU", size=8, anchor="start"))
+
+# dimensioni native (in scala nastro = 30) dei simboli a proporzioni fisse
+SCALE = {
+    "conv_curve90": 1.0, "conv_merge": 0.65, "conv_spiral": 1.0, "conv_telescopic": 0.48,
+    "div_swing": 0.625, "div_pusher": 0.625, "div_popup": 0.25, "div_transfer": 0.25, "div_turntable": 0.35,
+    "sort_chute": 0.5, "sort_induct": 0.9, "lift_vertical": 0.5, "lift_platform": 0.36,
+    "door_rapid": 0.4, "door_fire": 0.45, "door_dock": 0.5,
+    "asrs_rack": 0.83, "asrs_crane": 0.83, "asrs_crane_mast": 0.83, "asrs_crane_mast2": 0.83, "asrs_aisle": 1.0,
+    "asrs_shuttle": 0.55, "asrs_vlm": 0.5, "veh_agv": 0.55, "veh_forklift": 0.55,
+    "dev_photocell": 0.62, "dev_scanner": 0.4, "dev_scale": 0.4, "dev_dimensioner": 0.4, "dev_lighttower": 0.3,
+    "dev_estop": 0.3, "dev_station": 0.5, "load_pallet": 0.25, "load_carton": 0.4, "load_tote": 0.33,
+    "mac_palletizer": 0.6, "mac_wrapper": 0.5, "mac_case_erector": 0.5, "mac_sealer": 0.75, "mac_strapper": 0.75,
+    "mac_labeler": 0.8, "mac_depalletizer": 0.5, "mac_shrink": 0.8, "mac_robot": 0.5,
+    "proc_pump": 0.45, "proc_motor": 0.4, "proc_fan": 0.45, "proc_compressor": 0.5, "proc_mixer": 0.5,
+    "proc_valve": 0.35, "proc_valve_ctrl": 0.35, "proc_valve3": 0.35, "proc_tank": 0.5, "proc_silo": 0.55, "proc_hopper": 0.5,
+    "proc_hx": 0.45, "proc_filter": 0.45, "proc_flow": 0.4, "proc_pressure": 0.4, "proc_level": 0.4, "proc_temp": 0.4,
+    "proc_elbow": 0.3, "proc_tee": 0.3,
+}
+for _id, _t, _c, _f, _vb, _b, _e in SYMBOLS:
+    if _id not in FIT:
+        _w, _h = [float(v) for v in _vb.split()[2:]]
+        k = SCALE.get(_id, 0.5)
+        FIT[_id] = ("uniform", (round(_w * k), round(_h * k)))
+
+
 # ------------------------------------------------------------------ faceplate
 
 def fp_component(cid, ctype, x, y, w, h, props=None, bindings=None, events=None, name=None):
@@ -1099,8 +1295,10 @@ def main():
     meta = {}
     for sid, title, cat, fam, vb, body, extra in SYMBOLS:
         fam_desc, members = FAMILIES[fam]
+        fit, native = FIT[sid]
         svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" data-category="{escape(cat)}" '
-               f'data-udt="{fam}" data-faceplate="fp_{sid}"><title>{escape(title)}</title>{body}</svg>')
+               f'data-udt="{fam}" data-faceplate="fp_{sid}" data-fit="{fit}" data-native="{native[0]} {native[1]}">'
+               f'<title>{escape(title)}</title>{body}</svg>')
         with open(f"{OUT}/symbols/{sid}.svg", "w", encoding="utf-8") as f:
             f.write(svg)
         ids = set()
@@ -1112,8 +1310,9 @@ def main():
             el = path.split(".")[1]
             if el in ids:
                 bindings[path] = b
-        meta[sid] = {"title": title, "category": cat, "udt": fam, "faceplate": f"fp_{sid}", "bindings": bindings}
-        fp = faceplate(sid, title, fam, members, bindings, vb)
+        meta[sid] = {"title": title, "category": cat, "udt": fam, "faceplate": f"fp_{sid}", "bindings": bindings,
+                     "fit": fit, "native": list(native)}
+        fp = faceplate(sid, title, fam, members, bindings, f"0 0 {native[0]} {native[1]}")
         with open(f"{OUT}/views/fp_{sid}.json", "w", encoding="utf-8") as f:
             json.dump(fp, f, indent=1, ensure_ascii=False)
     with open(f"{OUT}/library/symbols.json", "w", encoding="utf-8") as f:

@@ -96,3 +96,38 @@ export function kvEditor(el, obj, { onChange = () => {}, keyLabel = 'Nome', valL
     { key: 'v', label: valLabel, width: 150, list: valList },
   ], { onChange: sync, newRow: () => ({ k: '', v: '' }), addLabel: '+', reorder: false });
 }
+
+
+/**
+ * Rende trascinabile un separatore che regola una variabile CSS di larghezza
+ * sul contenitore (es. --lw). `dir` = 1 se il pannello è a sinistra del
+ * separatore, -1 se è a destra. La larghezza è salvata in localStorage.
+ */
+export function makeSplitter(handle, container, cssVar, { dir = 1, min = 160, max = 700, def = 260, key } = {}) {
+  const storeKey = key || `split${cssVar}`;
+  const apply = (w) => container.style.setProperty(cssVar, `${Math.round(Math.max(min, Math.min(max, w)))}px`);
+  try { const v = +localStorage.getItem(storeKey); if (v) apply(v); } catch { /* storage non disponibile */ }
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const start = e.clientX;
+    const cur = parseFloat(getComputedStyle(container).getPropertyValue(cssVar)) || def;
+    handle.classList.add('drag');
+    document.body.classList.add('resizing');
+    const mv = (ev) => apply(cur + (ev.clientX - start) * dir);
+    const up = () => {
+      window.removeEventListener('mousemove', mv);
+      window.removeEventListener('mouseup', up);
+      handle.classList.remove('drag');
+      document.body.classList.remove('resizing');
+      try { localStorage.setItem(storeKey, parseFloat(container.style.getPropertyValue(cssVar))); } catch { /* ignore */ }
+      window.dispatchEvent(new Event('resize'));
+    };
+    window.addEventListener('mousemove', mv);
+    window.addEventListener('mouseup', up);
+  });
+  handle.addEventListener('dblclick', () => {
+    container.style.removeProperty(cssVar);
+    try { localStorage.removeItem(storeKey); } catch { /* ignore */ }
+    window.dispatchEvent(new Event('resize'));
+  });
+}

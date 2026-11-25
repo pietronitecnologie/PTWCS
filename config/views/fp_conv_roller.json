@@ -70,9 +70,9 @@
    "type": "symbol",
    "name": "preview",
    "x": 300,
-   "y": 58,
+   "y": 61,
    "w": 140,
-   "h": 42,
+   "h": 35,
    "rotation": 0,
    "props": {
     "symbol": "conv_roller"

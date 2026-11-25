@@ -70,9 +70,9 @@
    "type": "symbol",
    "name": "preview",
    "x": 300,
-   "y": 55,
+   "y": 66,
    "w": 140,
-   "h": 48,
+   "h": 26,
    "rotation": 0,
    "props": {
     "symbol": "sort_tilttray"

@@ -70,9 +70,9 @@
    "type": "symbol",
    "name": "preview",
    "x": 300,
-   "y": 38,
+   "y": 39,
    "w": 140,
-   "h": 81,
+   "h": 80,
    "rotation": 0,
    "props": {
     "symbol": "asrs_shuttle"

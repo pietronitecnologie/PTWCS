@@ -46,6 +46,10 @@ pub struct AreaSummary {
     pub worst: Option<Severity>,
     pub tags: usize,
     pub bad_tags: usize,
+    /// Allarmi attivi per gravità: [info, warning, alarm, critical].
+    pub by_sev: [usize; 4],
+    /// Gravità massima tra gli allarmi non ancora riconosciuti (per il lampeggio).
+    pub worst_unacked: Option<Severity>,
 }
 
 #[derive(Default)]
@@ -240,7 +244,13 @@ impl AlarmManager {
                     .iter()
                     .filter(|t| area_in(&cfg, t.area.as_deref().unwrap_or(NO_AREA), &name))
                     .collect();
+                let mut by_sev = [0usize; 4];
+                for a in mine.iter().filter(|a| a.active) {
+                    by_sev[a.severity as usize] += 1;
+                }
                 AreaSummary {
+                    by_sev,
+                    worst_unacked: mine.iter().filter(|a| !a.acked).map(|a| a.severity).max(),
                     active: mine.iter().filter(|a| a.active).count(),
                     unacked: mine.iter().filter(|a| !a.acked).count(),
                     worst: mine.iter().filter(|a| a.active).map(|a| a.severity).max(),

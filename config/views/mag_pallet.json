@@ -563,11 +563,11 @@
           "kind": "expr"
         },
         "elements.crane.tx": {
-          "expr": "(tag('{device}.PctX') || 0) * 9.6",
+          "expr": "(tag('{device}.PctX') || 0) / 100 * (param('_len') - 28)",
           "kind": "expr"
         },
         "elements.forks.ty": {
-          "expr": "(tag('{device}.Fork') || 0) * 0.14",
+          "expr": "(tag('{device}.Fork') || 0) * 0.1",
           "kind": "expr"
         },
         "elements.label.text": {
@@ -787,11 +787,11 @@
           "kind": "expr"
         },
         "elements.crane.tx": {
-          "expr": "(tag('{device}.PctX') || 0) * 9.6",
+          "expr": "(tag('{device}.PctX') || 0) / 100 * (param('_len') - 28)",
           "kind": "expr"
         },
         "elements.forks.ty": {
-          "expr": "(tag('{device}.Fork') || 0) * 0.14",
+          "expr": "(tag('{device}.Fork') || 0) * 0.1",
           "kind": "expr"
         },
         "elements.label.text": {
@@ -1011,15 +1011,15 @@
           "kind": "expr"
         },
         "elements.crane.tx": {
-          "expr": "(tag('{device}.PctX') || 0) * 9.3",
+          "expr": "(tag('{device}.PctX') || 0) / 100 * (param('_len') - 50)",
           "kind": "expr"
         },
         "elements.forks.ty": {
-          "expr": "(tag('{device}.Fork') || 0) * 0.14",
+          "expr": "(tag('{device}.Fork') || 0) * 0.1",
           "kind": "expr"
         },
         "elements.forks2.ty": {
-          "expr": "(tag('{device}.Fork2') || 0) * 0.14",
+          "expr": "(tag('{device}.Fork2') || 0) * 0.1",
           "kind": "expr"
         },
         "elements.label.text": {

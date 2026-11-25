@@ -70,9 +70,9 @@
    "type": "symbol",
    "name": "preview",
    "x": 300,
-   "y": 61,
+   "y": 66,
    "w": 140,
-   "h": 35,
+   "h": 26,
    "rotation": 0,
    "props": {
     "symbol": "conv_accum"

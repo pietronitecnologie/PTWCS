@@ -32,7 +32,7 @@ function route() {
 function buildNav() {
   const n = live.alarms.filter((a) => !a.acked).length;
   document.getElementById('nav').innerHTML =
-    views.filter((v) => !v.faceplate && v.menu !== false).map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
+    views.filter((v) => !v.faceplate && v.menu !== false && !v.area).map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
     `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
      <a href="#/decisions">Decisioni</a><a href="#/tags">Tag</a><a href="#/trend">Trend</a><a href="#/diag">Diagnostica</a>`;
   markNav();
@@ -81,6 +81,85 @@ function openPopup(viewId, params = {}, title) {
   });
   popups.push(p);
 }
+
+// ------------------------------------------------------------ barra aree (stile PCS7)
+let areaData = [], areaMenuFor = null;
+
+async function refreshAreaBar() {
+  try { areaData = await api.get('/api/areas'); } catch { return; }
+  drawAreaBar();
+}
+
+/** Area della vista corrente (per evidenziare il pulsante). */
+function currentArea() {
+  const id = location.hash.startsWith('#/view/') ? location.hash.split('/')[2].split('?')[0] : null;
+  return views.find((v) => v.id === id)?.area || null;
+}
+
+function drawAreaBar() {
+  const bar = document.getElementById('areabar');
+  if (!bar) return;
+  const roots = areaData.filter((a) => !a.parent);
+  const cur = currentArea();
+  const inSub = (name, root) => inArea(name, root, areaData);
+  bar.innerHTML = `<div class="areabtn" data-home title="Pagina iniziale"><span class="an">⌂ Impianto</span>
+      <span class="ai"><span class="muted" style="background:none">${areaData.reduce((s, a) => s + (a.parent ? 0 : a.active), 0)} all.</span></span></div>` +
+    roots.map((a) => {
+      const sev = a.worst || '';
+      const blink = a.unacked > 0 ? 'blink' : '';
+      const [i, w, al, c] = a.by_sev || [0, 0, 0, 0];
+      return `<div class="areabtn ${sev ? 'sev-' + sev : ''} ${blink} ${cur && inSub(cur, a.name) ? 'current' : ''} ${areaMenuFor === a.name ? 'open' : ''}" data-area="${esc(a.name)}"
+          title="${esc(a.description || a.name)}\n${a.active} allarmi attivi · ${a.unacked} da riconoscere · ${a.bad_tags} tag in errore">
+        <span class="an">${esc(a.name)}</span>
+        <span class="ai"><span class="c ${c ? 'on' : ''}" title="critici">${c || ''}</span><span class="a ${al ? 'on' : ''}" title="allarmi">${al || ''}</span>
+          <span class="w ${w ? 'on' : ''}" title="avvisi">${w || ''}</span><span class="i ${i ? 'on' : ''}" title="info">${i || ''}</span>
+          <span class="q ${a.bad_tags ? 'on' : ''}" title="tag con qualità BAD">${a.bad_tags ? 'Q' : ''}</span></span></div>`;
+    }).join('');
+  bar.querySelector('[data-home]').onclick = () => { closeAreaMenu(); location.hash = ''; route(); };
+  bar.querySelectorAll('[data-area]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); toggleAreaMenu(b.dataset.area, b); }));
+  if (areaMenuFor) {
+    const b = bar.querySelector(`[data-area="${CSS.escape(areaMenuFor)}"]`);
+    if (b) positionMenu(b);
+  }
+}
+
+function closeAreaMenu() {
+  areaMenuFor = null;
+  document.getElementById('areamenu')?.remove();
+  document.querySelectorAll('.areabtn.open').forEach((b) => b.classList.remove('open'));
+}
+
+function positionMenu(btn) {
+  const m = document.getElementById('areamenu');
+  if (!m) return;
+  const r = btn.getBoundingClientRect();
+  m.style.left = `${Math.min(r.left, window.innerWidth - m.offsetWidth - 8)}px`;
+  m.style.top = `${r.bottom + 4}px`;
+}
+
+/** Menu delle viste di un'area (e delle sotto-aree), con stato per sotto-area. */
+function toggleAreaMenu(name, btn) {
+  if (areaMenuFor === name) return closeAreaMenu();
+  closeAreaMenu();
+  areaMenuFor = name;
+  btn.classList.add('open');
+  const subtree = areaData.filter((a) => inArea(a.name, name, areaData));
+  const groups = subtree.map((a) => ({ a, vs: views.filter((v) => v.area === a.name && !v.faceplate && v.menu !== false) }));
+  const m = document.createElement('div');
+  m.className = 'areamenu';
+  m.id = 'areamenu';
+  m.innerHTML = groups.map(({ a, vs }) => `<div class="grp"><span class="dotsev ${a.worst || ''}"></span>${esc(a.name)}
+        <span style="margin-left:auto;text-transform:none;letter-spacing:0">${a.active ? `${a.active} all.` : 'OK'}</span></div>
+      ${vs.map((v) => `<a href="#/view/${esc(v.id)}">🖼 ${esc(v.title)}</a>`).join('') || (a.name === name ? '' : '')}`).join('') +
+    `<div class="grp">Area ${esc(name)}</div><a href="#/areas/${encodeURIComponent(name)}">🗺 Panoramica area</a>
+     <a href="#/alarms" data-alarms>🔔 Allarmi dell'area</a>`;
+  m.querySelector('[data-alarms]').onclick = () => { areaFilter = name; };
+  m.querySelectorAll('a').forEach((x) => x.addEventListener('click', () => setTimeout(closeAreaMenu, 0)));
+  document.body.appendChild(m);
+  positionMenu(btn);
+}
+document.addEventListener('click', (e) => { if (!e.target.closest('.areamenu') && !e.target.closest('.areabtn')) closeAreaMenu(); });
+window.addEventListener('resize', () => closeAreaMenu());
 
 // ------------------------------------------------------------ aree
 async function showAreas(name) {
@@ -304,9 +383,10 @@ live.on('project', async () => {
   invalidateView();
   [info, views] = await Promise.all([api.get('/api/info'), api.get('/api/views')]);
   buildNav();
+  refreshAreaBar();
   toast('Progetto aggiornato dal Designer');
 });
-live.on('alarms', () => { updateAlarmBar(); buildNav(); if (location.hash.startsWith('#/alarms')) showAlarms.draw?.(); });
+live.on('alarms', () => { updateAlarmBar(); buildNav(); refreshAreaBar(); if (location.hash.startsWith('#/alarms')) showAlarms.draw?.(); });
 live.on('decision', (d) => { decisions.unshift(d); decisions.length = Math.min(decisions.length, 500); if (location.hash.startsWith('#/decisions')) showDecisions.draw?.(); });
 live.on('log', (l) => { logs.unshift(l); logs.length = Math.min(logs.length, 500); if (location.hash.startsWith('#/diag')) showDiag.draw?.(); });
 live.on('status', () => { if (location.hash.startsWith('#/diag')) showDiag.draw?.(); });
@@ -321,6 +401,9 @@ async function init() {
   if (!info.designer) document.getElementById('designerLink').remove();
   buildNav();
   live.connect();
+  refreshAreaBar();
+  setInterval(refreshAreaBar, 3000);
+  window.addEventListener('hashchange', () => { drawAreaBar(); });
   window.addEventListener('hashchange', route);
   route();
 }

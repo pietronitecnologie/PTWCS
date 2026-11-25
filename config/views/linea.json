@@ -882,5 +882,6 @@
   "height": 640,
   "home": true,
   "title": "Linea",
-  "width": 1280
+  "width": 1280,
+  "area": "Linea"
 }

@@ -69,9 +69,9 @@
    "id": "preview",
    "type": "symbol",
    "name": "preview",
-   "x": 303,
+   "x": 302,
    "y": 24,
-   "w": 137,
+   "w": 138,
    "h": 110,
    "rotation": 0,
    "props": {
