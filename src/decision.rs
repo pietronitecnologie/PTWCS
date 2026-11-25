@@ -135,9 +135,10 @@ impl crate::rules::Resolver for AppResolver<'_> {
     fn wms_dest(&self, value: &str) -> Option<String> {
         self.0.sorting.wms_cached(value).and_then(|a| a.destination)
     }
-    fn store(&self, wh: &str, lu: &str, bay: &str, dry_run: bool) -> Option<String> {
+    fn store(&self, wh: &str, lu: &str, bay: &str, fields: &std::collections::HashMap<String, Value>, dry_run: bool) -> Option<String> {
         let w = self.0.warehouse(wh)?;
-        match w.allocate_inbound(lu, bay, &w.unavailable_aisles(&self.0.db), dry_run) {
+        let info = crate::warehouse::LuInfo::from_fields(fields);
+        match w.allocate_inbound_with(lu, bay, info, &w.unavailable_aisles(&self.0.db), dry_run) {
             Ok((aisle, pos)) => {
                 if !dry_run {
                     self.0.log("info", &format!("mag:{wh}"), format!("deposito {lu} da {bay} → {}", pos.code()));

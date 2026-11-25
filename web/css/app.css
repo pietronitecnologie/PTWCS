@@ -114,3 +114,35 @@ text { user-select: none; }
 .areamenu a:hover { background: var(--panel2); }
 .areamenu .dotsev { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); flex: none; }
 .areamenu .dotsev.warning { background: var(--warn); } .areamenu .dotsev.alarm { background: var(--alarm); } .areamenu .dotsev.critical { background: var(--crit); } .areamenu .dotsev.info { background: var(--info); }
+
+/* WCS */
+.wcs-head { padding: 10px 14px; }
+.wcs .subtabs button { font-size: 13px; }
+.wcs h4 { margin: 4px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.wcs table td, .wcs table th { padding: 4px 7px; font-size: 13px; }
+.wcs tr.sel td { background: #1d3461; }
+.wcs tr.wcs-held td { opacity: .65; }
+.wcs-cls { display: inline-block; min-width: 18px; text-align: center; border-radius: 4px; color: #fff; font-weight: 700; font-size: 11px; padding: 0 3px; }
+.wcs-zone { display: inline-block; min-width: 18px; text-align: center; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid #334155; }
+.wcs-zone.z0 { background: #14532d; } .wcs-zone.z1 { background: #1e3a8a; } .wcs-zone.z2 { background: #4c1d95; }
+.wcs-prio { display: inline-block; width: 20px; text-align: center; border-radius: 10px; font-weight: 700; font-size: 12px; background: #334155; }
+.wcs-prio.ph { background: var(--alarm); color: #fff; } .wcs-prio.pl { background: #1e293b; color: var(--muted); }
+.wcs-bar { display: inline-block; width: 90px; height: 8px; border-radius: 4px; background: #1e293b; overflow: hidden; vertical-align: middle; }
+.wcs-bar > span { display: block; height: 100%; }
+.wcs-zbar { display: inline-flex; width: 80px; height: 9px; border-radius: 3px; overflow: hidden; background: #1e293b; vertical-align: middle; }
+.wcs-zbar > span { height: 100%; }
+.wcs-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.wcs-crane.fault { border-color: var(--alarm); background: #2a0f12; }
+.wcs-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px 14px; margin-top: 10px; }
+.wcs-kpis label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 3px; }
+.wcs-kpis .big { font-size: 22px; }
+.wcs-rules li { margin-bottom: 6px; line-height: 1.4; }
+.chip.warn { border-color: var(--warn); color: #fcd34d; } .chip.info { border-color: var(--info); color: #7dd3fc; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--border); font-size: 12px; margin: 2px; }
+.chip.ok { border-color: var(--ok); color: #86efac; } .chip.err { border-color: var(--alarm); color: #fca5a5; }
+.subtabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+.subtabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tbl-wrap { overflow: auto; max-width: 100%; }
+.nowrap { white-space: nowrap; }
+.hint { color: var(--muted); font-size: 12px; margin: 8px 0; }
+.wcs td.mono { white-space: nowrap; }

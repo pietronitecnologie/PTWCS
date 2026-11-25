@@ -899,7 +899,12 @@ export async function whCellDialog(wh, pos, { api, toast }) {
       <div class="field"><label>Corsia / lato</label><div>${pos.aisle} / ${pos.side}</div></div>
       <div class="field"><label>Colonna / livello</label><div>${pos.col} / ${pos.lvl}</div></div>
       <div class="field"><label>Stato</label><div><b>${esc(st)}</b></div></div>
+      <div class="field"><label>Zona ABC</label><div>${esc(r.zone)} <span class="muted">(${r.travel_s?.toFixed?.(1) ?? '-'} s dal P&D${r.max_height_mm ? `, H max ${r.max_height_mm} mm` : ''})</span></div></div>
       <div class="field"><label>UdC</label><div class="mono">${esc(r.loc.lu || '—')}</div></div>
+      ${r.info ? `<div class="field"><label>Articolo</label><div class="mono">${esc(r.info.sku || '—')}${r.class ? ` · classe ${esc(r.class)}` : ''}</div></div>
+      <div class="field"><label>Quantità / lotto</label><div>${r.info.qty} · ${esc(r.info.lot || '—')}${r.info.height_mm ? ` · H ${r.info.height_mm} mm` : ''}</div></div>
+      <div class="field"><label>Ingresso</label><div>${r.info.entry ? new Date(r.info.entry).toLocaleString() : '—'}</div></div>` : ''}
+      ${r.mission ? `<div class="field"><label>Missione</label><div>${r.mission.id} · ${esc(r.mission.kind)} · ${esc(r.mission.state)}</div></div>` : ''}
       <div class="field"><label>Ultima variazione</label><div>${new Date(r.loc.ts).toLocaleString()}</div></div>
       ${st === 'occupied' ? `<div class="field"><label>Baia d'uscita</label><select id="whBay"><option value="">(bilanciata)</option>${sum.outputs.map((o) => `<option>${esc(o)}</option>`).join('')}</select></div>` : ''}
     </div><div class="mf"></div></div>`;
@@ -914,6 +919,10 @@ export async function whCellDialog(wh, pos, { api, toast }) {
   if (st === 'occupied') btn('⬆ Preleva', 'primary', async () => {
     const m = await api.post(`/api/wh/${encodeURIComponent(wh)}/outbound`, { lu: r.loc.lu, bay: back.querySelector('#whBay').value || null });
     toast(`Missione ${m.id}: prelievo ${m.lu} → ${m.bay}`, 'ok');
+  });
+  if (st === 'occupied') btn('⇄ Ottimizza posizione', '', async () => {
+    const m = await api.post(`/api/wh/${encodeURIComponent(wh)}/move`, { lu: r.loc.lu });
+    toast(`Missione ${m.id}: movimentazione ${m.lu} → C${m.dst.aisle}-L${m.dst.side}-${m.dst.col}-${m.dst.lvl}`, 'ok');
   });
   if (st === 'free' || st === 'occupied') btn('⛔ Blocca', 'danger', () => api.post(`/api/wh/${encodeURIComponent(wh)}/location`, { ...pos, action: 'block' }));
   if (st === 'blocked') btn('✓ Sblocca', '', () => api.post(`/api/wh/${encodeURIComponent(wh)}/location`, { ...pos, action: 'unblock' }));

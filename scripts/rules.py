@@ -261,6 +261,7 @@ def sim_pallet(payload, ctx):
             weight = round(random.uniform(1250, 1500) if 0.04 <= r < 0.07 else random.uniform(150, 1000), 1)
             height = random.randint(1850, 2000) if 0.07 <= r < 0.09 else random.randint(900, 1700)
             w(f"{inp}.Barcode", lu); w(f"{inp}.Weight", weight); w(f"{inp}.Height", height)
+            w(f"{inp}.Sku", f"SKU{int(60 * random.random() ** 2.0) + 1:03d}"); w(f"{inp}.Qty", random.randint(10, 100))
             req = (int(g(f"{inp}.ReqID") or 0) % 65000) + 1   # calcolato una sola volta: ctx.write aggiorna ctx.tags
             w(f"{inp}.Occupied", True)
             w(f"{inp}.ReqID", req)

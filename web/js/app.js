@@ -1,15 +1,19 @@
 // Client Runtime (operatore): viste, allarmi, decisioni, tag, trend, diagnostica.
 import { api, Live, esc, fmtTs, toast } from './core.js';
 import { ViewRenderer, runActions, createPopup, compileSymbol, invalidateView, whCellDialog } from './render.js';
+import { showWcs } from './wcs.js';
 
 const live = new Live();
 const page = document.getElementById('page');
 let info = null, views = [], symbols = [], current = null, renderer = null, refresh = null;
-let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '', routeParams = {};
+let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '', routeParams = {}, timers = [], hasWh = false;
+const setTimer = (fn, ms) => timers.push(setInterval(() => fn().catch?.(() => {}), ms));
 
 // ------------------------------------------------------------ routing
 function route() {
   clearInterval(refresh);
+  timers.forEach(clearInterval);
+  timers = [];
   popups.forEach((p) => p.win.remove());
   popups = [];
   renderer = null;
@@ -25,6 +29,7 @@ function route() {
   if (kind === 'tags') return showTags();
   if (kind === 'trend') return showTrend();
   if (kind === 'diag') return showDiag();
+  if (kind === 'wcs') return showWcs(page, arg ? decodeURIComponent(arg) : '', routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   const home = views.find((v) => v.home) || views[0];
   location.hash = home ? `#/view/${home.id}` : '#/tags';
 }
@@ -33,14 +38,15 @@ function buildNav() {
   const n = live.alarms.filter((a) => !a.acked).length;
   document.getElementById('nav').innerHTML =
     views.filter((v) => !v.faceplate && v.menu !== false && !v.area).map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
-    `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
+    (hasWh ? '<a href="#/wcs">WCS</a>' : '') + `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
      <a href="#/decisions">Decisioni</a><a href="#/tags">Tag</a><a href="#/trend">Trend</a><a href="#/diag">Diagnostica</a>`;
   markNav();
 }
 
 function markNav() {
   document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === location.hash.split('?')[0]
-    || (location.hash.startsWith('#/areas') && a.getAttribute('href') === '#/areas')));
+    || (location.hash.startsWith('#/areas') && a.getAttribute('href') === '#/areas')
+    || (location.hash.startsWith('#/wcs') && a.getAttribute('href') === '#/wcs')));
 }
 
 // ------------------------------------------------------------ viste
@@ -395,6 +401,7 @@ setInterval(() => (document.getElementById('clock').textContent = new Date().toL
 
 async function init() {
   [info, views, symbols] = await Promise.all([api.get('/api/info'), api.get('/api/views'), api.get('/api/symbols')]);
+  hasWh = (await api.get('/api/wh').catch(() => [])).length > 0;
   for (const s of symbols) { try { compiled[s.id] = compileSymbol(s.svg); } catch { /* simbolo non valido */ } }
   document.getElementById('plant').textContent = info.plant.name;
   document.title = info.plant.name;

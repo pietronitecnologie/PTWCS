@@ -111,6 +111,8 @@ upsert(p["udt_types"], {
         m("Destination", "u16", 34, True, role="output", description="Corsia assegnata (0 = respinto)"),
         m("Result", "u16", 36, True, role="output", description="Esito: 0 ok, 1 noread, 2 peso, 3 sagoma, 4 non stoccabile"),
         m("Rejected", "u32", 38, description="Pallet respinti"),
+        m("Sku", "string", 42, role="input", len=20, description="Articolo (anagrafica UdC)"),
+        m("Qty", "u16", 64, role="input", description="Quantità a bordo"),
     ]})
 upsert(p["udt_types"], {
     "name": "BaiaUscita",
@@ -154,7 +156,12 @@ upsert(p["warehouses"], {
     "aisles": [{"name": str(i), "crane": f"C{i}", "slots": 2 if i in DOUBLE else 1, "pair_wait_s": 15 if i in DOUBLE else 4} for i in (1, 2, 3)],
     "sides": 2, "columns": 50, "levels": 10, "block_cols": 5,
     "inputs": ["IN1", "IN2"], "outputs": ["BU1", "BU2"],
-    "col_time_s": 0.6, "lvl_time_s": 1.2, "lu_prefix": "PAL", "initial_fill_pct": 62, "auto_outbound_s": 16})
+    "col_time_s": 0.6, "lvl_time_s": 1.2, "lu_prefix": "PAL", "initial_fill_pct": 62,
+    # WCS: anagrafica articoli demo, ordini automatici, strategia ABC e riorganizzazione nei tempi morti
+    "demo_skus": 60, "auto_outbound_s": 0, "auto_orders_s": 30,
+    "level_max_height_mm": [1800, 1800] + [1500] * 8,
+    "strategy": {"abc": True, "a_zone_pct": 0.2, "b_zone_pct": 0.3, "a_sku_pct": 0.2, "b_sku_pct": 0.3, "abc_window_h": 168, "spread_sku": True},
+    "reorg": {"enabled": True, "idle_s": 20, "max_per_hour": 40, "min_gain_s": 2.0}})
 upsert(p["timer_scripts"], {"name": "sim_pallet", "function": "sim_pallet", "interval_ms": 200, "enabled": True})
 print("progetto:", call("PUT", "/api/project", p))
 

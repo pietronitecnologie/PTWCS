@@ -62,7 +62,11 @@ impl Store {
         // migrazione: colonna 'rule' aggiunta in seguito (errore ignorato se esiste già)
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS wh_locations(wh TEXT, idx INTEGER, state TEXT, lu TEXT, ts INTEGER, PRIMARY KEY(wh, idx));
-             CREATE TABLE IF NOT EXISTS wh_missions(wh TEXT, id INTEGER, state TEXT, data TEXT, ts INTEGER, PRIMARY KEY(wh, id));",
+             CREATE TABLE IF NOT EXISTS wh_missions(wh TEXT, id INTEGER, state TEXT, data TEXT, ts INTEGER, PRIMARY KEY(wh, id));
+             CREATE TABLE IF NOT EXISTS wh_lus(wh TEXT, lu TEXT, data TEXT, PRIMARY KEY(wh, lu));
+             CREATE TABLE IF NOT EXISTS wh_orders(wh TEXT, id INTEGER, state TEXT, data TEXT, ts INTEGER, PRIMARY KEY(wh, id));
+             CREATE TABLE IF NOT EXISTS wh_picks(wh TEXT, sku TEXT, ts INTEGER);
+             CREATE INDEX IF NOT EXISTS ix_wh_picks ON wh_picks(wh, ts);",
         )?;
         let _ = conn.execute("ALTER TABLE decisions ADD COLUMN rule TEXT", []);
         let _ = conn.execute("ALTER TABLE alarm_events ADD COLUMN area TEXT", []);
@@ -219,6 +223,81 @@ impl Store {
         Ok(rows.into_iter().filter_map(|d| serde_json::from_str(&d).ok()).collect())
     }
 
+    /// Salva (Some) o cancella (None) i dati di una UdC.
+    pub async fn wh_save_lu(&self, wh: String, lu: String, data: Option<String>) -> Result<()> {
+        self.run(move |c| match data {
+            Some(d) => c.execute("INSERT OR REPLACE INTO wh_lus VALUES(?1,?2,?3)", params![wh, lu, d]),
+            None => c.execute("DELETE FROM wh_lus WHERE wh=?1 AND lu=?2", params![wh, lu]),
+        })
+        .await?;
+        Ok(())
+    }
+
+    pub async fn wh_save_lus(&self, wh: String, rows: Vec<(String, String)>) -> Result<()> {
+        self.run(move |c| {
+            let tx = c.unchecked_transaction()?;
+            {
+                let mut st = tx.prepare("INSERT OR REPLACE INTO wh_lus VALUES(?1,?2,?3)")?;
+                for (lu, d) in rows {
+                    st.execute(params![wh, lu, d])?;
+                }
+            }
+            tx.commit()
+        })
+        .await
+    }
+
+    pub async fn wh_load_lus(&self, wh: String) -> Result<Vec<(String, String)>> {
+        self.run(move |c| {
+            let mut st = c.prepare("SELECT lu, data FROM wh_lus WHERE wh=?1")?;
+            st.query_map(params![wh], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()
+        })
+        .await
+    }
+
+    pub async fn wh_save_order(&self, wh: String, id: u32, state: String, data: String) -> Result<()> {
+        self.run(move |c| c.execute("INSERT OR REPLACE INTO wh_orders VALUES(?1,?2,?3,?4,?5)", params![wh, id, state, data, now_ms()])).await?;
+        Ok(())
+    }
+
+    /// Ordini aperti + ultimi chiusi.
+    pub async fn wh_load_orders(&self, wh: String, closed_limit: u32) -> Result<Vec<String>> {
+        self.run(move |c| {
+            let mut st = c.prepare(
+                "SELECT data FROM wh_orders WHERE wh=?1 AND state NOT IN ('done','cancelled','partial')
+                 UNION ALL SELECT data FROM (SELECT data FROM wh_orders WHERE wh=?1 AND state IN ('done','cancelled','partial') ORDER BY id DESC LIMIT ?2)",
+            )?;
+            st.query_map(params![wh, closed_limit], |r| r.get(0))?.collect()
+        })
+        .await
+    }
+
+    pub async fn wh_max_order(&self, wh: String) -> Result<u32> {
+        self.run(move |c| c.query_row("SELECT COALESCE(MAX(id),0) FROM wh_orders WHERE wh=?1", params![wh], |r| r.get(0))).await
+    }
+
+    pub async fn wh_add_picks(&self, wh: String, rows: Vec<(String, i64)>) -> Result<()> {
+        self.run(move |c| {
+            let tx = c.unchecked_transaction()?;
+            {
+                let mut st = tx.prepare("INSERT INTO wh_picks VALUES(?1,?2,?3)")?;
+                for (sku, ts) in rows {
+                    st.execute(params![wh, sku, ts])?;
+                }
+            }
+            tx.commit()
+        })
+        .await
+    }
+
+    pub async fn wh_load_picks(&self, wh: String, since: i64) -> Result<Vec<(String, i64)>> {
+        self.run(move |c| {
+            let mut st = c.prepare("SELECT sku, ts FROM wh_picks WHERE wh=?1 AND ts>=?2")?;
+            st.query_map(params![wh, since], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()
+        })
+        .await
+    }
+
     pub async fn wh_max_mission(&self, wh: String) -> Result<u32> {
         self.run(move |c| c.query_row("SELECT COALESCE(MAX(id),0) FROM wh_missions WHERE wh=?1", params![wh], |r| r.get(0))).await
     }
@@ -228,6 +307,8 @@ impl Store {
         self.run(move |c| {
             c.execute("DELETE FROM history WHERE ts < ?1", params![before_ts])?;
             c.execute("DELETE FROM wh_missions WHERE ts < ?1 AND state IN ('done','cancelled')", params![before_ts])?;
+            c.execute("DELETE FROM wh_orders WHERE ts < ?1 AND state IN ('done','cancelled','partial')", params![before_ts])?;
+            c.execute("DELETE FROM wh_picks WHERE ts < ?1", params![before_ts])?;
             c.execute("DELETE FROM decisions WHERE ts < ?1", params![before_ts])
         })
         .await?;

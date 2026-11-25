@@ -133,6 +133,93 @@ pub struct WarehouseDef {
     /// Demo: crea un prelievo casuale ogni N secondi (0 = no).
     #[serde(default)]
     pub auto_outbound_s: u64,
+    /// Demo: crea un ordine di prelievo casuale ogni N secondi (0 = no).
+    #[serde(default)]
+    pub auto_orders_s: u64,
+    /// Demo: numero di articoli (SKU001..) del catalogo usato dal riempimento iniziale.
+    #[serde(default)]
+    pub demo_skus: u32,
+    /// Altezza massima UdC per livello (mm), indice 0 = livello 1. Vuoto = nessun limite.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub level_max_height_mm: Vec<u16>,
+    #[serde(default)]
+    pub strategy: StrategyDef,
+    #[serde(default)]
+    pub reorg: ReorgDef,
+}
+
+/// Strategia di stoccaggio.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct StrategyDef {
+    /// Classi ABC degli articoli per frequenza di prelievo e zone di corsia corrispondenti.
+    #[serde(default = "yes")]
+    pub abc: bool,
+    /// Quota delle celle (più vicine al P&D) in zona A e B; il resto è zona C.
+    #[serde(default = "a_zone")]
+    pub a_zone_pct: f64,
+    #[serde(default = "b_zone")]
+    pub b_zone_pct: f64,
+    /// Quota degli articoli più prelevati in classe A e B.
+    #[serde(default = "a_sku")]
+    pub a_sku_pct: f64,
+    #[serde(default = "b_sku")]
+    pub b_sku_pct: f64,
+    /// Finestra (ore) per il calcolo delle frequenze di prelievo.
+    #[serde(default = "abc_window")]
+    pub abc_window_h: u32,
+    /// Distribuisce lo stesso articolo su più corsie (riduce il rischio di fermo).
+    #[serde(default = "yes")]
+    pub spread_sku: bool,
+}
+fn a_zone() -> f64 {
+    0.2
+}
+fn b_zone() -> f64 {
+    0.3
+}
+fn a_sku() -> f64 {
+    0.2
+}
+fn b_sku() -> f64 {
+    0.3
+}
+fn abc_window() -> u32 {
+    168
+}
+impl Default for StrategyDef {
+    fn default() -> Self {
+        Self { abc: true, a_zone_pct: a_zone(), b_zone_pct: b_zone(), a_sku_pct: a_sku(), b_sku_pct: b_sku(), abc_window_h: abc_window(), spread_sku: true }
+    }
+}
+
+/// Riorganizzazione automatica (defrag) nei tempi morti dei trasli.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct ReorgDef {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Secondi di inattività della corsia prima di avviare una mossa.
+    #[serde(default = "idle_s")]
+    pub idle_s: f64,
+    /// Mosse massime per ora e per corsia.
+    #[serde(default = "max_moves")]
+    pub max_per_hour: u32,
+    /// Guadagno minimo (s di tempo di viaggio) perché una mossa valga la pena.
+    #[serde(default = "min_gain")]
+    pub min_gain_s: f64,
+}
+fn idle_s() -> f64 {
+    15.0
+}
+fn max_moves() -> u32 {
+    60
+}
+fn min_gain() -> f64 {
+    2.0
+}
+impl Default for ReorgDef {
+    fn default() -> Self {
+        Self { enabled: false, idle_s: idle_s(), max_per_hour: max_moves(), min_gain_s: min_gain() }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

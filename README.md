@@ -32,6 +32,13 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - **Smistamento**: protocollo, regole, classi, WMS;
   - **Progetto**: aree, scan class, script a timer, driver.
 - **Magazzino automatico** (AS/RS): locazioni persistenti, allocazione celle, missioni ai trasli, viste aggregate e di dettaglio (esempio con 3000 locazioni).
+- **WCS per magazzini a trasloelevatori** (pagina runtime **WCS**):
+  - anagrafica UdC (articolo, quantità, lotto, altezza, ingresso) letta dal telegramma di ingresso;
+  - strategie di stoccaggio: zone e classi **ABC**, distribuzione degli articoli sulle corsie, sagome per livello;
+  - missioni con **priorità**, sospensione, rimessa in coda, conferma manuale; **movimentazioni** cella→cella (tipo 3);
+  - **ordini di prelievo FIFO** con avanzamento e mancanze;
+  - **riorganizzazione (defrag)** automatica nei tempi morti, con simulazione del piano e indici di frammentazione;
+  - **KPI dei trasli**: utilizzo, disponibilità, missioni/h, ciclo medio, cicli doppi.
 - **Libreria**: 74 simboli in 3 menu (Intralogistica, Macchine, Processo), 27 UDT standard per famiglia e **un faceplate per ogni simbolo**.
 
 ## Avvio rapido (demo)
@@ -99,7 +106,9 @@ Pallet doppi e magazzino pieno finiscono nel default ("non stoccabile").
 - Componenti riutilizzabili: `whmap` (modalità *pianta*, *blocchi*, *celle*), `whsummary` (KPI), `whmissions`.
 - Azione evento *Magazzino*: cerca, preleva o deposita.
 
-**API**: `/api/wh/{nome}/summary`, `side?aisle=&side=`, `missions`, `outbound`, `inbound`, `location`, `find?lu=`, `mission/{id}/cancel`.
+**WCS nell'esempio**: 60 articoli demo con storico prelievi simulato, un ordine casuale ogni 30 s, strategia ABC attiva, riorganizzazione automatica dopo 20 s di inattività di una corsia, livelli 1–2 alti 1800 mm e gli altri 1500 mm. Gli ingressi leggono anche `Sku` e `Qty` dal telegramma. Vedi la sezione [WCS](#wcs-magazzini-automatici-a-trasloelevatori).
+
+**API**: `/api/wh/{nome}/summary`, `side?aisle=&side=`, `missions`, `outbound`, `inbound`, `location`, `find?lu=`, `mission/{id}/{azione}` e le API WCS descritte sotto.
 
 Per ricreare l'esempio, a WCS avviato:
 
@@ -108,6 +117,75 @@ python3 tools/build_demo_pallet.py
 ```
 
 La simulazione dei PLC (arrivi pallet, rulliere, trasli, baie) è lo script a timer `sim_pallet` in `scripts/rules.py`.
+
+## WCS magazzini automatici a trasloelevatori
+
+Runtime → **WCS** (`#/wcs/<magazzino>`), configurazione nel Designer → Progetto → **Magazzini**. Logica in `src/warehouse.rs`.
+
+| | |
+|---|---|
+| ![Missioni](docs/wcs_missioni.png) | ![Riorganizzazione](docs/wcs_riorganizzazione.png) |
+
+**Anagrafica UdC**: articolo, quantità, lotto, altezza, peso e data di ingresso (base del FIFO).
+- Al deposito da protocollo, l'uscita `store:<magazzino>` riceve tutti i campi del telegramma. Sono riconosciuti `sku`/`articolo`, `qty`/`qta`, `lot`/`lotto`, `height`/`altezza` e `weight`/`peso`.
+- Rettifiche inventariali dal runtime (dialogo UdC).
+
+**Strategia di stoccaggio** (`strategy`):
+- **Zone**: le celle di ogni corsia sono ordinate per tempo di traslazione dal P&D, con moto simultaneo X/Y (`col_time_s`, `lvl_time_s`). Le prime `a_zone_pct` celle sono zona A, le successive `b_zone_pct` zona B, il resto zona C.
+- **Classi articolo**: dalla frequenza di prelievo nella finestra `abc_window_h`. Il primo `a_sku_pct` è classe A, il successivo `b_sku_pct` classe B, il resto (compresi gli articoli mai prelevati) classe C.
+- **Cella**: classe A → zona A, poi B, poi C; classe B → B, C, A; classe C → C, B, A. Dentro la zona, la cella libera più vicina al P&D. Senza articolo, la cella più vicina.
+- **Corsia**: punteggio minimo = missioni in coda + 0,5 × UdC dello stesso articolo nella corsia (`spread_sku`) − quota di celle libere. Escluse le corsie con traslo in guasto o non in automatico.
+- **Sagoma**: `level_max_height_mm` per livello; una UdC più alta di ogni livello è rifiutata.
+
+**Missioni**:
+- Tipi: 1 deposito, 2 prelievo, 3 movimentazione cella→cella (stessa corsia; il telegramma usa gli stessi campi Src/Dst).
+- **Priorità** da 1 a 9. Il dispatcher usa la priorità effettiva = priorità + 1 punto ogni 2 minuti di attesa, così nessuna missione resta ferma all'infinito.
+- Azioni operatore:
+  - **sospendi**/**rilascia**;
+  - **cambia priorità**;
+  - **annulla** (solo in coda);
+  - **rimetti in coda** (missione persa dal PLC);
+  - **conferma manuale** (le celle si aggiornano come a missione eseguita).
+- Trasli a doppia UdC: la compagna è dello stesso tipo e con celle vicine. Le missioni urgenti (priorità ≥ 8) non attendono la compagna.
+
+**Ordini di prelievo**:
+- Righe articolo/quantità, coperte con UdC intere in ordine **FIFO** (data di ingresso) e poi per vicinanza al P&D.
+- Stati: *in attesa giacenza*, *in prelievo*, *evaso*, *chiuso con mancanze*, *annullato*.
+- Gli ordini in attesa vengono ricoperti automaticamente quando arrivano nuove UdC.
+- Ogni prelievo eseguito alimenta lo storico che determina le classi ABC.
+
+**Riorganizzazione / defrag** (`reorg`):
+- Ordine delle mosse:
+  1. **promozione**: le UdC in una zona peggiore della propria classe vanno nella zona giusta (prima la classe A, prima le più lontane);
+  2. **liberazione**: se la zona giusta è piena, si sposta altrove una UdC di classe inferiore che la occupa;
+  3. **compattazione**: le UdC più lontane vanno nella cella libera più vicina della stessa zona, se il guadagno è almeno `min_gain_s`.
+- Esecuzione **automatica** solo nei tempi morti: una mossa per corsia dopo `idle_s` secondi senza missioni, al massimo `max_per_hour` all'ora, a priorità 1.
+- Si può anche **simulare il piano** e creare subito N mosse (pagina WCS, scheda *Riorganizzazione*).
+- Indicatori del piano:
+  - **indice di frammentazione**: celle libere dentro la regione compatta ideale / celle occupate;
+  - **UdC fuori zona**;
+  - **costo di accesso pesato**: Σ peso classe (A 3, B 2, C 1) × tempo di traslazione;
+  - **efficienza del layout**: costo ideale / costo attuale.
+- Nella demo MP1 il piano su 300 mosse per corsia porta la frammentazione dal 38% al 26% e l'efficienza dal 59% al 75%.
+- La **Mappa ABC** mostra per ogni lato di corsia la zona di ogni cella e la classe di ogni UdC, e segnala quelle fuori zona.
+
+**KPI dei trasli** (ultima ora):
+- utilizzo (tempo in ciclo), disponibilità (tempo senza guasto);
+- missioni/h per tipo, ciclo medio, cicli doppi;
+- grafico delle missioni eseguite a intervalli di 5 minuti.
+
+| API WCS | |
+|---|---|
+| `GET /api/wh/{w}/kpi` | KPI per traslo e serie oraria |
+| `GET /api/wh/{w}/stock` | giacenza per articolo, classi, zone |
+| `GET /api/wh/{w}/lus?sku=&q=` | UdC in ordine FIFO |
+| `GET/POST /api/wh/{w}/lu/{udc}` | anagrafica / rettifica |
+| `GET/POST /api/wh/{w}/orders` | elenco / nuovo ordine `{reference, bay, priority, lines:[{sku, qty}]}` |
+| `POST /api/wh/{w}/order/{id}/{cancel\|close\|priority}` | azioni ordine |
+| `POST /api/wh/{w}/mission/{id}/{hold\|release\|priority\|cancel\|requeue\|done}` | azioni missione |
+| `POST /api/wh/{w}/move` | movimentazione `{lu, dst?}` |
+| `GET /api/wh/{w}/reorg?aisle=&max=` | piano di riorganizzazione simulato |
+| `POST /api/wh/{w}/reorg` | `{enabled}` e/o `{run: N, aisle}` |
 
 ## Architettura
 
@@ -258,7 +336,10 @@ cargo build --release --features opcua,eip
 cargo test
 ```
 
-Comprende anche un test end-to-end del decision engine (UDT telegramma, handshake a flag, regole e classi) e la validazione della config demo.
+Comprende anche:
+- un test end-to-end del decision engine (UDT telegramma, handshake a flag, regole e classi);
+- la validazione della config demo;
+- i test del magazzino con un PLC del traslo simulato: protocollo missioni, doppia UdC, zone ABC, ordini FIFO, priorità e sospensione, riorganizzazione con missioni di tipo 3, KPI.
 
 I driver si provano contro server di protocollo reali. Installa i server:
 

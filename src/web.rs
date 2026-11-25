@@ -61,7 +61,15 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/wh/{name}/inbound", post(wh_inbound))
         .route("/api/wh/{name}/location", get(wh_location).post(wh_location_set))
         .route("/api/wh/{name}/find", get(wh_find))
-        .route("/api/wh/{name}/mission/{id}/cancel", post(wh_cancel))
+        .route("/api/wh/{name}/mission/{id}/{action}", post(wh_mission_action))
+        .route("/api/wh/{name}/kpi", get(wh_kpi))
+        .route("/api/wh/{name}/stock", get(wh_stock))
+        .route("/api/wh/{name}/lus", get(wh_lus))
+        .route("/api/wh/{name}/lu/{lu}", get(wh_lu_get).post(wh_lu_set))
+        .route("/api/wh/{name}/orders", get(wh_orders).post(wh_order_create))
+        .route("/api/wh/{name}/order/{id}/{action}", post(wh_order_action))
+        .route("/api/wh/{name}/move", post(wh_move))
+        .route("/api/wh/{name}/reorg", get(wh_reorg_plan).post(wh_reorg_set))
         .route("/api/sorting/status", get(sorting_status))
         .route("/api/sorting/lookup", get(sorting_lookup))
         .route("/api/sorting/sync", post(sorting_sync))
@@ -268,6 +276,7 @@ struct SideQ {
 async fn wh_side(State(app): S, Path(name): Path<String>, Query(q): Query<SideQ>) -> R<Json<J>> {
     let w = wh(&app, &name)?;
     let cells = w.side_cells(q.aisle, q.side)?;
+    let (zones, classes) = w.side_abc(q.aisle, q.side)?;
     let codes = |s: crate::warehouse::LocState| match s {
         crate::warehouse::LocState::Free => 0,
         crate::warehouse::LocState::Occupied => 1,
@@ -279,6 +288,7 @@ async fn wh_side(State(app): S, Path(name): Path<String>, Query(q): Query<SideQ>
         "aisle": q.aisle, "side": q.side, "columns": w.def.columns, "levels": w.def.levels,
         "states": cells.iter().map(|r| r.iter().map(|c| codes(c.0)).collect::<Vec<_>>()).collect::<Vec<_>>(),
         "lus": cells.iter().map(|r| r.iter().map(|c| c.1.clone()).collect::<Vec<_>>()).collect::<Vec<_>>(),
+        "zones": zones, "classes": classes,
     })))
 }
 
@@ -309,11 +319,22 @@ struct InReq {
     lu: String,
     #[serde(default)]
     bay: Option<String>,
+    #[serde(default)]
+    sku: String,
+    #[serde(default)]
+    qty: f64,
+    #[serde(default)]
+    lot: String,
+    #[serde(default)]
+    height_mm: u16,
+    #[serde(default)]
+    weight_kg: f64,
 }
 
 async fn wh_inbound(State(app): S, Path(name): Path<String>, Json(r): Json<InReq>) -> R<Json<J>> {
     let w = wh(&app, &name)?;
-    let (aisle, pos) = w.allocate_inbound(&r.lu, r.bay.as_deref().unwrap_or("manuale"), &w.unavailable_aisles(&app.db), false)?;
+    let info = crate::warehouse::LuInfo { sku: r.sku.trim().into(), qty: r.qty, lot: r.lot.trim().into(), height_mm: r.height_mm, weight_kg: r.weight_kg, entry: 0 };
+    let (aisle, pos) = w.allocate_inbound_with(&r.lu, r.bay.as_deref().unwrap_or("manuale"), info, &w.unavailable_aisles(&app.db), false)?;
     app.audit("hmi", "wh_inbound", format!("{name}: {} → {}", r.lu, pos.code()));
     Ok(Json(json!({"aisle": aisle, "location": pos, "code": pos.code()})))
 }
@@ -331,8 +352,7 @@ struct LocQ {
 async fn wh_location(State(app): S, Path(name): Path<String>, Query(q): Query<LocQ>) -> R<Json<J>> {
     let w = wh(&app, &name)?;
     let p = crate::warehouse::Pos { aisle: q.aisle, side: q.side, col: q.col, lvl: q.lvl };
-    let l = w.location(p).ok_or_else(|| bad("locazione non valida"))?;
-    Ok(Json(json!({"code": p.code(), "pos": p, "loc": l})))
+    Ok(Json(w.location_detail(p).ok_or_else(|| bad("locazione non valida"))?))
 }
 
 async fn wh_location_set(State(app): S, Path(name): Path<String>, Json(q): Json<LocQ>) -> R<Json<J>> {
@@ -355,15 +375,124 @@ struct FindQ {
 async fn wh_find(State(app): S, Path(name): Path<String>, Query(q): Query<FindQ>) -> R<Json<J>> {
     let w = wh(&app, &name)?;
     Ok(Json(match w.find(&q.lu) {
-        Some((p, l)) => json!({"found": true, "code": p.code(), "pos": p, "loc": l}),
+        Some((p, l)) => json!({"found": true, "code": p.code(), "pos": p, "loc": l, "info": w.lu_info(&q.lu)}),
         None => json!({"found": false}),
     }))
 }
 
-async fn wh_cancel(State(app): S, Path((name, id)): Path<(String, u32)>) -> R<Json<J>> {
-    wh(&app, &name)?.cancel(id)?;
-    app.audit("hmi", "wh_cancel", format!("{name}: missione {id}"));
-    Ok(Json(json!({"ok": true})))
+#[derive(Deserialize, Default)]
+struct PrioReq {
+    #[serde(default)]
+    priority: Option<u8>,
+}
+
+/// Azioni sulle missioni: hold, release, priority, cancel, requeue, done.
+async fn wh_mission_action(State(app): S, Path((name, id, action)): Path<(String, u32, String)>, body: Option<Json<PrioReq>>) -> R<Json<J>> {
+    let p = body.map(|b| b.0).unwrap_or_default();
+    let m = wh(&app, &name)?.mission_action(id, &action, p.priority)?;
+    app.audit("hmi", "wh_mission", format!("{name}: missione {id} {action}{}", p.priority.map(|p| format!(" {p}")).unwrap_or_default()));
+    Ok(Json(json!(m)))
+}
+
+async fn wh_kpi(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
+    Ok(Json(wh(&app, &name)?.kpi()))
+}
+
+async fn wh_stock(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
+    Ok(Json(wh(&app, &name)?.stock()))
+}
+
+#[derive(Deserialize)]
+struct LusQ {
+    sku: Option<String>,
+    q: Option<String>,
+    limit: Option<usize>,
+}
+
+async fn wh_lus(State(app): S, Path(name): Path<String>, Query(q): Query<LusQ>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    Ok(Json(json!(w.lus(q.sku.as_deref().filter(|s| !s.is_empty()), q.q.as_deref().filter(|s| !s.is_empty()), q.limit.unwrap_or(200).min(5000)))))
+}
+
+async fn wh_lu_get(State(app): S, Path((name, lu)): Path<(String, String)>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    let (p, l) = w.find(&lu).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("UdC {lu} non trovata")))?;
+    Ok(Json(json!({"lu": lu, "code": p.code(), "pos": p, "loc": l, "info": w.lu_info(&lu)})))
+}
+
+async fn wh_lu_set(State(app): S, Path((name, lu)): Path<(String, String)>, Json(info): Json<crate::warehouse::LuInfo>) -> R<Json<J>> {
+    let i = wh(&app, &name)?.set_lu_info(&lu, info)?;
+    app.audit("hmi", "wh_lu", format!("{name}: rettifica {lu} → {} q.tà {}", i.sku, i.qty));
+    Ok(Json(json!(i)))
+}
+
+async fn wh_orders(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
+    Ok(Json(json!(wh(&app, &name)?.orders())))
+}
+
+async fn wh_order_create(State(app): S, Path(name): Path<String>, Json(r): Json<crate::warehouse::OrderReq>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    let o = w.create_order(r, &w.unavailable_aisles(&app.db))?;
+    app.audit("hmi", "wh_order", format!("{name}: ordine {} ({}) {} righe", o.id, o.reference, o.lines.len()));
+    Ok(Json(json!(o)))
+}
+
+async fn wh_order_action(State(app): S, Path((name, id, action)): Path<(String, u32, String)>, body: Option<Json<PrioReq>>) -> R<Json<J>> {
+    let p = body.map(|b| b.0).unwrap_or_default();
+    let o = wh(&app, &name)?.order_action(id, &action, p.priority)?;
+    app.audit("hmi", "wh_order", format!("{name}: ordine {id} {action}"));
+    Ok(Json(json!(o)))
+}
+
+#[derive(Deserialize)]
+struct MoveReq {
+    lu: String,
+    #[serde(default)]
+    dst: Option<crate::warehouse::Pos>,
+}
+
+async fn wh_move(State(app): S, Path(name): Path<String>, Json(r): Json<MoveReq>) -> R<Json<J>> {
+    let m = wh(&app, &name)?.create_move(&r.lu, r.dst)?;
+    app.audit("hmi", "wh_move", format!("{name}: {} {} → {}", m.lu, m.src.code(), m.dst.code()));
+    Ok(Json(json!(m)))
+}
+
+#[derive(Deserialize)]
+struct PlanQ {
+    aisle: Option<u16>,
+    max: Option<usize>,
+}
+
+/// Piano di riorganizzazione simulato.
+async fn wh_reorg_plan(State(app): S, Path(name): Path<String>, Query(q): Query<PlanQ>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    let plan = w.plan(q.aisle.filter(|&a| a > 0), q.max.unwrap_or(50).min(2000));
+    Ok(Json(json!({"plan": plan, "config": w.def.reorg, "enabled": w.summary()["reorg"]["enabled"]})))
+}
+
+#[derive(Deserialize)]
+struct ReorgReq {
+    #[serde(default)]
+    enabled: Option<bool>,
+    /// crea subito N movimentazioni dal piano
+    #[serde(default)]
+    run: Option<usize>,
+    #[serde(default)]
+    aisle: Option<u16>,
+}
+
+async fn wh_reorg_set(State(app): S, Path(name): Path<String>, Json(r): Json<ReorgReq>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    if let Some(e) = r.enabled {
+        w.set_reorg(e);
+        app.audit("hmi", "wh_reorg", format!("{name}: riorganizzazione automatica {}", if e { "attiva" } else { "disattiva" }));
+    }
+    let mut created = vec![];
+    if let Some(n) = r.run.filter(|&n| n > 0) {
+        created = w.reorg_now(r.aisle.filter(|&a| a > 0), n.min(500), &w.unavailable_aisles(&app.db));
+        app.audit("hmi", "wh_reorg", format!("{name}: {} movimentazioni create", created.len()));
+    }
+    Ok(Json(json!({"ok": true, "created": created})))
 }
 
 /// Libreria: metadati simboli (categoria, famiglia UDT, faceplate, binding

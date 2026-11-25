@@ -800,6 +800,16 @@ udt_types:
     type: u32
     address: DB{DB}.DBD{Base+38}
     description: Pallet respinti
+  - name: Sku
+    type: string
+    address: DB{DB}.DBB{Base+42}
+    description: Articolo (anagrafica UdC)
+    role: input
+  - name: Qty
+    type: u16
+    address: DB{DB}.DBW{Base+64}
+    description: Quantità a bordo
+    role: input
 - name: BaiaUscita
   description: Baia d'uscita pallet
   params:
@@ -1480,4 +1490,30 @@ warehouses:
   lvl_time_s: 1.2
   lu_prefix: PAL
   initial_fill_pct: 62
-  auto_outbound_s: 16
+  auto_outbound_s: 0
+  auto_orders_s: 30
+  demo_skus: 60
+  level_max_height_mm:
+  - 1800
+  - 1800
+  - 1500
+  - 1500
+  - 1500
+  - 1500
+  - 1500
+  - 1500
+  - 1500
+  - 1500
+  strategy:
+    abc: true
+    a_zone_pct: 0.2
+    b_zone_pct: 0.3
+    a_sku_pct: 0.2
+    b_sku_pct: 0.3
+    abc_window_h: 168
+    spread_sku: true
+  reorg:
+    enabled: true
+    idle_s: 20.0
+    max_per_hour: 40
+    min_gain_s: 2.0

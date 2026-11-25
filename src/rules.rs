@@ -58,7 +58,8 @@ pub trait Resolver {
     /// Destinazione fornita dal WMS (già in cache).
     fn wms_dest(&self, value: &str) -> Option<String>;
     /// Deposito in magazzino automatico: alloca cella e missione, ritorna la corsia.
-    fn store(&self, _wh: &str, _lu: &str, _bay: &str, _dry_run: bool) -> Option<String> {
+    /// `fields`: campi del telegramma (anagrafica UdC: sku, qty, lot, height, weight).
+    fn store(&self, _wh: &str, _lu: &str, _bay: &str, _fields: &HashMap<String, Value>, _dry_run: bool) -> Option<String> {
         None
     }
 }
@@ -320,7 +321,7 @@ impl RulesEngine {
                     res.wms_dest(&field(f.trim()))?
                 } else if let Some(rest) = raw.strip_prefix("store:") {
                     let (wh, f) = rest.split_once(':').unwrap_or((rest, "barcode"));
-                    res.store(wh.trim(), &field(f.trim()), point, dry_run)?
+                    res.store(wh.trim(), &field(f.trim()), point, inputs, dry_run)?
                 } else {
                     raw.to_string()
                 };
