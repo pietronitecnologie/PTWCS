@@ -605,6 +605,18 @@ sym("asrs_crane", "Traslo (fronte)", C_ASRS, "Traslo", "0 0 70 200",
      "elements.forks.tx": B("(tag('{device}.Fork') || 0) * 0.3"),
      "elements.body.fill": B("tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'")})
 
+sym("asrs_crane_mast", "Traslo (fronte, solo colonna – da sovrapporre al prospetto)", C_ASRS, "Traslo", "0 0 70 200",
+    G("mast", "Colonna (tx = posizione corsia)",
+      E("rect", "body", "Colore di stato (colonna)", x=28, y=4, width=14, height=184, fill=BODY, opacity=0.9)
+      + E("rect", x=6, y=186, width=58, height=12, rx=2, fill=FRD) + E("rect", x=20, y=0, width=30, height=8, fill=FRD)
+      + G("carriage", "Culla (ty = quota, negativa)", E("rect", x=6, y=160, width=58, height=18, rx=2, fill=ACC, stroke=DARK, stroke_width=2)
+          + G("forks", "Forche (tx = estrazione)", E("rect", x=12, y=173, width=46, height=4, fill=DARK))
+          + pallet(12, 146, 46, 14))
+      + fault_box(70, 200)) + text(35, -9, "TR"),
+    {"elements.mast.tx": B("(tag('{device}.PctX') || 0) * 2"), "elements.carriage.ty": B("-(tag('{device}.PctY') || 0) * 1.4"),
+     "elements.forks.tx": B("(tag('{device}.Fork') || 0) * 0.3"),
+     "elements.body.fill": B("tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'")})
+
 rp = E("rect", x=0, y=0, width=260, height=110, fill=DARK)
 for row in (0, 70):
     rp += E("rect", x=0, y=row, width=260, height=40, fill=FRD)
@@ -617,6 +629,20 @@ rp += text(130, -9, "CORSIA")
 sym("asrs_aisle", "Corsia magazzino con traslo (pianta)", C_ASRS, "Traslo", "0 0 260 110", rp,
     {"elements.crane.tx": B("(tag('{device}.PctX') || 0) * 2.2"),
      "elements.body.fill": B("tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'")})
+
+sym("asrs_lane", "Corsia traslo (pianta, binario)", C_ASRS, "Traslo", "0 0 1000 40",
+    E("rect", x=0, y=4, width=1000, height=32, fill="#0b1220")
+    + E("line", x1=0, y1=10, x2=1000, y2=10, stroke=FR, stroke_width=3) + E("line", x1=0, y1=30, x2=1000, y2=30, stroke=FR, stroke_width=3)
+    + E("rect", x=0, y=4, width=18, height=32, fill=ACC, opacity=0.35)
+    + G("crane", "Traslo (tx = posizione lungo la corsia)",
+        E("rect", "body", "Colore di stato (traslo)", x=2, y=2, width=34, height=36, rx=4, fill=BODY, stroke=DARK, stroke_width=2)
+        + E("rect", x=14, y=8, width=10, height=24, fill=DARK, opacity=0.6)
+        + G("forks", "Forche (ty = sfilo verso i lati)", E("rect", x=8, y=16, width=22, height=8, fill=ROL))
+        + E("rect", "load", "Pallet a bordo (visibile)", True, x=7, y=9, width=24, height=22, fill=LOAD, stroke=LOADD, stroke_width=2))
+    + text(500, 20, "", id="label", desc="Testo etichetta", size=12, fill="#64748b"),
+    {"elements.crane.tx": B("(tag('{device}.PctX') || 0) * 9.6"),
+     "elements.forks.ty": B("(tag('{device}.Fork') || 0) * 0.14"),
+     "elements.body.fill": B("tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'")})
 
 sym("asrs_shuttle", "Shuttle (pianta)", C_ASRS, "Veicolo", "0 0 110 64",
     E("rect", "body", "Colore di stato", x=4, y=4, width=102, height=56, rx=6, fill=BODY, stroke=DARK, stroke_width=2)

@@ -236,7 +236,173 @@ export const COMPONENTS = {
       return out;
     },
   },
+  whmap: {
+    label: 'Mappa magazzino', icon: '▦', size: [500, 60],
+    props: { wh: '', aisle: 1, side: 1, mode: 'plan', labels: true, highlight: '', title: '' },
+    schema: [['wh', 'text', 'Magazzino'], ['aisle', 'text', 'Corsia ({param} ammesso)'], ['side', 'number', 'Lato'],
+      ['mode', 'select', 'Modalità', ['plan', 'blocks', 'cells']], ['labels', 'bool', 'Etichette'], ['highlight', 'text', 'Evidenzia UdC'], ['title', 'text', 'Titolo']],
+    render(p, w, h, ctx) {
+      const aisle = Math.round(num(p.aisle, 1)), side = Math.round(num(p.side, 1));
+      const box = `<rect width="${w}" height="${h}" fill="#0a1120" stroke="#24324f"/>`;
+      if (!p.wh || !ctx.wh) return box + textEl(w / 2, h / 2, 'magazzino?', { size: 12, color: '#64748b' });
+      if (p.mode === 'cells') {
+        const d = ctx.wh(`${p.wh}|side|${aisle}|${side}`, `/api/wh/${encodeURIComponent(p.wh)}/side?aisle=${aisle}&side=${side}`);
+        if (!d) return box + textEl(w / 2, h / 2, 'caricamento…', { size: 12, color: '#64748b' });
+        const L = p.labels ? 26 : 0, B = p.labels ? 16 : 0, T = p.title ? 18 : 0;
+        const cw = (w - L) / d.columns, ch = (h - B - T) / d.levels;
+        let out = box + (p.title ? textEl(L, 9, p.title, { size: 12, anchor: 'start', color: '#cbd5e1' }) : '');
+        for (let l = 0; l < d.levels; l++) {
+          const y = T + (d.levels - 1 - l) * ch;
+          if (p.labels) out += textEl(L - 4, y + ch / 2, `${l + 1}`, { size: Math.min(10, ch * 0.7), anchor: 'end', color: '#64748b' });
+          for (let c = 0; c < d.columns; c++) {
+            const st = d.states[l][c], lu = d.lus[l][c];
+            const hl = p.highlight && lu === p.highlight;
+            out += `<rect class="whcell" data-c="${c + 1}" data-l="${l + 1}" x="${(L + c * cw + 0.6).toFixed(1)}" y="${(y + 0.6).toFixed(1)}" width="${(cw - 1.2).toFixed(1)}" height="${(ch - 1.2).toFixed(1)}" rx="1.5"
+              fill="${WH_COLORS[st]}" ${hl ? 'stroke="#fff" stroke-width="2.5"' : ''}><title>${esc(`C${aisle} L${side} col ${c + 1} liv ${l + 1}: ${WH_STATES[st]}${lu ? ' – ' + lu : ''}`)}</title></rect>`;
+            if (st === 4) out += `<path d="M${L + c * cw + 2} ${y + 2} l${cw - 4} ${ch - 4} m0 ${-(ch - 4)} l${-(cw - 4)} ${ch - 4}" stroke="#fca5a5" stroke-width="1" pointer-events="none"/>`;
+          }
+        }
+        if (p.labels) for (let c = 0; c < d.columns; c += 5) out += textEl(L + c * cw + cw / 2, h - 7, `${c + 1}`, { size: 9, color: '#64748b' });
+        return out;
+      }
+      const sum = ctx.wh(`${p.wh}|summary`, `/api/wh/${encodeURIComponent(p.wh)}/summary`);
+      const sd = sum?.aisles?.[aisle - 1]?.sides?.[side - 1];
+      if (!sd) return box + textEl(w / 2, h / 2, sum ? `corsia ${aisle} / lato ${side}?` : 'caricamento…', { size: 12, color: '#64748b' });
+      const nb = sd.blocks[0].length, nl = sd.blocks.length;
+      const T = p.title ? 16 : 0;
+      let out = box + (p.title ? textEl(4, 8, p.title, { size: 11, anchor: 'start', color: '#94a3b8' }) : '');
+      const bw = w / nb;
+      if (p.mode === 'blocks') {
+        const bh = (h - T) / nl;
+        for (let l = 0; l < nl; l++) for (let b = 0; b < nb; b++) {
+          const f = sd.blocks[l][b];
+          out += `<rect x="${(b * bw + 0.5).toFixed(1)}" y="${(T + (nl - 1 - l) * bh + 0.5).toFixed(1)}" width="${(bw - 1).toFixed(1)}" height="${(bh - 1).toFixed(1)}" fill="${fillColor(f)}"><title>blocco ${b + 1} liv ${l + 1}: ${Math.round(f * 100)}%</title></rect>`;
+        }
+        return out;
+      }
+      // pianta: saturazione media per blocco di colonne (tutti i livelli)
+      for (let b = 0; b < nb; b++) {
+        const f = sd.blocks.reduce((a, r) => a + r[b], 0) / nl;
+        out += `<rect x="${(b * bw + 0.5).toFixed(1)}" y="${T + 0.5}" width="${(bw - 1).toFixed(1)}" height="${(h - T - 1).toFixed(1)}" fill="${fillColor(f)}"><title>colonne ${b * sum.geometry.block_cols + 1}-${Math.min((b + 1) * sum.geometry.block_cols, sum.geometry.columns)}: ${Math.round(f * 100)}%</title></rect>`;
+        if (p.labels && bw > 22) out += textEl(b * bw + bw / 2, T + (h - T) / 2, `${Math.round(f * 100)}`, { size: Math.min(11, (h - T) * 0.5), color: '#e2e8f0' });
+      }
+      const tot = sd.free + sd.occupied + sd.reserved + sd.blocked;
+      if (p.labels) out += textEl(w - 4, -7, `lato ${side}: ${sd.occupied + sd.reserved}/${tot} (${Math.round((sd.occupied + sd.reserved) * 100 / tot)}%)`, { size: 10, anchor: 'end', color: '#94a3b8' });
+      return out;
+    },
+    after(g, p, r, c) {
+      if (p.mode !== 'cells') return;
+      g.querySelectorAll('.whcell').forEach((el) => (el.onclick = (e) => {
+        e.stopPropagation();
+        r?.opts?.onWhCell?.(p.wh, { aisle: Math.round(num(p.aisle, 1)), side: Math.round(num(p.side, 1)), col: +el.dataset.c, lvl: +el.dataset.l });
+      }));
+    },
+  },
+  whsummary: {
+    label: 'KPI magazzino', icon: '▤', size: [300, 200],
+    props: { wh: '', aisle: '', fontSize: 13 },
+    schema: [['wh', 'text', 'Magazzino'], ['aisle', 'text', 'Corsia (vuoto = totale)'], ['fontSize', 'number', 'Dim. font']],
+    render(p, w, h, ctx) {
+      const sum = p.wh && ctx.wh ? ctx.wh(`${p.wh}|summary`, `/api/wh/${encodeURIComponent(p.wh)}/summary`) : null;
+      let out = `<rect width="${w}" height="${h}" rx="6" fill="#0f172a" stroke="#24324f"/>`;
+      if (!sum) return out + textEl(w / 2, h / 2, p.wh ? 'caricamento…' : 'magazzino?', { size: 12, color: '#64748b' });
+      const fs = num(p.fontSize, 13);
+      let rows;
+      if (p.aisle !== '' && p.aisle !== undefined && p.aisle !== null) {
+        const a = sum.aisles[Math.round(num(p.aisle, 1)) - 1];
+        if (!a) return out + textEl(w / 2, h / 2, 'corsia?', { size: 12 });
+        const t = a.sides.reduce((x, s) => ({ free: x.free + s.free, occ: x.occ + s.occupied + s.reserved, bl: x.bl + s.blocked }), { free: 0, occ: 0, bl: 0 });
+        const tot = t.free + t.occ + t.bl;
+        if (h < 90) {
+          // modalità compatta (due righe)
+          return out + textEl(10, h * 0.3, `${t.occ}/${tot} occupate (${Math.round(t.occ * 100 / tot)}%) · ${t.free} libere${t.bl ? ` · ${t.bl} bloccate` : ''}`, { size: fs, anchor: 'start' })
+            + textEl(10, h * 0.72, `coda ${a.queued} · ${a.done_hour} missioni/ora`, { size: fs, anchor: 'start', color: '#94a3b8' });
+        }
+        rows = [['Corsia', `${a.name} · traslo ${a.crane}`], ['Locazioni', tot], ['Occupate', `${t.occ} (${Math.round(t.occ * 100 / tot)}%)`], ['Libere', t.free], ['Bloccate', t.bl],
+          ['Missioni in coda', a.queued], ['In corso', a.active ? `#${a.active.id} ${a.active.kind === 'in' ? 'deposito' : 'prelievo'} ${a.active.lu}` : '—'], ['Completate/ora', a.done_hour]];
+      } else {
+        const t = sum.totals, m = sum.missions;
+        rows = [['Locazioni', sum.geometry.total], ['Occupate', t.occupied], ['Prenotate', t.reserved], ['Libere', t.free], ['Bloccate', t.blocked],
+          ['Saturazione', `${t.fill_pct.toFixed(1)} %`], ['Missioni coda / in corso', `${m.queued} / ${m.running}`], ['Depositi / prelievi ora', `${m.in_hour} / ${m.out_hour}`]];
+      }
+      const rh = (h - 10) / rows.length;
+      rows.forEach(([k, v], i) => {
+        out += textEl(10, 5 + rh * i + rh / 2, k, { size: fs, anchor: 'start', color: '#94a3b8' }) + textEl(w - 10, 5 + rh * i + rh / 2, String(v), { size: fs, anchor: 'end', bold: true });
+      });
+      return out;
+    },
+  },
+  whmissions: {
+    label: 'Missioni magazzino', icon: '☰', size: [520, 220],
+    props: { wh: '', rows: 8, fontSize: 11 },
+    schema: [['wh', 'text', 'Magazzino'], ['rows', 'number', 'Righe'], ['fontSize', 'number', 'Dim. font']],
+    render(p, w, h, ctx) {
+      const d = p.wh && ctx.wh ? ctx.wh(`${p.wh}|missions`, `/api/wh/${encodeURIComponent(p.wh)}/missions?limit=20`) : null;
+      let out = `<rect width="${w}" height="${h}" rx="6" fill="#0f172a" stroke="#24324f"/>`;
+      if (!d) return out + textEl(w / 2, h / 2, p.wh ? 'caricamento…' : 'magazzino?', { size: 12, color: '#64748b' });
+      const fs = num(p.fontSize, 11), n = Math.max(1, num(p.rows, 8));
+      const open = [...d.open].sort((a, b) => (a.state === 'queued') - (b.state === 'queued') || a.id - b.id);
+      const done = d.recent.filter((m) => m.state === 'done');
+      const list = [...open, ...done].slice(0, n);
+      const cols = [8, 0.1, 0.23, 0.42, 0.7, 0.86].map((x) => (x < 1 ? x * w : x));
+      const hdr = ['#', 'Tipo', 'UdC', 'Da → A', 'Stato', 'Corsia'];
+      const rh = (h - 22) / n;
+      hdr.forEach((t, i) => (out += textEl(cols[i], 12, t, { size: fs, anchor: 'start', color: '#64748b', bold: true })));
+      const stc = { queued: '#94a3b8', sent: '#38bdf8', running: '#22c55e', done: '#64748b', cancelled: '#ef4444' };
+      const stl = { queued: 'in coda', sent: 'inviata', running: 'in corso', done: 'completata', cancelled: 'annullata' };
+      const code = (pp) => (pp.col === 0 ? 'P&D' : `${pp.side}-${String(pp.col).padStart(2, '0')}-${String(pp.lvl).padStart(2, '0')}`);
+      list.forEach((m, i) => {
+        const y = 22 + rh * i + rh / 2;
+        const vals = [m.id, m.kind === 'in' ? '⬇ dep.' : '⬆ prel.', m.lu, m.kind === 'in' ? `${m.bay} → ${code(m.dst)}` : `${code(m.src)} → ${m.bay}`, stl[m.state], m.aisle];
+        vals.forEach((v, k) => (out += textEl(cols[k], y, String(v), { size: fs, anchor: 'start', color: k === 4 ? stc[m.state] : '#e2e8f0' })));
+      });
+      return out;
+    },
+  },
 };
+const WH_COLORS = ['#1e293b', '#b7793e', '#3b82f6', '#22c55e', '#7f1d1d'];
+const WH_STATES = ['libera', 'occupata', 'prenotata (deposito)', 'in prelievo', 'bloccata'];
+const FILL_STOPS = [[0, [30, 41, 59]], [0.35, [30, 64, 175]], [0.6, [59, 130, 246]], [0.8, [20, 184, 166]], [0.92, [245, 158, 11]], [1, [239, 68, 68]]];
+function fillColor(f) {
+  f = Math.max(0, Math.min(1, f));
+  for (let i = 1; i < FILL_STOPS.length; i++) {
+    const [a, ca] = FILL_STOPS[i - 1], [b, cb] = FILL_STOPS[i];
+    if (f <= b) {
+      const k = (f - a) / (b - a);
+      return `rgb(${ca.map((x, j) => Math.round(x + (cb[j] - x) * k)).join(',')})`;
+    }
+  }
+  return 'rgb(239,68,68)';
+}
+export const FILL_LEGEND = [0, 0.35, 0.6, 0.8, 0.92, 1].map((f) => [Math.round(f * 100), fillColor(f)]);
+export const WH_LEGEND = WH_STATES.map((s, i) => [s, WH_COLORS[i]]);
+
+// Cache dati magazzino (API), condivisa da tutti i renderer, aggiornata ogni 1,5 s.
+const whCache = new Map();
+const renderers = new Set();
+let whTimer = null;
+function whFetch(api, key, url, touch = true) {
+  const e = whCache.get(key) || { data: null, ts: 0, used: Date.now(), busy: false, url };
+  if (touch) e.used = Date.now();
+  whCache.set(key, e);
+  if (!e.busy && Date.now() - e.ts > 1400) {
+    e.busy = true;
+    api.get(url).then((d) => { e.data = d; e.ts = Date.now(); }).catch(() => { e.ts = Date.now(); }).finally(() => {
+      e.busy = false;
+      renderers.forEach((r) => r.update());
+    });
+  }
+  if (!whTimer) whTimer = setInterval(() => {
+    for (const [k, x] of whCache) {
+      if (Date.now() - x.used > 6000) { whCache.delete(k); continue; }
+      if (x.api && Date.now() - x.ts > 1400) whFetch(x.api, k, x.url, false);
+    }
+  }, 1500);
+  e.api = api;
+  return e.data;
+}
+export function whInvalidate() { for (const e of whCache.values()) e.ts = 0; }
+
 export const TREND_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899'];
 
 export const COMMON_SCHEMA = [['visible', 'bool', 'Visibile'], ['opacity', 'number', 'Opacità (0-1)'], ['tooltip', 'text', 'Tooltip']];
@@ -467,7 +633,10 @@ export class ViewRenderer {
     this.layer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     this.bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     svg.append(this.bg, this.layer);
+    renderers.add(this);
   }
+
+  destroy() { renderers.delete(this); }
 
   setSymbols(list) {
     const out = {};
@@ -528,8 +697,12 @@ export class ViewRenderer {
       const scope = scopeFor(c, this.scope);
       const { props, bad, errors } = resolveProps(c, this.live, scope);
       if (c.type === 'trend') props.tags = subst(String(props.tags || ''), scope);
+      for (const k of ['wh', 'aisle', 'highlight', 'title']) if (typeof props[k] === 'string') props[k] = subst(props[k], scope);
       const w = Math.max(1, num(c.w, def.size[0])), h = Math.max(1, num(c.h, def.size[1]));
-      const inner = def.render(props, w, h, { symbols: this.symbols, uid: c.id, history: (t) => this.history(t) }) +
+      const inner = def.render(props, w, h, {
+        symbols: this.symbols, uid: c.id, history: (t) => this.history(t),
+        wh: this.opts.api ? (key, url) => whFetch(this.opts.api, key, url) : null,
+      }) +
         (bad ? `<rect x="-3" y="-3" width="${w + 6}" height="${h + 6}" fill="none" stroke="#f59e0b" stroke-dasharray="3 3" class="badq"/>` : '');
       const transform = `translate(${num(c.x)} ${num(c.y)})${c.rotation ? ` rotate(${num(c.rotation)} ${w / 2} ${h / 2})` : ''}`;
       const key = inner + transform + props.visible + props.opacity + JSON.stringify(props.elements || '') + props.tooltip;
@@ -545,7 +718,7 @@ export class ViewRenderer {
       g.classList.toggle('clickable', !!c.events?.onClick?.actions?.length);
       g.innerHTML = (props.tooltip ? `<title>${esc(props.tooltip)}</title>` : '') + inner;
       if (errors.length) g.dataset.errors = errors.join('\n'); else delete g.dataset.errors;
-      def.after?.(g, props);
+      def.after?.(g, props, this, c);
       if (c.type === 'embed') this.updateEmbed(c, g, props, scope, true);
     });
     for (const g of [...this.layer.children]) {
@@ -608,7 +781,11 @@ export async function runActions(comp, evName, { live, api, navigate, toast, vie
         }
         if (r.write_errors?.length) toast(r.write_errors.join('; '), 'error');
       } else if (a.kind === 'navigate') {
-        navigate(a.view);
+        const params = {};
+        for (const [k, v] of Object.entries(a.params || {})) params[k] = subst(String(v), scope);
+        navigate(a.view, params);
+      } else if (a.kind === 'wh') {
+        await whAction(a, scope, { api, toast, navigate });
       } else if (a.kind === 'popup') {
         const params = {};
         for (const [k, v] of Object.entries(a.params || {})) params[k] = subst(String(v), scope);
@@ -622,7 +799,7 @@ export async function runActions(comp, evName, { live, api, navigate, toast, vie
 }
 
 /** Finestra popup flottante (faceplate) con una vista e i suoi parametri. */
-export function createPopup({ live, api, toast, symbols, viewId, params, title, onAction, onClose }) {
+export function createPopup({ live, api, toast, symbols, viewId, params, title, onAction, onClose, onWhCell }) {
   const win = document.createElement('div');
   win.className = 'popup-win';
   const n = document.querySelectorAll('.popup-win').length;
@@ -633,9 +810,9 @@ export function createPopup({ live, api, toast, symbols, viewId, params, title, 
   document.body.appendChild(win);
   win.querySelector('.popup-title').textContent = title || viewId;
   const svg = win.querySelector('svg');
-  const r = new ViewRenderer(svg, live, { api, params, symbols, onAction });
+  const r = new ViewRenderer(svg, live, { api, params, symbols, onAction, onWhCell });
   r.viewId = viewId;
-  const close = () => { win.remove(); onClose?.(r); };
+  const close = () => { win.remove(); r.destroy(); onClose?.(r); };
   win.querySelector('.popup-close').onclick = close;
   // trascinamento dalla barra del titolo
   const head = win.querySelector('.popup-head');
@@ -656,4 +833,69 @@ export function createPopup({ live, api, toast, symbols, viewId, params, title, 
     r.load(v);
   }).catch((e) => { toast(`Vista ${viewId}: ${e.message}`, 'error'); close(); });
   return { win, renderer: r, close };
+}
+
+
+// ------------------------------------------------------------------ azioni e dialoghi magazzino
+
+/** Azioni operatore sul magazzino: ricerca UdC, prelievo, deposito manuale. */
+export async function whAction(a, scope, { api, toast, navigate }) {
+  const wh = subst(a.wh || '', scope);
+  if (a.op === 'search') {
+    const lu = prompt('Identificativo UdC da cercare:');
+    if (!lu) return;
+    const r = await api.get(`/api/wh/${encodeURIComponent(wh)}/find?lu=${encodeURIComponent(lu.trim())}`);
+    if (!r.found) return toast(`UdC ${lu} non presente`, 'error');
+    toast(`${lu}: ${r.code} (${r.loc.state})`, 'ok');
+    if (a.view) navigate(a.view, { aisle: String(r.pos.aisle), hl: lu.trim() });
+  } else if (a.op === 'outbound') {
+    const lu = prompt('UdC da prelevare (vuoto = una a caso):', '');
+    if (lu === null) return;
+    const bay = a.bay ? subst(a.bay, scope) : prompt('Baia d\'uscita (vuoto = bilanciata):', '') ?? '';
+    const m = await api.post(`/api/wh/${encodeURIComponent(wh)}/outbound`, { lu: lu.trim() || null, bay: bay.trim() || null });
+    toast(`Missione ${m.id}: prelievo ${m.lu} → ${m.bay}`, 'ok');
+    whInvalidate();
+  } else if (a.op === 'inbound') {
+    const lu = prompt('UdC da depositare (identificativo):');
+    if (!lu) return;
+    const r = await api.post(`/api/wh/${encodeURIComponent(wh)}/inbound`, { lu: lu.trim(), bay: 'manuale' });
+    toast(`Deposito ${lu} → ${r.code}`, 'ok');
+    whInvalidate();
+  }
+}
+
+/** Dialogo dettaglio cella (click sul prospetto). */
+export async function whCellDialog(wh, pos, { api, toast }) {
+  const q = `aisle=${pos.aisle}&side=${pos.side}&col=${pos.col}&lvl=${pos.lvl}`;
+  const r = await api.get(`/api/wh/${encodeURIComponent(wh)}/location?${q}`);
+  const sum = await api.get(`/api/wh/${encodeURIComponent(wh)}/summary`);
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  const st = r.loc.state;
+  back.innerHTML = `<div class="modal"><div class="mh">Locazione ${esc(r.code)}</div><div class="mb">
+      <div class="field"><label>Magazzino</label><div>${esc(wh)}</div></div>
+      <div class="field"><label>Corsia / lato</label><div>${pos.aisle} / ${pos.side}</div></div>
+      <div class="field"><label>Colonna / livello</label><div>${pos.col} / ${pos.lvl}</div></div>
+      <div class="field"><label>Stato</label><div><b>${esc(st)}</b></div></div>
+      <div class="field"><label>UdC</label><div class="mono">${esc(r.loc.lu || '—')}</div></div>
+      <div class="field"><label>Ultima variazione</label><div>${new Date(r.loc.ts).toLocaleString()}</div></div>
+      ${st === 'occupied' ? `<div class="field"><label>Baia d'uscita</label><select id="whBay"><option value="">(bilanciata)</option>${sum.outputs.map((o) => `<option>${esc(o)}</option>`).join('')}</select></div>` : ''}
+    </div><div class="mf"></div></div>`;
+  const close = () => back.remove();
+  const btn = (label, cls, fn) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.onclick = async () => { try { await fn(); whInvalidate(); close(); } catch (e) { toast(e.message, 'error'); } };
+    back.querySelector('.mf').appendChild(b);
+  };
+  if (st === 'occupied') btn('⬆ Preleva', 'primary', async () => {
+    const m = await api.post(`/api/wh/${encodeURIComponent(wh)}/outbound`, { lu: r.loc.lu, bay: back.querySelector('#whBay').value || null });
+    toast(`Missione ${m.id}: prelievo ${m.lu} → ${m.bay}`, 'ok');
+  });
+  if (st === 'free' || st === 'occupied') btn('⛔ Blocca', 'danger', () => api.post(`/api/wh/${encodeURIComponent(wh)}/location`, { ...pos, action: 'block' }));
+  if (st === 'blocked') btn('✓ Sblocca', '', () => api.post(`/api/wh/${encodeURIComponent(wh)}/location`, { ...pos, action: 'unblock' }));
+  btn('Chiudi', '', async () => {});
+  back.addEventListener('mousedown', (e) => { if (e.target === back) close(); });
+  document.body.appendChild(back);
 }

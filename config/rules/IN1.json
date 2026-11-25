@@ -1,0 +1,92 @@
+{
+  "enabled": true,
+  "description": "Controlli di accettazione e stoccaggio nel magazzino MP1",
+  "rules": [
+    {
+      "id": "noread",
+      "name": "Identificativo non letto",
+      "enabled": true,
+      "mode": "all",
+      "when": [
+        {
+          "field": "barcode",
+          "op": "in",
+          "value": "NOREAD,"
+        }
+      ],
+      "then": {
+        "outputs": {
+          "destination": "0",
+          "result": "1"
+        },
+        "log": "pallet senza identificativo: respinto"
+      }
+    },
+    {
+      "id": "peso",
+      "name": "Sovrappeso",
+      "enabled": true,
+      "mode": "all",
+      "when": [
+        {
+          "field": "weight",
+          "op": "gt",
+          "value": "tag:MP.MaxWeight"
+        }
+      ],
+      "then": {
+        "outputs": {
+          "destination": "0",
+          "result": "2"
+        },
+        "log": "{barcode}: sovrappeso {weight} kg"
+      }
+    },
+    {
+      "id": "sagoma",
+      "name": "Fuori sagoma",
+      "enabled": true,
+      "mode": "all",
+      "when": [
+        {
+          "field": "height",
+          "op": "gt",
+          "value": "tag:MP.MaxHeight"
+        }
+      ],
+      "then": {
+        "outputs": {
+          "destination": "0",
+          "result": "3"
+        },
+        "log": "{barcode}: fuori sagoma {height} mm"
+      }
+    },
+    {
+      "id": "stock",
+      "name": "Stoccaggio in MP1",
+      "enabled": true,
+      "mode": "all",
+      "when": [
+        {
+          "field": "barcode",
+          "op": "not_empty",
+          "value": ""
+        }
+      ],
+      "then": {
+        "outputs": {
+          "destination": "store:MP1",
+          "result": "0"
+        }
+      }
+    }
+  ],
+  "default": {
+    "outputs": {
+      "destination": "0",
+      "result": "4"
+    },
+    "log": "{barcode}: non stoccabile (doppio o magazzino pieno)"
+  }
+}

@@ -1,11 +1,11 @@
 // Client Runtime (operatore): viste, allarmi, decisioni, tag, trend, diagnostica.
 import { api, Live, esc, fmtTs, toast } from './core.js';
-import { ViewRenderer, runActions, createPopup, compileSymbol, invalidateView } from './render.js';
+import { ViewRenderer, runActions, createPopup, compileSymbol, invalidateView, whCellDialog } from './render.js';
 
 const live = new Live();
 const page = document.getElementById('page');
 let info = null, views = [], symbols = [], current = null, renderer = null, refresh = null;
-let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '';
+let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '', routeParams = {};
 
 // ------------------------------------------------------------ routing
 function route() {
@@ -13,7 +13,9 @@ function route() {
   popups.forEach((p) => p.win.remove());
   popups = [];
   renderer = null;
-  const [, kind, arg] = location.hash.split('/');
+  const [hpath, hquery] = location.hash.split('?');
+  const [, kind, arg] = hpath.split('/');
+  routeParams = Object.fromEntries(new URLSearchParams(hquery || ''));
   page.className = 'page';
   markNav();
   if (kind === 'view' && arg) return showView(arg);
@@ -30,14 +32,14 @@ function route() {
 function buildNav() {
   const n = live.alarms.filter((a) => !a.acked).length;
   document.getElementById('nav').innerHTML =
-    views.filter((v) => !v.faceplate).map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
+    views.filter((v) => !v.faceplate && v.menu !== false).map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
     `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
      <a href="#/decisions">Decisioni</a><a href="#/tags">Tag</a><a href="#/trend">Trend</a><a href="#/diag">Diagnostica</a>`;
   markNav();
 }
 
 function markNav() {
-  document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === location.hash
+  document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === location.hash.split('?')[0]
     || (location.hash.startsWith('#/areas') && a.getAttribute('href') === '#/areas')));
 }
 
@@ -52,7 +54,10 @@ async function showView(id) {
     return;
   }
   page.innerHTML = `<div class="viewhost"><svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg></div>`;
-  renderer = new ViewRenderer(page.querySelector('svg'), live, { api, symbols: compiled, onAction: actionHandler(id) });
+  renderer = new ViewRenderer(page.querySelector('svg'), live, {
+    api, symbols: compiled, onAction: actionHandler(id), params: routeParams,
+    onWhCell: (wh, pos) => whCellDialog(wh, pos, { api, toast }),
+  });
   renderer.load(current);
 }
 
@@ -60,14 +65,17 @@ async function showView(id) {
 function actionHandler(viewId) {
   return (comp, ev, scope) => runActions(comp, ev, {
     live, api, toast, viewId, scope, openPopup,
-    navigate: (v) => (location.hash = `#/view/${v}`),
+    navigate: (v, params) => {
+      const q = params && Object.keys(params).length ? '?' + new URLSearchParams(params) : '';
+      location.hash = `#/view/${v}${q}`;
+    },
   });
 }
 
 /** Apre una vista in popup (faceplate) passandole i parametri. */
 function openPopup(viewId, params = {}, title) {
   const p = createPopup({
-    live, api, toast, symbols: compiled, viewId, params, title,
+    live, api, toast, symbols: compiled, viewId, params, title, onWhCell: (wh, pos) => whCellDialog(wh, pos, { api, toast }),
     onAction: actionHandler(viewId),
     onClose: (r) => { popups = popups.filter((x) => x.renderer !== r); },
   });
@@ -290,6 +298,7 @@ function updateAlarmBar() {
     : `<span class="muted">Nessun allarme attivo</span>${unack ? `<span class="grow"></span><span>${unack} da riconoscere</span>` : ''}`;
 }
 
+window.addEventListener('hashchange', () => {});
 live.on('tags', () => { renderer?.update(); popups.forEach((p) => p.renderer.update()); if (location.hash.startsWith('#/tags')) showTags.draw?.(); });
 live.on('project', async () => {
   invalidateView();

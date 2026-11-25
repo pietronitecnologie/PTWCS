@@ -51,6 +51,8 @@ pub struct Config {
     pub alarms: Vec<AlarmDef>,
     #[serde(default)]
     pub timer_scripts: Vec<TimerScript>,
+    #[serde(default)]
+    pub warehouses: Vec<WarehouseDef>,
 
     /// Directory del file di configurazione: i path relativi partono da qui.
     #[serde(skip)]
@@ -90,6 +92,69 @@ pub struct Project {
     /// Script Python eseguiti periodicamente (logiche di supporto, simulazioni).
     #[serde(default)]
     pub timer_scripts: Vec<TimerScript>,
+    /// Magazzini automatici (locazioni, missioni, trasli).
+    #[serde(default)]
+    pub warehouses: Vec<WarehouseDef>,
+}
+
+/// Magazzino automatico: geometria, trasli per corsia, baie.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct WarehouseDef {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub area: Option<String>,
+    pub aisles: Vec<AisleDef>,
+    #[serde(default = "two")]
+    pub sides: u16,
+    pub columns: u16,
+    pub levels: u16,
+    /// Colonne per blocco nelle viste aggregate.
+    #[serde(default = "five")]
+    pub block_cols: u16,
+    /// Baie d'ingresso (nomi, per riferimento).
+    #[serde(default)]
+    pub inputs: Vec<String>,
+    /// Baie d'uscita.
+    #[serde(default)]
+    pub outputs: Vec<String>,
+    /// Tempi per colonna/livello (s) usati per scegliere la cella più vicina.
+    #[serde(default = "col_time")]
+    pub col_time_s: f64,
+    #[serde(default = "lvl_time")]
+    pub lvl_time_s: f64,
+    /// Prefisso degli identificativi UdC generati dal riempimento iniziale.
+    #[serde(default = "lu_prefix")]
+    pub lu_prefix: String,
+    /// Riempimento iniziale demo (%) alla prima creazione.
+    #[serde(default)]
+    pub initial_fill_pct: u8,
+    /// Demo: crea un prelievo casuale ogni N secondi (0 = no).
+    #[serde(default)]
+    pub auto_outbound_s: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct AisleDef {
+    pub name: String,
+    /// Istanza UDT del traslo (telegramma missioni).
+    pub crane: String,
+}
+fn two() -> u16 {
+    2
+}
+fn five() -> u16 {
+    5
+}
+fn col_time() -> f64 {
+    0.6
+}
+fn lvl_time() -> f64 {
+    1.2
+}
+fn lu_prefix() -> String {
+    "PAL".into()
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -768,6 +833,7 @@ impl Config {
         }
         c.alarms.extend(project.alarms.clone());
         c.timer_scripts.extend(project.timer_scripts.clone());
+        c.warehouses.extend(project.warehouses.clone());
         // espansione UDT
         for inst in &c.udt_instances {
             let t = c
@@ -863,6 +929,23 @@ impl Config {
         uniq("classe di smistamento", self.sort_classes.iter().map(|a| a.name.as_str()).collect())?;
         uniq("punto di decisione", self.decision_points.iter().map(|a| a.name.as_str()).collect())?;
         uniq("timer script", self.timer_scripts.iter().map(|a| a.name.as_str()).collect())?;
+        uniq("magazzino", self.warehouses.iter().map(|a| a.name.as_str()).collect())?;
+        for w in &self.warehouses {
+            if w.aisles.is_empty() || w.columns == 0 || w.levels == 0 || w.sides == 0 {
+                bail!("magazzino {}: geometria non valida", w.name);
+            }
+            if w.outputs.is_empty() {
+                bail!("magazzino {}: definire almeno una baia d'uscita", w.name);
+            }
+            for a in &w.aisles {
+                for m in ["Mission", "Type", "SrcSide", "SrcCol", "SrcLvl", "DstSide", "DstCol", "DstLvl", "DstOut", "Start", "Busy", "Done", "Fault"] {
+                    let t = format!("{}.{m}", a.crane);
+                    if !self.tags.iter().any(|x| x.name == t) {
+                        bail!("magazzino {} corsia {}: manca il tag {t} (telegramma missioni del traslo)", w.name, a.name);
+                    }
+                }
+            }
+        }
         for t in &self.timer_scripts {
             if t.interval_ms < 50 {
                 bail!("timer script {}: intervallo minimo 50 ms", t.name);

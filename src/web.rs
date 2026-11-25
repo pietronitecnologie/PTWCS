@@ -53,6 +53,15 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/project/udt_preview", post(udt_preview))
         .route("/api/areas", get(areas_summary))
         .route("/api/library", get(library))
+        .route("/api/wh", get(wh_list))
+        .route("/api/wh/{name}/summary", get(wh_summary))
+        .route("/api/wh/{name}/side", get(wh_side))
+        .route("/api/wh/{name}/missions", get(wh_missions))
+        .route("/api/wh/{name}/outbound", post(wh_outbound))
+        .route("/api/wh/{name}/inbound", post(wh_inbound))
+        .route("/api/wh/{name}/location", get(wh_location).post(wh_location_set))
+        .route("/api/wh/{name}/find", get(wh_find))
+        .route("/api/wh/{name}/mission/{id}/cancel", post(wh_cancel))
         .route("/api/sorting/status", get(sorting_status))
         .route("/api/sorting/lookup", get(sorting_lookup))
         .route("/api/sorting/sync", post(sorting_sync))
@@ -233,6 +242,130 @@ async fn udt_preview(State(app): S, Json(r): Json<UdtPreview>) -> Json<J> {
     }
 }
 
+// ---------------------------------------------------------------- magazzini automatici
+
+fn wh(app: &AppState, name: &str) -> R<Arc<crate::warehouse::Warehouse>> {
+    app.warehouse(name).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("magazzino {name} non trovato")))
+}
+
+async fn wh_list(State(app): S) -> Json<J> {
+    let mut names = app.warehouse_names();
+    names.sort();
+    Json(J::Array(names.iter().filter_map(|n| app.warehouse(n)).map(|w| w.summary()).collect()))
+}
+
+async fn wh_summary(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
+    Ok(Json(wh(&app, &name)?.summary()))
+}
+
+#[derive(Deserialize)]
+struct SideQ {
+    aisle: u16,
+    side: u16,
+}
+
+/// Prospetto di un lato di corsia: celle [livello][colonna] con stato e UdC.
+async fn wh_side(State(app): S, Path(name): Path<String>, Query(q): Query<SideQ>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    let cells = w.side_cells(q.aisle, q.side)?;
+    let codes = |s: crate::warehouse::LocState| match s {
+        crate::warehouse::LocState::Free => 0,
+        crate::warehouse::LocState::Occupied => 1,
+        crate::warehouse::LocState::Reserved => 2,
+        crate::warehouse::LocState::Picking => 3,
+        crate::warehouse::LocState::Blocked => 4,
+    };
+    Ok(Json(json!({
+        "aisle": q.aisle, "side": q.side, "columns": w.def.columns, "levels": w.def.levels,
+        "states": cells.iter().map(|r| r.iter().map(|c| codes(c.0)).collect::<Vec<_>>()).collect::<Vec<_>>(),
+        "lus": cells.iter().map(|r| r.iter().map(|c| c.1.clone()).collect::<Vec<_>>()).collect::<Vec<_>>(),
+    })))
+}
+
+async fn wh_missions(State(app): S, Path(name): Path<String>, Query(q): Query<LimitQ>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    let open = w.missions();
+    let recent = app.store.wh_recent_missions(name, q.limit.unwrap_or(30).min(500)).await?;
+    Ok(Json(json!({"open": open, "recent": recent})))
+}
+
+#[derive(Deserialize)]
+struct OutReq {
+    #[serde(default)]
+    lu: Option<String>,
+    #[serde(default)]
+    bay: Option<String>,
+}
+
+async fn wh_outbound(State(app): S, Path(name): Path<String>, Json(r): Json<OutReq>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    let m = w.create_outbound(r.lu.as_deref().filter(|s| !s.is_empty()), r.bay.as_deref().filter(|s| !s.is_empty()), &w.unavailable_aisles(&app.db))?;
+    app.audit("hmi", "wh_outbound", format!("{name}: {} da {} → {}", m.lu, m.src.code(), m.bay));
+    Ok(Json(json!(m)))
+}
+
+#[derive(Deserialize)]
+struct InReq {
+    lu: String,
+    #[serde(default)]
+    bay: Option<String>,
+}
+
+async fn wh_inbound(State(app): S, Path(name): Path<String>, Json(r): Json<InReq>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    let (aisle, pos) = w.allocate_inbound(&r.lu, r.bay.as_deref().unwrap_or("manuale"), &w.unavailable_aisles(&app.db), false)?;
+    app.audit("hmi", "wh_inbound", format!("{name}: {} → {}", r.lu, pos.code()));
+    Ok(Json(json!({"aisle": aisle, "location": pos, "code": pos.code()})))
+}
+
+#[derive(Deserialize)]
+struct LocQ {
+    aisle: u16,
+    side: u16,
+    col: u16,
+    lvl: u16,
+    #[serde(default)]
+    action: Option<String>,
+}
+
+async fn wh_location(State(app): S, Path(name): Path<String>, Query(q): Query<LocQ>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    let p = crate::warehouse::Pos { aisle: q.aisle, side: q.side, col: q.col, lvl: q.lvl };
+    let l = w.location(p).ok_or_else(|| bad("locazione non valida"))?;
+    Ok(Json(json!({"code": p.code(), "pos": p, "loc": l})))
+}
+
+async fn wh_location_set(State(app): S, Path(name): Path<String>, Json(q): Json<LocQ>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    let p = crate::warehouse::Pos { aisle: q.aisle, side: q.side, col: q.col, lvl: q.lvl };
+    match q.action.as_deref() {
+        Some("block") => w.set_blocked(p, true)?,
+        Some("unblock") => w.set_blocked(p, false)?,
+        _ => return Err(bad("azione: block | unblock")),
+    }
+    app.audit("hmi", "wh_location", format!("{name}: {} {:?}", p.code(), q.action));
+    Ok(Json(json!({"ok": true})))
+}
+
+#[derive(Deserialize)]
+struct FindQ {
+    lu: String,
+}
+
+async fn wh_find(State(app): S, Path(name): Path<String>, Query(q): Query<FindQ>) -> R<Json<J>> {
+    let w = wh(&app, &name)?;
+    Ok(Json(match w.find(&q.lu) {
+        Some((p, l)) => json!({"found": true, "code": p.code(), "pos": p, "loc": l}),
+        None => json!({"found": false}),
+    }))
+}
+
+async fn wh_cancel(State(app): S, Path((name, id)): Path<(String, u32)>) -> R<Json<J>> {
+    wh(&app, &name)?.cancel(id)?;
+    app.audit("hmi", "wh_cancel", format!("{name}: missione {id}"));
+    Ok(Json(json!({"ok": true})))
+}
+
 /// Libreria: metadati simboli (categoria, famiglia UDT, faceplate, binding
 /// predefiniti) e tipi UDT standard importabili nel progetto.
 async fn library(State(app): S) -> Json<J> {
@@ -316,7 +449,7 @@ async fn rules_put(State(app): S, Path(p): Path<String>, Json(set): Json<crate::
     let dp = point(&app, &p)?;
     let cfg = app.cfg();
     let classes = |c: &str| cfg.sort_classes.iter().any(|x| x.name == c);
-    app.rules.save(&dp, set, &crate::rules::Checker { tag: &|t| app.db.def(t).is_some(), class: &classes })?;
+    app.rules.save(&dp, set, &crate::rules::Checker { tag: &|t| app.db.def(t).is_some(), class: &classes, wh: &|w| app.warehouse(w).is_some() })?;
     app.audit("designer", "save_rules", p);
     Ok(Json(json!({"ok": true})))
 }
@@ -341,7 +474,7 @@ async fn rules_test(State(app): S, Path(p): Path<String>, Json(t): Json<RuleTest
             let eng = crate::rules::RulesEngine::load(dir, &[])?;
             let cfg = app.cfg();
             let classes = |c: &str| cfg.sort_classes.iter().any(|x| x.name == c);
-            eng.save(&dp, set, &crate::rules::Checker { tag: &|n| app.db.def(n).is_some(), class: &classes })?;
+            eng.save(&dp, set, &crate::rules::Checker { tag: &|n| app.db.def(n).is_some(), class: &classes, wh: &|w| app.warehouse(w).is_some() })?;
             crate::decision::evaluate_rules_on(&app, &eng, &p, &inputs, true).await
         }
         None => crate::decision::evaluate_rules(&app, &p, &inputs, true).await,
@@ -430,6 +563,7 @@ async fn list_views(State(app): S) -> R<Json<J>> {
                             "home": v.get("home").cloned().unwrap_or(json!(false)),
                             "area": v.get("area").cloned().unwrap_or(J::Null),
                             "faceplate": v.get("faceplate").cloned().unwrap_or(json!(false)),
+                            "menu": v.get("menu").cloned().unwrap_or(json!(true)),
                             "params": v.get("params").cloned().unwrap_or(json!({}))}));
         }
     }

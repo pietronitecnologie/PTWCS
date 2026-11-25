@@ -17,6 +17,17 @@ areas:
   description: Magazzino automatico e movimentazione
 - name: Processo
   description: Impianto di servizio (serbatoio acqua)
+- name: MagPallet
+  description: Magazzino automatico pallet MP1
+- name: MP-Ingressi
+  description: Ingressi IN1/IN2 e distribuzione
+  parent: MagPallet
+- name: MP-Trasli
+  description: Trasloelevatori C1..C3
+  parent: MagPallet
+- name: MP-Uscite
+  description: Raccolta e baie BU1/BU2
+  parent: MagPallet
 scan_classes:
 - name: veloce
   rate_ms: 100
@@ -612,6 +623,203 @@ udt_types:
     address: DB{DB}.DBD{Base+2}
     description: Valore
     historize: true
+- name: TrasloMissioni
+  description: Trasloelevatore con telegramma missioni WCS↔PLC (Start/Busy/Done) – compatibile con i faceplate Traslo
+  params:
+  - name: DB
+    default: 300
+    description: DB del traslo
+  - name: Base
+    default: 0
+  members:
+  - name: Start
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    writable: true
+    description: Avvio missione (WCS)
+  - name: Busy
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Missione in esecuzione (PLC)
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Guasto
+    alarms:
+    - name: FAULT
+      op: ==
+      value: true
+      message: Traslo {Instance} in guasto
+      severity: alarm
+  - name: Auto
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: Automatico
+  - name: Moving
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    description: In movimento
+  - name: Loaded
+    type: bool
+    address: DB{DB}.DBX{Base+0}.5
+    description: Pallet a bordo
+  - name: Cmd_Reset
+    type: bool
+    address: DB{DB}.DBX{Base+0}.6
+    writable: true
+    description: Reset guasto
+  - name: Mission
+    type: u32
+    address: DB{DB}.DBD{Base+2}
+    writable: true
+    description: Id missione (WCS)
+  - name: Type
+    type: u16
+    address: DB{DB}.DBW{Base+6}
+    writable: true
+    description: 'Tipo: 1 deposito, 2 prelievo'
+  - name: SrcSide
+    type: u16
+    address: DB{DB}.DBW{Base+8}
+    writable: true
+    description: 'Origine: lato'
+  - name: SrcCol
+    type: u16
+    address: DB{DB}.DBW{Base+10}
+    writable: true
+    description: 'Origine: colonna (0 = P&D)'
+  - name: SrcLvl
+    type: u16
+    address: DB{DB}.DBW{Base+12}
+    writable: true
+    description: 'Origine: livello'
+  - name: DstSide
+    type: u16
+    address: DB{DB}.DBW{Base+14}
+    writable: true
+    description: 'Destinazione: lato'
+  - name: DstCol
+    type: u16
+    address: DB{DB}.DBW{Base+16}
+    writable: true
+    description: 'Destinazione: colonna (0 = P&D)'
+  - name: DstLvl
+    type: u16
+    address: DB{DB}.DBW{Base+18}
+    writable: true
+    description: 'Destinazione: livello'
+  - name: DstOut
+    type: u16
+    address: DB{DB}.DBW{Base+20}
+    writable: true
+    description: Baia d'uscita
+  - name: Done
+    type: u32
+    address: DB{DB}.DBD{Base+22}
+    description: Ultima missione completata (PLC)
+  - name: Missions
+    type: u32
+    address: DB{DB}.DBD{Base+26}
+    description: Missioni eseguite
+  - name: PctX
+    type: f32
+    address: DB{DB}.DBD{Base+30}
+    description: Posizione corsia %
+  - name: PctY
+    type: f32
+    address: DB{DB}.DBD{Base+34}
+    description: Posizione verticale %
+  - name: Fork
+    type: f32
+    address: DB{DB}.DBD{Base+38}
+    description: Forche (-100..100)
+  - name: PosX
+    type: f32
+    address: DB{DB}.DBD{Base+42}
+    description: Posizione corsia
+    unit: m
+    historize: true
+  - name: PosY
+    type: f32
+    address: DB{DB}.DBD{Base+46}
+    description: Posizione verticale
+    unit: m
+- name: TelegrammaIngresso
+  description: 'Ingresso pallet: identificazione e controllo sagoma/peso, richiesta di stoccaggio al WCS'
+  params:
+  - name: DB
+    default: 310
+  - name: Base
+    default: 0
+  members:
+  - name: Occupied
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: Pallet presente
+  - name: ReqID
+    type: u16
+    address: DB{DB}.DBW{Base+2}
+    description: Contatore richiesta (PLC)
+    role: request
+  - name: Barcode
+    type: string
+    address: DB{DB}.DBB{Base+4}
+    description: Identificativo pallet
+    role: input
+  - name: Weight
+    type: f32
+    address: DB{DB}.DBD{Base+26}
+    description: Peso
+    unit: kg
+    role: input
+  - name: Height
+    type: u16
+    address: DB{DB}.DBW{Base+30}
+    description: Altezza
+    unit: mm
+    role: input
+  - name: RespID
+    type: u16
+    address: DB{DB}.DBW{Base+32}
+    writable: true
+    description: Eco ReqID (WCS)
+    role: response
+  - name: Destination
+    type: u16
+    address: DB{DB}.DBW{Base+34}
+    writable: true
+    description: Corsia assegnata (0 = respinto)
+    role: output
+  - name: Result
+    type: u16
+    address: DB{DB}.DBW{Base+36}
+    writable: true
+    description: 'Esito: 0 ok, 1 noread, 2 peso, 3 sagoma, 4 non stoccabile'
+    role: output
+  - name: Rejected
+    type: u32
+    address: DB{DB}.DBD{Base+38}
+    description: Pallet respinti
+- name: BaiaUscita
+  description: Baia d'uscita pallet
+  params:
+  - name: DB
+    default: 320
+  - name: Base
+    default: 0
+  members:
+  - name: Occupied
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: Pallet in baia
+  - name: Mission
+    type: u32
+    address: DB{DB}.DBD{Base+2}
+    description: Missione
+  - name: Count
+    type: u32
+    address: DB{DB}.DBD{Base+6}
+    description: Pallet consegnati
 udt_instances:
 - name: CV1
   type: Nastro
@@ -729,6 +937,55 @@ udt_instances:
   params:
     Base: 0
     DB: 213
+- name: C1
+  type: TrasloMissioni
+  driver: WCS_INTERNO
+  area: MP-Trasli
+  params:
+    DB: 301
+  description: Trasloelevatore corsia 1
+- name: C2
+  type: TrasloMissioni
+  driver: WCS_INTERNO
+  area: MP-Trasli
+  params:
+    DB: 302
+  description: Trasloelevatore corsia 2
+- name: C3
+  type: TrasloMissioni
+  driver: WCS_INTERNO
+  area: MP-Trasli
+  params:
+    DB: 303
+  description: Trasloelevatore corsia 3
+- name: IN1
+  type: TelegrammaIngresso
+  driver: WCS_INTERNO
+  area: MP-Ingressi
+  params:
+    DB: 311
+  description: Ingresso 1
+- name: BU1
+  type: BaiaUscita
+  driver: WCS_INTERNO
+  area: MP-Uscite
+  params:
+    DB: 321
+  description: Baia d'uscita 1
+- name: IN2
+  type: TelegrammaIngresso
+  driver: WCS_INTERNO
+  area: MP-Ingressi
+  params:
+    DB: 312
+  description: Ingresso 2
+- name: BU2
+  type: BaiaUscita
+  driver: WCS_INTERNO
+  area: MP-Uscite
+  params:
+    DB: 322
+  description: Baia d'uscita 2
 tags:
 - name: Line.ResetFaults
   driver: PLC_LINEA
@@ -854,6 +1111,89 @@ tags:
   description: Uscita 3 abilitata
   initial: true
   area: Servizi
+- name: MP.MaxWeight
+  driver: WCS_INTERNO
+  address: mp_maxw
+  type: f32
+  writable: true
+  description: Peso massimo pallet
+  unit: kg
+  initial: 1200
+  area: MagPallet
+- name: MP.MaxHeight
+  driver: WCS_INTERNO
+  address: mp_maxh
+  type: u16
+  writable: true
+  description: Altezza massima pallet
+  unit: mm
+  initial: 1800
+  area: MagPallet
+- name: MPDIST.Occupied
+  driver: WCS_INTERNO
+  address: mp_dist_occ
+  type: bool
+  area: MP-Ingressi
+- name: MPDIST.Count
+  driver: WCS_INTERNO
+  address: mp_dist_cnt
+  type: u16
+  description: Pallet sulla distribuzione
+  area: MP-Ingressi
+- name: MPCOLL.Occupied
+  driver: WCS_INTERNO
+  address: mp_coll_occ
+  type: bool
+  area: MP-Uscite
+- name: MPCOLL.Count
+  driver: WCS_INTERNO
+  address: mp_coll_cnt
+  type: u16
+  description: Pallet sulla raccolta
+  area: MP-Uscite
+- name: SimMP.FaultC2
+  driver: WCS_INTERNO
+  address: sim_fault_c2
+  type: bool
+  writable: true
+  description: Simula guasto traslo C2
+  area: Servizi
+- name: PD1.In
+  driver: WCS_INTERNO
+  address: pd1_in
+  type: bool
+  description: P&D ingresso corsia 1 occupato
+  area: MP-Trasli
+- name: PD1.Out
+  driver: WCS_INTERNO
+  address: pd1_out
+  type: bool
+  description: P&D uscita corsia 1 occupato
+  area: MP-Trasli
+- name: PD2.In
+  driver: WCS_INTERNO
+  address: pd2_in
+  type: bool
+  description: P&D ingresso corsia 2 occupato
+  area: MP-Trasli
+- name: PD2.Out
+  driver: WCS_INTERNO
+  address: pd2_out
+  type: bool
+  description: P&D uscita corsia 2 occupato
+  area: MP-Trasli
+- name: PD3.In
+  driver: WCS_INTERNO
+  address: pd3_in
+  type: bool
+  description: P&D ingresso corsia 3 occupato
+  area: MP-Trasli
+- name: PD3.Out
+  driver: WCS_INTERNO
+  address: pd3_out
+  type: bool
+  description: P&D uscita corsia 3 occupato
+  area: MP-Trasli
 decision_points:
 - name: SC1
   description: Scanner barcode – scelta uscita del collo
@@ -864,6 +1204,24 @@ decision_points:
   fallback:
     destination: 99
     result: 9
+- name: IN1
+  description: 'Ingresso 1: assegnazione corsia/cella'
+  telegram: IN1
+  handshake: counter
+  timeout_ms: 300
+  fallback:
+    destination: 0
+    result: 4
+  area: MP-Ingressi
+- name: IN2
+  description: 'Ingresso 2: assegnazione corsia/cella'
+  telegram: IN2
+  handshake: counter
+  timeout_ms: 300
+  fallback:
+    destination: 0
+    result: 4
+  area: MP-Ingressi
 sort_classes:
 - name: NORD
   description: Nord Italia
@@ -909,3 +1267,33 @@ timer_scripts:
   function: sim_magazzino
   interval_ms: 200
   enabled: true
+- name: sim_pallet
+  function: sim_pallet
+  interval_ms: 200
+  enabled: true
+warehouses:
+- name: MP1
+  description: Magazzino pallet 3 corsie – 3000 locazioni
+  area: MagPallet
+  aisles:
+  - name: '1'
+    crane: C1
+  - name: '2'
+    crane: C2
+  - name: '3'
+    crane: C3
+  sides: 2
+  columns: 50
+  levels: 10
+  block_cols: 5
+  inputs:
+  - IN1
+  - IN2
+  outputs:
+  - BU1
+  - BU2
+  col_time_s: 0.6
+  lvl_time_s: 1.2
+  lu_prefix: PAL
+  initial_fill_pct: 62
+  auto_outbound_s: 16

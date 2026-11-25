@@ -2,6 +2,7 @@
 //! audit dei comandi operatore.
 
 use anyhow::Result;
+use crate::tagdb::now_ms;
 use rusqlite::{Connection, params};
 use serde::Serialize;
 use serde_json::Value as Json;
@@ -59,6 +60,10 @@ impl Store {
              CREATE TABLE IF NOT EXISTS audit(ts INTEGER, user TEXT, action TEXT, detail TEXT);",
         )?;
         // migrazione: colonna 'rule' aggiunta in seguito (errore ignorato se esiste già)
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS wh_locations(wh TEXT, idx INTEGER, state TEXT, lu TEXT, ts INTEGER, PRIMARY KEY(wh, idx));
+             CREATE TABLE IF NOT EXISTS wh_missions(wh TEXT, id INTEGER, state TEXT, data TEXT, ts INTEGER, PRIMARY KEY(wh, id));",
+        )?;
         let _ = conn.execute("ALTER TABLE decisions ADD COLUMN rule TEXT", []);
         let _ = conn.execute("ALTER TABLE alarm_events ADD COLUMN area TEXT", []);
         Ok(Self { conn: Arc::new(Mutex::new(conn)) })
@@ -159,10 +164,70 @@ impl Store {
         Ok(())
     }
 
+    // ---------------------------------------------------------------- magazzino
+
+    pub async fn wh_load_locs(&self, wh: String) -> Result<Vec<(u32, String, Option<String>, i64)>> {
+        self.run(move |c| {
+            let mut st = c.prepare("SELECT idx,state,lu,ts FROM wh_locations WHERE wh=?1")?;
+            st.query_map(params![wh], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect()
+        })
+        .await
+    }
+
+    pub async fn wh_save_locs(&self, wh: String, rows: Vec<(u32, String, Option<String>, i64)>) -> Result<()> {
+        self.run(move |c| {
+            let tx = c.unchecked_transaction()?;
+            {
+                let mut st = tx.prepare("INSERT OR REPLACE INTO wh_locations VALUES(?1,?2,?3,?4,?5)")?;
+                for (i, s, lu, ts) in rows {
+                    st.execute(params![wh, i, s, lu, ts])?;
+                }
+            }
+            tx.commit()
+        })
+        .await
+    }
+
+    pub async fn wh_save_mission(&self, wh: String, m: crate::warehouse::Mission) -> Result<()> {
+        let state = serde_json::to_value(m.state)?.as_str().unwrap_or("").to_string();
+        let data = serde_json::to_string(&m)?;
+        self.run(move |c| {
+            c.execute("INSERT OR REPLACE INTO wh_missions VALUES(?1,?2,?3,?4,?5)", params![wh, m.id, state, data, now_ms()])
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// Missioni non concluse (da riprendere all'avvio).
+    pub async fn wh_load_missions(&self, wh: String) -> Result<Vec<crate::warehouse::Mission>> {
+        let rows: Vec<String> = self
+            .run(move |c| {
+                let mut st = c.prepare("SELECT data FROM wh_missions WHERE wh=?1 AND state IN ('queued','sent','running') ORDER BY id")?;
+                st.query_map(params![wh], |r| r.get(0))?.collect()
+            })
+            .await?;
+        Ok(rows.into_iter().filter_map(|d| serde_json::from_str(&d).ok()).collect())
+    }
+
+    pub async fn wh_recent_missions(&self, wh: String, limit: u32) -> Result<Vec<crate::warehouse::Mission>> {
+        let rows: Vec<String> = self
+            .run(move |c| {
+                let mut st = c.prepare("SELECT data FROM wh_missions WHERE wh=?1 ORDER BY id DESC LIMIT ?2")?;
+                st.query_map(params![wh, limit], |r| r.get(0))?.collect()
+            })
+            .await?;
+        Ok(rows.into_iter().filter_map(|d| serde_json::from_str(&d).ok()).collect())
+    }
+
+    pub async fn wh_max_mission(&self, wh: String) -> Result<u32> {
+        self.run(move |c| c.query_row("SELECT COALESCE(MAX(id),0) FROM wh_missions WHERE wh=?1", params![wh], |r| r.get(0))).await
+    }
+
     /// Pulizia dati oltre la retention (giorni).
     pub async fn purge(&self, before_ts: i64) -> Result<()> {
         self.run(move |c| {
             c.execute("DELETE FROM history WHERE ts < ?1", params![before_ts])?;
+            c.execute("DELETE FROM wh_missions WHERE ts < ?1 AND state IN ('done','cancelled')", params![before_ts])?;
             c.execute("DELETE FROM decisions WHERE ts < ?1", params![before_ts])
         })
         .await?;

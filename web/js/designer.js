@@ -5,6 +5,7 @@ import {
   sanitizeSvg, compileSymbol, runActions, createPopup, scopeFor, viewScope, invalidateView,
 } from './render.js';
 import { P, loadProject, saveProject, onProject } from './project.js';
+import { whCellDialog } from './render.js';
 import { kvEditor } from './forms.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -21,7 +22,7 @@ const S = {
 
 const stage = $('#stage');
 const designAction = (viewId) => (comp, ev, scope) => runActions(comp, ev, {
-  live, api, toast, viewId, scope, navigate: (v) => openView(v),
+  live, api, toast, viewId, scope, navigate: (v, params) => { openView(v); if (params) toast(`Parametri: ${JSON.stringify(params)}`); },
   openPopup: (vid, params, title) => {
     const p = createPopup({ live, api, toast, symbols: renderer.symbols, viewId: vid, params, title, onAction: designAction(vid), onClose: () => popups.delete(p) });
     popups.add(p);
@@ -29,7 +30,7 @@ const designAction = (viewId) => (comp, ev, scope) => runActions(comp, ev, {
 });
 const popups = new Set();
 const renderer = new ViewRenderer(stage, live, {
-  design: true, api,
+  design: true, api, onWhCell: (wh, pos) => S.preview && whCellDialog(wh, pos, { api, toast }),
   preview: () => S.preview,
   onAction: (comp, ev, scope) => designAction(S.viewId)(comp, ev, scope),
 });
@@ -548,7 +549,8 @@ function renderEvents(c) {
       <select data-af="kind"><option value="write" ${a.kind === 'write' ? 'selected' : ''}>Scrivi tag</option>
       <option value="script" ${a.kind === 'script' ? 'selected' : ''}>Script Python</option>
       <option value="navigate" ${a.kind === 'navigate' ? 'selected' : ''}>Vai a vista</option>
-      <option value="popup" ${a.kind === 'popup' ? 'selected' : ''}>Apri popup / faceplate</option></select>
+      <option value="popup" ${a.kind === 'popup' ? 'selected' : ''}>Apri popup / faceplate</option>
+      <option value="wh" ${a.kind === 'wh' ? 'selected' : ''}>Magazzino (cerca / prelievo / deposito)</option></select>
       <button class="small" data-amove="-1">↑</button><button class="small danger" data-adel>✕</button></div></div>`;
     if (a.kind === 'write') {
       h += `<div class="prow"><label>Tag</label><input list="tagNames" data-af="tag" value="${esc(a.tag || '')}"></div>
@@ -560,8 +562,13 @@ function renderEvents(c) {
       h += `<div class="prow"><label>Vista</label><select data-af="view">${S.views.map((v) => `<option value="${esc(v.id)}" ${v.id === a.view ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
         <div class="prow"><label>Parametri</label><input data-af="params" class="mono" value="${esc(JSON.stringify(a.params || {}))}" placeholder='{"device": "{device}"}' title="Valori con {nome} = proprietà personalizate del componente o parametri della vista"></div>
         <div class="prow"><label>Titolo</label><input data-af="title" value="${esc(a.title || '')}" placeholder="(titolo della vista)"></div>`;
+    } else if (a.kind === 'wh') {
+      h += `<div class="prow"><label>Magazzino</label><input data-af="wh" value="${esc(a.wh || '')}" placeholder="MP1"></div>
+        <div class="prow"><label>Operazione</label><select data-af="op">${[['search', 'Cerca UdC'], ['outbound', 'Prelievo'], ['inbound', 'Deposito manuale']].map(([k, l]) => `<option value="${k}" ${k === a.op ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="prow"><label>Vista esito</label><select data-af="view"><option value="">(nessuna)</option>${S.views.map((v) => `<option value="${esc(v.id)}" ${v.id === a.view ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>`;
     } else {
-      h += `<div class="prow"><label>Vista</label><select data-af="view">${S.views.map((v) => `<option value="${esc(v.id)}" ${v.id === a.view ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>`;
+      h += `<div class="prow"><label>Vista</label><select data-af="view">${S.views.map((v) => `<option value="${esc(v.id)}" ${v.id === a.view ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
+        <div class="prow"><label>Parametri</label><input data-af="params" class="mono" value="${esc(JSON.stringify(a.params || {}))}" placeholder='{"aisle": "2"}'></div>`;
     }
     h += `</div>`;
   });
@@ -616,6 +623,7 @@ function wireProps(c) {
       if (el.dataset.af === 'kind') {
         for (const k of Object.keys(a)) if (k !== 'kind') delete a[k];
         if (a.kind === 'navigate') a.view = S.views[0]?.id;
+        if (a.kind === 'wh') { a.op = 'search'; a.wh = ''; }
         if (a.kind === 'popup') { a.view = S.views.find((v) => v.faceplate)?.id || S.views[0]?.id; a.params = c.custom?.device !== undefined ? { device: '{device}' } : {}; }
       }
     }, { props: el.dataset.af === 'kind' })));
@@ -634,6 +642,7 @@ function renderViewProps() {
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Pagina iniziale</label><input type="checkbox" data-v="home" ${v.home ? 'checked' : ''}></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Area</label><select data-v="area"><option value=""></option>${(P.data?.areas || []).map((a) => `<option ${a.name === v.area ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Faceplate/popup</label><input type="checkbox" data-v="faceplate" ${v.faceplate ? 'checked' : ''} title="Nascosta dal menu del runtime, aperta come popup"></div>
+    <div class="prow" style="grid-template-columns:100px 1fr"><label>Nel menu</label><input type="checkbox" data-v="menu" ${v.menu !== false ? 'checked' : ''} title="Mostra la vista nel menu del runtime (togli per sotto-pagine raggiunte via navigazione con parametri)"></div>
     <h4>Parametri della vista</h4><p class="hint">Ricevuti da popup o viste incorporate. Usali come <code>{nome}</code> nei binding (es. <code>{device}.Run</code>). Il valore qui è il default per il Designer.</p>
     <div id="vparams"></div>
     <h4>Componenti (${v.components.length})</h4>

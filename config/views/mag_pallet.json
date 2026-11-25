@@ -1,0 +1,1529 @@
+{
+  "area": "MagPallet",
+  "background": "#0b1220",
+  "components": [
+    {
+      "bindings": {},
+      "events": {},
+      "h": 34,
+      "id": "title",
+      "name": "title",
+      "props": {
+        "bold": true,
+        "fontSize": 22,
+        "text": "Magazzino pallet MP1 – 3 trasloelevatori · 3000 locazioni"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 760,
+      "x": 24,
+      "y": 12
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 20,
+      "id": "hint",
+      "name": "hint",
+      "props": {
+        "color": "#64748b",
+        "fontSize": 12,
+        "text": "Le scaffalature sono aggregate per blocchi di 5 colonne (saturazione media su 10 livelli). Click su una corsia per il prospetto completo delle celle."
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 900,
+      "x": 24,
+      "y": 44
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "in1_lbl",
+      "name": "in1_lbl",
+      "props": {
+        "bold": true,
+        "color": "#93c5fd",
+        "fontSize": 12,
+        "text": "INGRESSO 1"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 150,
+      "x": 20,
+      "y": 88
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('IN1.Result') > 0 && tag('IN1.Occupied') ? '#ef4444' : tag('IN1.Occupied') ? '#22c55e' : '#475569'",
+          "kind": "expr"
+        },
+        "elements.fault.visible": {
+          "kind": "tag",
+          "tag": "{device}.Fault"
+        },
+        "elements.flow.flow": {
+          "kind": "tag",
+          "tag": "IN1.Occupied"
+        },
+        "elements.flow.visible": {
+          "kind": "tag",
+          "tag": "IN1.Occupied"
+        },
+        "elements.label.text": {
+          "expr": "''",
+          "kind": "expr"
+        },
+        "elements.load.visible": {
+          "kind": "tag",
+          "tag": "IN1.Occupied"
+        }
+      },
+      "custom": {
+        "device": "IN1"
+      },
+      "events": {},
+      "h": 44,
+      "id": "in1",
+      "name": "in1",
+      "props": {
+        "symbol": "conv_roller"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 150,
+      "x": 20,
+      "y": 110
+    },
+    {
+      "bindings": {
+        "value": {
+          "expr": "tag('IN1.Occupied') ? tag('IN1.Barcode') : '—'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 24,
+      "id": "in1_bc",
+      "name": "in1_bc",
+      "props": {
+        "decimals": 0,
+        "fontSize": 12
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 150,
+      "x": 20,
+      "y": 162
+    },
+    {
+      "bindings": {
+        "color": {
+          "expr": "tag('IN1.Result') > 0 && tag('IN1.RespID') === tag('IN1.ReqID') ? '#fca5a5' : '#94a3b8'",
+          "kind": "expr"
+        },
+        "text": {
+          "expr": "!tag('IN1.Occupied') ? '' : ['in attesa / corsia ' + tag('IN1.Destination'), 'NOREAD → respinto', 'sovrappeso → respinto', 'fuori sagoma → respinto', 'non stoccabile'][tag('IN1.RespID') === tag('IN1.ReqID') ? tag('IN1.Result') : 0] || ''",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "in1_res",
+      "name": "in1_res",
+      "props": {
+        "fontSize": 11
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 160,
+      "x": 20,
+      "y": 190
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "in2_lbl",
+      "name": "in2_lbl",
+      "props": {
+        "bold": true,
+        "color": "#93c5fd",
+        "fontSize": 12,
+        "text": "INGRESSO 2"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 150,
+      "x": 20,
+      "y": 228
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('IN2.Result') > 0 && tag('IN2.Occupied') ? '#ef4444' : tag('IN2.Occupied') ? '#22c55e' : '#475569'",
+          "kind": "expr"
+        },
+        "elements.fault.visible": {
+          "kind": "tag",
+          "tag": "{device}.Fault"
+        },
+        "elements.flow.flow": {
+          "kind": "tag",
+          "tag": "IN2.Occupied"
+        },
+        "elements.flow.visible": {
+          "kind": "tag",
+          "tag": "IN2.Occupied"
+        },
+        "elements.label.text": {
+          "expr": "''",
+          "kind": "expr"
+        },
+        "elements.load.visible": {
+          "kind": "tag",
+          "tag": "IN2.Occupied"
+        }
+      },
+      "custom": {
+        "device": "IN2"
+      },
+      "events": {},
+      "h": 44,
+      "id": "in2",
+      "name": "in2",
+      "props": {
+        "symbol": "conv_roller"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 150,
+      "x": 20,
+      "y": 250
+    },
+    {
+      "bindings": {
+        "value": {
+          "expr": "tag('IN2.Occupied') ? tag('IN2.Barcode') : '—'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 24,
+      "id": "in2_bc",
+      "name": "in2_bc",
+      "props": {
+        "decimals": 0,
+        "fontSize": 12
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 150,
+      "x": 20,
+      "y": 302
+    },
+    {
+      "bindings": {
+        "color": {
+          "expr": "tag('IN2.Result') > 0 && tag('IN2.RespID') === tag('IN2.ReqID') ? '#fca5a5' : '#94a3b8'",
+          "kind": "expr"
+        },
+        "text": {
+          "expr": "!tag('IN2.Occupied') ? '' : ['in attesa / corsia ' + tag('IN2.Destination'), 'NOREAD → respinto', 'sovrappeso → respinto', 'fuori sagoma → respinto', 'non stoccabile'][tag('IN2.RespID') === tag('IN2.ReqID') ? tag('IN2.Result') : 0] || ''",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "in2_res",
+      "name": "in2_res",
+      "props": {
+        "fontSize": 11
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 160,
+      "x": 20,
+      "y": 330
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "out1_lbl",
+      "name": "out1_lbl",
+      "props": {
+        "bold": true,
+        "color": "#86efac",
+        "fontSize": 12,
+        "text": "USCITA 1 (BU1)"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 150,
+      "x": 20,
+      "y": 538
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('BU1.Occupied') ? '#22c55e' : '#475569'",
+          "kind": "expr"
+        },
+        "elements.fault.visible": {
+          "kind": "tag",
+          "tag": "{device}.Fault"
+        },
+        "elements.flow.flow": {
+          "kind": "tag",
+          "tag": "{device}.Run"
+        },
+        "elements.flow.visible": {
+          "expr": "false",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "''",
+          "kind": "expr"
+        },
+        "elements.load.visible": {
+          "kind": "tag",
+          "tag": "BU1.Occupied"
+        }
+      },
+      "custom": {
+        "device": "BU1"
+      },
+      "events": {},
+      "h": 90,
+      "id": "out1",
+      "name": "out1",
+      "props": {
+        "symbol": "conv_chain"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 150,
+      "x": 20,
+      "y": 560
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "BU1.Count"
+        }
+      },
+      "events": {},
+      "h": 24,
+      "id": "out1_cnt",
+      "name": "out1_cnt",
+      "props": {
+        "fontSize": 12,
+        "unit": "pallet"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 150,
+      "x": 20,
+      "y": 656
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "out2_lbl",
+      "name": "out2_lbl",
+      "props": {
+        "bold": true,
+        "color": "#86efac",
+        "fontSize": 12,
+        "text": "USCITA 2 (BU2)"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 150,
+      "x": 20,
+      "y": 678
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('BU2.Occupied') ? '#22c55e' : '#475569'",
+          "kind": "expr"
+        },
+        "elements.fault.visible": {
+          "kind": "tag",
+          "tag": "{device}.Fault"
+        },
+        "elements.flow.flow": {
+          "kind": "tag",
+          "tag": "{device}.Run"
+        },
+        "elements.flow.visible": {
+          "expr": "false",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "''",
+          "kind": "expr"
+        },
+        "elements.load.visible": {
+          "kind": "tag",
+          "tag": "BU2.Occupied"
+        }
+      },
+      "custom": {
+        "device": "BU2"
+      },
+      "events": {},
+      "h": 90,
+      "id": "out2",
+      "name": "out2",
+      "props": {
+        "symbol": "conv_chain"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 150,
+      "x": 20,
+      "y": 700
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "BU2.Count"
+        }
+      },
+      "events": {},
+      "h": 24,
+      "id": "out2_cnt",
+      "name": "out2_cnt",
+      "props": {
+        "fontSize": 12,
+        "unit": "pallet"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 150,
+      "x": 20,
+      "y": 796
+    },
+    {
+      "bindings": {
+        "flow": {
+          "kind": "tag",
+          "tag": "MPDIST.Occupied"
+        }
+      },
+      "events": {},
+      "h": 10,
+      "id": "dist",
+      "name": "dist",
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 14
+      },
+      "rotation": 90,
+      "type": "line",
+      "w": 300,
+      "x": 175,
+      "y": 330
+    },
+    {
+      "bindings": {
+        "text": {
+          "expr": "'distribuzione: ' + (tag('MPDIST.Count') || 0)",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "dist_lbl",
+      "name": "dist_lbl",
+      "props": {
+        "color": "#64748b",
+        "fontSize": 11
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 130,
+      "x": 190,
+      "y": 470
+    },
+    {
+      "bindings": {
+        "flow": {
+          "kind": "tag",
+          "tag": "MPCOLL.Occupied"
+        }
+      },
+      "events": {},
+      "h": 10,
+      "id": "coll",
+      "name": "coll",
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 14
+      },
+      "rotation": 90,
+      "type": "line",
+      "w": 300,
+      "x": 140,
+      "y": 560
+    },
+    {
+      "bindings": {
+        "text": {
+          "expr": "'raccolta: ' + (tag('MPCOLL.Count') || 0)",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "coll_lbl",
+      "name": "coll_lbl",
+      "props": {
+        "color": "#64748b",
+        "fontSize": 11
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 120,
+      "x": 300,
+      "y": 700
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "1"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 20,
+      "id": "a1_lbl",
+      "name": "a1_lbl",
+      "props": {
+        "bold": true,
+        "fontSize": 13,
+        "text": "CORSIA 1 – traslo C1"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 260,
+      "x": 400,
+      "y": 90
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "1"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "a1_s1",
+      "name": "a1_s1",
+      "props": {
+        "aisle": 1,
+        "mode": "plan",
+        "side": 1,
+        "title": "lato 1",
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whmap",
+      "w": 900,
+      "x": 400,
+      "y": 114
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.crane.tx": {
+          "expr": "(tag('{device}.PctX') || 0) * 9.6",
+          "kind": "expr"
+        },
+        "elements.forks.ty": {
+          "expr": "(tag('{device}.Fork') || 0) * 0.14",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "param('device') || ''",
+          "kind": "expr"
+        },
+        "elements.load.visible": {
+          "kind": "tag",
+          "tag": "{device}.Loaded"
+        }
+      },
+      "custom": {
+        "device": "C1"
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "popup",
+              "params": {
+                "device": "{device}"
+              },
+              "view": "fp_asrs_lane"
+            }
+          ]
+        }
+      },
+      "h": 32,
+      "id": "a1_lane",
+      "name": "a1_lane",
+      "props": {
+        "symbol": "asrs_lane"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 900,
+      "x": 400,
+      "y": 164
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "1"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "a1_s2",
+      "name": "a1_s2",
+      "props": {
+        "aisle": 1,
+        "mode": "plan",
+        "side": 2,
+        "title": "lato 2",
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whmap",
+      "w": 900,
+      "x": 400,
+      "y": 200
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "PD1.In"
+        }
+      },
+      "events": {},
+      "h": 14,
+      "id": "a1_pdi",
+      "name": "a1_pdi",
+      "props": {
+        "colorOn": "#38bdf8"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 14,
+      "x": 372,
+      "y": 164
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "PD1.Out"
+        }
+      },
+      "events": {},
+      "h": 14,
+      "id": "a1_pdo",
+      "name": "a1_pdo",
+      "props": {
+        "colorOn": "#22c55e"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 14,
+      "x": 372,
+      "y": 182
+    },
+    {
+      "bindings": {
+        "color": {
+          "expr": "tag('C1.Fault') ? '#ef4444' : tag('C1.Busy') ? '#22c55e' : '#94a3b8'",
+          "kind": "expr"
+        },
+        "text": {
+          "expr": "tag('C1.Fault') ? 'C1: GUASTO' : tag('C1.Busy') ? ('C1: missione ' + tag('C1.Mission') + (tag('C1.Type') === 1 ? ' – deposito' : ' – prelievo')) : 'C1: libero'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 20,
+      "id": "a1_st",
+      "name": "a1_st",
+      "props": {
+        "bold": true,
+        "fontSize": 13
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 270,
+      "x": 1312,
+      "y": 170
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 50,
+      "id": "a1_det",
+      "name": "a1_det",
+      "props": {
+        "aisle": 1,
+        "fontSize": 12,
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whsummary",
+      "w": 270,
+      "x": 1312,
+      "y": 114
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "2"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 20,
+      "id": "a2_lbl",
+      "name": "a2_lbl",
+      "props": {
+        "bold": true,
+        "fontSize": 13,
+        "text": "CORSIA 2 – traslo C2"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 260,
+      "x": 400,
+      "y": 278
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "2"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "a2_s1",
+      "name": "a2_s1",
+      "props": {
+        "aisle": 2,
+        "mode": "plan",
+        "side": 1,
+        "title": "lato 1",
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whmap",
+      "w": 900,
+      "x": 400,
+      "y": 302
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.crane.tx": {
+          "expr": "(tag('{device}.PctX') || 0) * 9.6",
+          "kind": "expr"
+        },
+        "elements.forks.ty": {
+          "expr": "(tag('{device}.Fork') || 0) * 0.14",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "param('device') || ''",
+          "kind": "expr"
+        },
+        "elements.load.visible": {
+          "kind": "tag",
+          "tag": "{device}.Loaded"
+        }
+      },
+      "custom": {
+        "device": "C2"
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "popup",
+              "params": {
+                "device": "{device}"
+              },
+              "view": "fp_asrs_lane"
+            }
+          ]
+        }
+      },
+      "h": 32,
+      "id": "a2_lane",
+      "name": "a2_lane",
+      "props": {
+        "symbol": "asrs_lane"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 900,
+      "x": 400,
+      "y": 352
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "2"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "a2_s2",
+      "name": "a2_s2",
+      "props": {
+        "aisle": 2,
+        "mode": "plan",
+        "side": 2,
+        "title": "lato 2",
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whmap",
+      "w": 900,
+      "x": 400,
+      "y": 388
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "PD2.In"
+        }
+      },
+      "events": {},
+      "h": 14,
+      "id": "a2_pdi",
+      "name": "a2_pdi",
+      "props": {
+        "colorOn": "#38bdf8"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 14,
+      "x": 372,
+      "y": 352
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "PD2.Out"
+        }
+      },
+      "events": {},
+      "h": 14,
+      "id": "a2_pdo",
+      "name": "a2_pdo",
+      "props": {
+        "colorOn": "#22c55e"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 14,
+      "x": 372,
+      "y": 370
+    },
+    {
+      "bindings": {
+        "color": {
+          "expr": "tag('C2.Fault') ? '#ef4444' : tag('C2.Busy') ? '#22c55e' : '#94a3b8'",
+          "kind": "expr"
+        },
+        "text": {
+          "expr": "tag('C2.Fault') ? 'C2: GUASTO' : tag('C2.Busy') ? ('C2: missione ' + tag('C2.Mission') + (tag('C2.Type') === 1 ? ' – deposito' : ' – prelievo')) : 'C2: libero'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 20,
+      "id": "a2_st",
+      "name": "a2_st",
+      "props": {
+        "bold": true,
+        "fontSize": 13
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 270,
+      "x": 1312,
+      "y": 358
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 50,
+      "id": "a2_det",
+      "name": "a2_det",
+      "props": {
+        "aisle": 2,
+        "fontSize": 12,
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whsummary",
+      "w": 270,
+      "x": 1312,
+      "y": 302
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "3"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 20,
+      "id": "a3_lbl",
+      "name": "a3_lbl",
+      "props": {
+        "bold": true,
+        "fontSize": 13,
+        "text": "CORSIA 3 – traslo C3"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 260,
+      "x": 400,
+      "y": 466
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "3"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "a3_s1",
+      "name": "a3_s1",
+      "props": {
+        "aisle": 3,
+        "mode": "plan",
+        "side": 1,
+        "title": "lato 1",
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whmap",
+      "w": 900,
+      "x": 400,
+      "y": 490
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.crane.tx": {
+          "expr": "(tag('{device}.PctX') || 0) * 9.6",
+          "kind": "expr"
+        },
+        "elements.forks.ty": {
+          "expr": "(tag('{device}.Fork') || 0) * 0.14",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "param('device') || ''",
+          "kind": "expr"
+        },
+        "elements.load.visible": {
+          "kind": "tag",
+          "tag": "{device}.Loaded"
+        }
+      },
+      "custom": {
+        "device": "C3"
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "popup",
+              "params": {
+                "device": "{device}"
+              },
+              "view": "fp_asrs_lane"
+            }
+          ]
+        }
+      },
+      "h": 32,
+      "id": "a3_lane",
+      "name": "a3_lane",
+      "props": {
+        "symbol": "asrs_lane"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 900,
+      "x": 400,
+      "y": 540
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "3"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "a3_s2",
+      "name": "a3_s2",
+      "props": {
+        "aisle": 3,
+        "mode": "plan",
+        "side": 2,
+        "title": "lato 2",
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whmap",
+      "w": 900,
+      "x": 400,
+      "y": 576
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "PD3.In"
+        }
+      },
+      "events": {},
+      "h": 14,
+      "id": "a3_pdi",
+      "name": "a3_pdi",
+      "props": {
+        "colorOn": "#38bdf8"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 14,
+      "x": 372,
+      "y": 540
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "PD3.Out"
+        }
+      },
+      "events": {},
+      "h": 14,
+      "id": "a3_pdo",
+      "name": "a3_pdo",
+      "props": {
+        "colorOn": "#22c55e"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 14,
+      "x": 372,
+      "y": 558
+    },
+    {
+      "bindings": {
+        "color": {
+          "expr": "tag('C3.Fault') ? '#ef4444' : tag('C3.Busy') ? '#22c55e' : '#94a3b8'",
+          "kind": "expr"
+        },
+        "text": {
+          "expr": "tag('C3.Fault') ? 'C3: GUASTO' : tag('C3.Busy') ? ('C3: missione ' + tag('C3.Mission') + (tag('C3.Type') === 1 ? ' – deposito' : ' – prelievo')) : 'C3: libero'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 20,
+      "id": "a3_st",
+      "name": "a3_st",
+      "props": {
+        "bold": true,
+        "fontSize": 13
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 270,
+      "x": 1312,
+      "y": 546
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 50,
+      "id": "a3_det",
+      "name": "a3_det",
+      "props": {
+        "aisle": 3,
+        "fontSize": 12,
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whsummary",
+      "w": 270,
+      "x": 1312,
+      "y": 490
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "pd_lbl",
+      "name": "pd_lbl",
+      "props": {
+        "color": "#64748b",
+        "fontSize": 10,
+        "text": "● P&D in / out"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 120,
+      "x": 345,
+      "y": 650
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 220,
+      "id": "kpi",
+      "name": "kpi",
+      "props": {
+        "fontSize": 13,
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whsummary",
+      "w": 270,
+      "x": 1312,
+      "y": 662
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 220,
+      "id": "missions",
+      "name": "missions",
+      "props": {
+        "fontSize": 12,
+        "rows": 9,
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whmissions",
+      "w": 900,
+      "x": 400,
+      "y": 662
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 16,
+      "id": "legend",
+      "name": "legend",
+      "props": {
+        "color": "#64748b",
+        "fontSize": 11,
+        "text": "Saturazione blocchi:"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 140,
+      "x": 400,
+      "y": 640
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lgb0",
+      "name": "lgb0",
+      "props": {
+        "fill": "rgb(30,41,59)",
+        "radius": 2,
+        "strokeWidth": 0
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 530,
+      "y": 641
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 16,
+      "id": "lgt0",
+      "name": "lgt0",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 11,
+        "text": "0%"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 50,
+      "x": 548,
+      "y": 640
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lgb1",
+      "name": "lgb1",
+      "props": {
+        "fill": "rgb(30,64,175)",
+        "radius": 2,
+        "strokeWidth": 0
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 600,
+      "y": 641
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 16,
+      "id": "lgt1",
+      "name": "lgt1",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 11,
+        "text": "35%"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 50,
+      "x": 618,
+      "y": 640
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lgb2",
+      "name": "lgb2",
+      "props": {
+        "fill": "rgb(59,130,246)",
+        "radius": 2,
+        "strokeWidth": 0
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 670,
+      "y": 641
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 16,
+      "id": "lgt2",
+      "name": "lgt2",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 11,
+        "text": "60%"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 50,
+      "x": 688,
+      "y": 640
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lgb3",
+      "name": "lgb3",
+      "props": {
+        "fill": "rgb(20,184,166)",
+        "radius": 2,
+        "strokeWidth": 0
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 740,
+      "y": 641
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 16,
+      "id": "lgt3",
+      "name": "lgt3",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 11,
+        "text": "80%"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 50,
+      "x": 758,
+      "y": 640
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lgb4",
+      "name": "lgb4",
+      "props": {
+        "fill": "rgb(245,158,11)",
+        "radius": 2,
+        "strokeWidth": 0
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 810,
+      "y": 641
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 16,
+      "id": "lgt4",
+      "name": "lgt4",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 11,
+        "text": "92%"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 50,
+      "x": 828,
+      "y": 640
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lgb5",
+      "name": "lgb5",
+      "props": {
+        "fill": "rgb(239,68,68)",
+        "radius": 2,
+        "strokeWidth": 0
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 880,
+      "y": 641
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 16,
+      "id": "lgt5",
+      "name": "lgt5",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 11,
+        "text": "100%"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 50,
+      "x": 898,
+      "y": 640
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "wh",
+              "op": "search",
+              "view": "mag_pallet_corsia",
+              "wh": "MP1"
+            }
+          ]
+        }
+      },
+      "h": 40,
+      "id": "btn0",
+      "name": "btn0",
+      "props": {
+        "fill": "#1d4ed8",
+        "fontSize": 13,
+        "text": "🔍 Cerca UdC"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 180,
+      "x": 1000,
+      "y": 10
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "wh",
+              "op": "outbound",
+              "wh": "MP1"
+            }
+          ]
+        }
+      },
+      "h": 40,
+      "id": "btn1",
+      "name": "btn1",
+      "props": {
+        "fill": "#15803d",
+        "fontSize": 13,
+        "text": "⬆ Prelievo UdC"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 180,
+      "x": 1190,
+      "y": 10
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "SimMP.FaultC2",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "h": 40,
+      "id": "btn2",
+      "name": "btn2",
+      "props": {
+        "fill": "#9a3412",
+        "fontSize": 13,
+        "text": "⚡ Simula guasto C2"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 180,
+      "x": 1380,
+      "y": 10
+    }
+  ],
+  "height": 900,
+  "params": {},
+  "title": "Magazzino pallet",
+  "width": 1600
+}

@@ -31,7 +31,8 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - **Tag e UDT**: tag, tipi e istanze UDT, trend;
   - **Smistamento**: protocollo, regole, classi, WMS;
   - **Progetto**: aree, scan class, script a timer, driver.
-- **Libreria**: 70 simboli in 3 menu (Intralogistica, Macchine, Processo), 27 UDT standard per famiglia e **un faceplate per ogni simbolo**.
+- **Magazzino automatico** (AS/RS): locazioni persistenti, allocazione celle, missioni ai trasli, viste aggregate e di dettaglio (esempio con 3000 locazioni).
+- **Libreria**: 72 simboli in 3 menu (Intralogistica, Macchine, Processo), 27 UDT standard per famiglia e **un faceplate per ogni simbolo**.
 
 ## Avvio rapido (demo)
 
@@ -62,6 +63,45 @@ WCS:
 Runtime su http://localhost:8080/ e Designer su http://localhost:8080/designer.html. La demo comprende:
 - la **Linea**: scanner con smistamento su 3 uscite più scarto, regole grafiche, WMS e classi;
 - il **Magazzino**: baia, porte, nastri, lift, traslo, scaffali, AGV e serbatoio, animati da uno script a timer; ogni elemento apre il suo faceplate.
+
+## Esempio: magazzino automatico pallet (MP1)
+
+Struttura: **2 ingressi, 2 uscite, 3 trasloelevatori, 3000 locazioni** (3 corsie × 2 lati × 50 colonne × 10 livelli).
+
+| | |
+|---|---|
+| ![Panoramica](docs/mag_pallet.png) | ![Prospetto corsia](docs/mag_pallet_corsia.png) |
+
+**Il WCS (modulo `warehouse.rs`)**:
+- gestisce locazioni e UdC su SQLite (persistenti al riavvio);
+- sceglie corsia e cella: meno missioni in coda, poi più celle libere, poi cella più vicina al P&D; esclude le corsie con traslo in guasto o non in automatico;
+- gestisce le missioni di deposito e prelievo, con prelievi bilanciati tra le baie d'uscita;
+- dialoga con i trasli tramite un telegramma missioni (UDT `TrasloMissioni`):
+  1. il WCS scrive tipo, origine e destinazione (colonna 0 = P&D), poi `Start` = 1;
+  2. il PLC alza `Busy` e il WCS abbassa `Start`;
+  3. a fine missione il PLC scrive `Done` = id missione e abbassa `Busy`.
+
+**Ingressi IN1/IN2**: telegramma request/reply (UDT `TelegrammaIngresso`) con regole grafiche:
+- NOREAD, sovrappeso e fuori sagoma → respinto, con il codice esito;
+- altrimenti l'uscita **`store:MP1`** alloca cella e missione e risponde con la corsia.
+
+Pallet doppi e magazzino pieno finiscono nel default ("non stoccabile").
+
+**Grafica** (le 3000 celle non sono tutte disegnate):
+- **Panoramica** `mag_pallet`: ogni lato di corsia è aggregato in blocchi di 5 colonne, colorati per saturazione media sui 10 livelli. Mostra i trasli in movimento lungo la corsia, ingressi e uscite, i KPI per corsia e totali e le missioni.
+- **Prospetto corsia** `mag_pallet_corsia`, aperto cliccando una corsia (navigazione con parametro `aisle`): mostra le 500 celle di ogni lato con il traslo sovrapposto. Il click su una cella apre dettaglio, prelievo e blocco. **Cerca UdC** apre la corsia giusta ed evidenzia la cella.
+- Componenti riutilizzabili: `whmap` (modalità *pianta*, *blocchi*, *celle*), `whsummary` (KPI), `whmissions`.
+- Azione evento *Magazzino*: cerca, preleva o deposita.
+
+**API**: `/api/wh/{nome}/summary`, `side?aisle=&side=`, `missions`, `outbound`, `inbound`, `location`, `find?lu=`, `mission/{id}/cancel`.
+
+Per ricreare l'esempio, a WCS avviato:
+
+```bash
+python3 tools/build_demo_pallet.py
+```
+
+La simulazione dei PLC (arrivi pallet, rulliere, trasli, baie) è lo script a timer `sim_pallet` in `scripts/rules.py`.
 
 ## Architettura
 

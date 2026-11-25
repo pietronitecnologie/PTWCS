@@ -1041,6 +1041,42 @@
    }
   }
  },
+ "asrs_crane_mast": {
+  "title": "Traslo (fronte, solo colonna – da sovrapporre al prospetto)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "Traslo",
+  "faceplate": "fp_asrs_crane_mast",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.fault.visible": {
+    "kind": "tag",
+    "tag": "{device}.Fault"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.mast.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.PctX') || 0) * 2"
+   },
+   "elements.carriage.ty": {
+    "kind": "expr",
+    "expr": "-(tag('{device}.PctY') || 0) * 1.4"
+   },
+   "elements.forks.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork') || 0) * 0.3"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+   }
+  }
+ },
  "asrs_aisle": {
   "title": "Corsia magazzino con traslo (pianta)",
   "category": "Intralogistica/Magazzini automatici",
@@ -1062,6 +1098,34 @@
    "elements.body.fill": {
     "kind": "expr",
     "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+   }
+  }
+ },
+ "asrs_lane": {
+  "title": "Corsia traslo (pianta, binario)",
+  "category": "Intralogistica/Magazzini automatici",
+  "udt": "Traslo",
+  "faceplate": "fp_asrs_lane",
+  "bindings": {
+   "elements.label.text": {
+    "kind": "expr",
+    "expr": "param('device') || ''"
+   },
+   "elements.load.visible": {
+    "kind": "tag",
+    "tag": "{device}.Loaded"
+   },
+   "elements.crane.tx": {
+    "kind": "expr",
+    "expr": "(tag('{device}.PctX') || 0) * 9.6"
+   },
+   "elements.forks.ty": {
+    "kind": "expr",
+    "expr": "(tag('{device}.Fork') || 0) * 0.14"
+   },
+   "elements.body.fill": {
+    "kind": "expr",
+    "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : tag('{device}.Busy') ? '#f59e0b' : '#64748b'"
    }
   }
  },

@@ -57,12 +57,17 @@ pub trait Resolver {
     fn class_dest(&self, value: &str) -> Option<String>;
     /// Destinazione fornita dal WMS (già in cache).
     fn wms_dest(&self, value: &str) -> Option<String>;
+    /// Deposito in magazzino automatico: alloca cella e missione, ritorna la corsia.
+    fn store(&self, _wh: &str, _lu: &str, _bay: &str, _dry_run: bool) -> Option<String> {
+        None
+    }
 }
 
 /// Controlli di esistenza per la validazione.
 pub struct Checker<'a> {
     pub tag: &'a dyn Fn(&str) -> bool,
     pub class: &'a dyn Fn(&str) -> bool,
+    pub wh: &'a dyn Fn(&str) -> bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,7 +221,7 @@ impl RulesEngine {
             }
             let set: RuleSet = serde_json::from_str(&std::fs::read_to_string(&p)?)
                 .with_context(|| format!("regole {}", p.display()))?;
-            validate(&set, dp, &Checker { tag: &|_| true, class: &|_| true })?;
+            validate(&set, dp, &Checker { tag: &|_| true, class: &|_| true, wh: &|_| true })?;
             let regex = compile(&set)?;
             tracing::info!("regole {}: {} caricate", dp.name, set.rules.len());
             sets.insert(dp.name.clone(), Compiled { set, regex, hits: Default::default(), rr: Default::default() });
@@ -313,6 +318,9 @@ impl RulesEngine {
                     res.class_dest(&field(f.trim()))?
                 } else if let Some(f) = raw.strip_prefix("wms:") {
                     res.wms_dest(&field(f.trim()))?
+                } else if let Some(rest) = raw.strip_prefix("store:") {
+                    let (wh, f) = rest.split_once(':').unwrap_or((rest, "barcode"));
+                    res.store(wh.trim(), &field(f.trim()), point, dry_run)?
                 } else {
                     raw.to_string()
                 };
@@ -494,7 +502,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("wcs_rules_{}", std::process::id()));
         let e = RulesEngine::load(dir, &[]).unwrap();
         let set: RuleSet = serde_json::from_str(set).unwrap();
-        e.save(&dp(), set, &Checker { tag: &|t| t == "MAXW" || t == "OUT3", class: &|c| c == "SUD" }).unwrap();
+        e.save(&dp(), set, &Checker { tag: &|t| t == "MAXW" || t == "OUT3", class: &|c| c == "SUD", wh: &|_| false }).unwrap();
         e
     }
 
@@ -567,7 +575,7 @@ mod tests {
     fn validation() {
         let dir = std::env::temp_dir().join(format!("wcs_rules_v_{}", std::process::id()));
         let e = RulesEngine::load(dir, &[]).unwrap();
-        let bad = |s: &str| e.save(&dp(), serde_json::from_str(s).unwrap(), &Checker { tag: &|_| false, class: &|_| false }).is_err();
+        let bad = |s: &str| e.save(&dp(), serde_json::from_str(s).unwrap(), &Checker { tag: &|_| false, class: &|_| false, wh: &|_| false }).is_err();
         assert!(bad(r#"{"rules":[{"id":"a","when":[{"field":"barcode","op":"in_class","value":"NOPE"}],"then":{"outputs":{"destination":"1"}}}]}"#));
         assert!(bad(r#"{"rules":[{"id":"a","when":[{"field":"nope","op":"eq","value":"1"}],"then":{"outputs":{"destination":"1"}}}]}"#));
         assert!(bad(r#"{"rules":[{"id":"a","when":[{"field":"barcode","op":"eq","value":"1"}],"then":{"outputs":{"bogus":"1"}}}]}"#));

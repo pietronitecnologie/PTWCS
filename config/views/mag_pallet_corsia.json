@@ -1,0 +1,732 @@
+{
+  "area": "MagPallet",
+  "background": "#0b1220",
+  "components": [
+    {
+      "bindings": {
+        "text": {
+          "expr": "'Corsia ' + param('aisle') + ' – traslo C' + param('aisle')",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 34,
+      "id": "title",
+      "name": "title",
+      "props": {
+        "bold": true,
+        "fontSize": 22,
+        "text": ""
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 700,
+      "x": 24,
+      "y": 12
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "view": "mag_pallet"
+            }
+          ]
+        }
+      },
+      "h": 36,
+      "id": "back",
+      "name": "back",
+      "props": {
+        "fill": "#334155",
+        "text": "← Panoramica"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 140,
+      "x": 1440,
+      "y": 12
+    },
+    {
+      "bindings": {
+        "active": {
+          "expr": "param('aisle') == '1'",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "1"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 36,
+      "id": "go1",
+      "name": "go1",
+      "props": {
+        "activeFill": "#1d4ed8",
+        "fill": "#1e293b",
+        "text": "Corsia 1"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 130,
+      "x": 1000,
+      "y": 12
+    },
+    {
+      "bindings": {
+        "active": {
+          "expr": "param('aisle') == '2'",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "2"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 36,
+      "id": "go2",
+      "name": "go2",
+      "props": {
+        "activeFill": "#1d4ed8",
+        "fill": "#1e293b",
+        "text": "Corsia 2"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 130,
+      "x": 1140,
+      "y": 12
+    },
+    {
+      "bindings": {
+        "active": {
+          "expr": "param('aisle') == '3'",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "params": {
+                "aisle": "3"
+              },
+              "view": "mag_pallet_corsia"
+            }
+          ]
+        }
+      },
+      "h": 36,
+      "id": "go3",
+      "name": "go3",
+      "props": {
+        "activeFill": "#1d4ed8",
+        "fill": "#1e293b",
+        "text": "Corsia 3"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 130,
+      "x": 1280,
+      "y": 12
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "hint",
+      "name": "hint",
+      "props": {
+        "color": "#64748b",
+        "fontSize": 12,
+        "text": "Prospetto completo: 50 colonne × 10 livelli per lato. Click su una cella per dettaglio, prelievo o blocco."
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 1000,
+      "x": 24,
+      "y": 46
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 300,
+      "id": "s1",
+      "name": "s1",
+      "props": {
+        "aisle": "{aisle}",
+        "highlight": "{hl}",
+        "labels": true,
+        "mode": "cells",
+        "side": 1,
+        "title": "Lato 1",
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whmap",
+      "w": 1150,
+      "x": 24,
+      "y": 80
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.carriage.ty": {
+          "expr": "-(tag('{device}.PctY') || 0) / 100 * 172.9",
+          "kind": "expr"
+        },
+        "elements.fault.visible": {
+          "kind": "tag",
+          "tag": "{device}.Fault"
+        },
+        "elements.forks.tx": {
+          "expr": "(tag('{device}.Fork') || 0) * 0.3",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "''",
+          "kind": "expr"
+        },
+        "elements.load.visible": {
+          "kind": "tag",
+          "tag": "{device}.Loaded"
+        },
+        "elements.mast.tx": {
+          "expr": "(tag('{device}.PctX') || 0) / 100 * 775.1",
+          "kind": "expr"
+        }
+      },
+      "custom": {
+        "device": "C{aisle}"
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "popup",
+              "params": {
+                "device": "{device}"
+              },
+              "view": "fp_asrs_crane_mast"
+            }
+          ]
+        }
+      },
+      "h": 266,
+      "id": "crane1",
+      "name": "crane1",
+      "props": {
+        "opacity": 0.85,
+        "symbol": "asrs_crane_mast"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 93,
+      "x": 50,
+      "y": 98
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 300,
+      "id": "s2",
+      "name": "s2",
+      "props": {
+        "aisle": "{aisle}",
+        "highlight": "{hl}",
+        "labels": true,
+        "mode": "cells",
+        "side": 2,
+        "title": "Lato 2",
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whmap",
+      "w": 1150,
+      "x": 24,
+      "y": 470
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.carriage.ty": {
+          "expr": "-(tag('{device}.PctY') || 0) / 100 * 172.9",
+          "kind": "expr"
+        },
+        "elements.fault.visible": {
+          "kind": "tag",
+          "tag": "{device}.Fault"
+        },
+        "elements.forks.tx": {
+          "expr": "(tag('{device}.Fork') || 0) * 0.3",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "''",
+          "kind": "expr"
+        },
+        "elements.load.visible": {
+          "kind": "tag",
+          "tag": "{device}.Loaded"
+        },
+        "elements.mast.tx": {
+          "expr": "(tag('{device}.PctX') || 0) / 100 * 775.1",
+          "kind": "expr"
+        }
+      },
+      "custom": {
+        "device": "C{aisle}"
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "popup",
+              "params": {
+                "device": "{device}"
+              },
+              "view": "fp_asrs_crane_mast"
+            }
+          ]
+        }
+      },
+      "h": 266,
+      "id": "crane2",
+      "name": "crane2",
+      "props": {
+        "opacity": 0.85,
+        "symbol": "asrs_crane_mast"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 93,
+      "x": 50,
+      "y": 488
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lg0",
+      "name": "lg0",
+      "props": {
+        "fill": "#1e293b",
+        "radius": 2,
+        "stroke": "#475569",
+        "strokeWidth": 1
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 24,
+      "y": 412
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "lgt0",
+      "name": "lgt0",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 12,
+        "text": "libera"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 230,
+      "x": 44,
+      "y": 410
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lg1",
+      "name": "lg1",
+      "props": {
+        "fill": "#b7793e",
+        "radius": 2,
+        "stroke": "#475569",
+        "strokeWidth": 1
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 124,
+      "y": 412
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "lgt1",
+      "name": "lgt1",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 12,
+        "text": "occupata"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 230,
+      "x": 144,
+      "y": 410
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lg2",
+      "name": "lg2",
+      "props": {
+        "fill": "#3b82f6",
+        "radius": 2,
+        "stroke": "#475569",
+        "strokeWidth": 1
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 234,
+      "y": 412
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "lgt2",
+      "name": "lgt2",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 12,
+        "text": "prenotata (deposito in corso)"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 230,
+      "x": 254,
+      "y": 410
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lg3",
+      "name": "lg3",
+      "props": {
+        "fill": "#22c55e",
+        "radius": 2,
+        "stroke": "#475569",
+        "strokeWidth": 1
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 474,
+      "y": 412
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "lgt3",
+      "name": "lgt3",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 12,
+        "text": "in prelievo"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 230,
+      "x": 494,
+      "y": 410
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 14,
+      "id": "lg4",
+      "name": "lg4",
+      "props": {
+        "fill": "#7f1d1d",
+        "radius": 2,
+        "stroke": "#475569",
+        "strokeWidth": 1
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 14,
+      "x": 604,
+      "y": 412
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 18,
+      "id": "lgt4",
+      "name": "lgt4",
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 12,
+        "text": "bloccata"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 230,
+      "x": 624,
+      "y": 410
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 250,
+      "id": "sum",
+      "name": "sum",
+      "props": {
+        "aisle": "{aisle}",
+        "fontSize": 13,
+        "wh": "MP1"
+      },
+      "rotation": 0,
+      "type": "whsummary",
+      "w": 380,
+      "x": 1200,
+      "y": 80
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 20,
+      "id": "crane_lbl",
+      "name": "crane_lbl",
+      "props": {
+        "bold": true,
+        "fontSize": 13,
+        "text": "Traslo"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 380,
+      "x": 1200,
+      "y": 345
+    },
+    {
+      "bindings": {
+        "value": {
+          "expr": "tag('C{aisle}.Fault') ? 'GUASTO' : tag('C{aisle}.Busy') ? 'in missione' : 'libero'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cv0",
+      "name": "cv0",
+      "props": {
+        "fontSize": 14,
+        "label": "Stato"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 185,
+      "x": 1200,
+      "y": 385
+    },
+    {
+      "bindings": {
+        "value": {
+          "expr": "tag('C{aisle}.Busy') ? tag('C{aisle}.Mission') : '—'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cv1",
+      "name": "cv1",
+      "props": {
+        "fontSize": 14,
+        "label": "Missione"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 185,
+      "x": 1395,
+      "y": 385
+    },
+    {
+      "bindings": {
+        "value": {
+          "expr": "(tag('C{aisle}.PosX') || 0).toFixed(1) + ' m / ' + (tag('C{aisle}.PosY') || 0).toFixed(1) + ' m'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cv2",
+      "name": "cv2",
+      "props": {
+        "fontSize": 14,
+        "label": "Posizione X / Y"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 185,
+      "x": 1200,
+      "y": 441
+    },
+    {
+      "bindings": {
+        "value": {
+          "expr": "tag('C{aisle}.Missions') || 0",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cv3",
+      "name": "cv3",
+      "props": {
+        "fontSize": 14,
+        "label": "Missioni eseguite"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 185,
+      "x": 1395,
+      "y": 441
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "popup",
+              "params": {
+                "device": "C{aisle}"
+              },
+              "view": "fp_asrs_crane"
+            }
+          ]
+        }
+      },
+      "h": 36,
+      "id": "fp",
+      "name": "fp",
+      "props": {
+        "fill": "#1d4ed8",
+        "text": "Faceplate traslo"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 185,
+      "x": 1200,
+      "y": 500
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "C{aisle}.Cmd_Reset",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "h": 36,
+      "id": "rst",
+      "name": "rst",
+      "props": {
+        "fill": "#b45309",
+        "text": "Reset guasto"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 185,
+      "x": 1395,
+      "y": 500
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "wh",
+              "op": "search",
+              "view": "mag_pallet_corsia",
+              "wh": "MP1"
+            }
+          ]
+        }
+      },
+      "h": 36,
+      "id": "find",
+      "name": "find",
+      "props": {
+        "fill": "#334155",
+        "text": "🔍 Cerca UdC"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 380,
+      "x": 1200,
+      "y": 545
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 170,
+      "id": "trend",
+      "name": "trend",
+      "props": {
+        "minutes": 5,
+        "tags": "C{aisle}.PosX"
+      },
+      "rotation": 0,
+      "type": "trend",
+      "w": 380,
+      "x": 1200,
+      "y": 600
+    }
+  ],
+  "height": 880,
+  "menu": false,
+  "params": {
+    "aisle": "1",
+    "hl": ""
+  },
+  "title": "Magazzino pallet – corsia",
+  "width": 1600
+}

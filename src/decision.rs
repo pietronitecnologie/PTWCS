@@ -135,6 +135,23 @@ impl crate::rules::Resolver for AppResolver<'_> {
     fn wms_dest(&self, value: &str) -> Option<String> {
         self.0.sorting.wms_cached(value).and_then(|a| a.destination)
     }
+    fn store(&self, wh: &str, lu: &str, bay: &str, dry_run: bool) -> Option<String> {
+        let w = self.0.warehouse(wh)?;
+        match w.allocate_inbound(lu, bay, &w.unavailable_aisles(&self.0.db), dry_run) {
+            Ok((aisle, pos)) => {
+                if !dry_run {
+                    self.0.log("info", &format!("mag:{wh}"), format!("deposito {lu} da {bay} → {}", pos.code()));
+                }
+                Some(aisle.to_string())
+            }
+            Err(e) => {
+                if !dry_run {
+                    self.0.log("warn", &format!("mag:{wh}"), format!("{lu}: {e:#}"));
+                }
+                None
+            }
+        }
+    }
 }
 
 /// Valuta le regole di un punto, interrogando prima il WMS se le regole lo usano.

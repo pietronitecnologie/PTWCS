@@ -58,6 +58,7 @@ pub struct AppState {
     drivers: Mutex<HashMap<String, Task>>,
     decisions: Mutex<HashMap<String, Task>>,
     timers: Mutex<HashMap<String, Task>>,
+    warehouses: RwLock<HashMap<String, (Arc<crate::warehouse::Warehouse>, Task)>>,
     /// Serializza le modifiche di progetto dal Designer.
     pub edit_lock: tokio::sync::Mutex<()>,
     me: std::sync::OnceLock<std::sync::Weak<AppState>>,
@@ -204,6 +205,40 @@ impl AppState {
         });
     }
 
+    pub fn warehouse(&self, name: &str) -> Option<Arc<crate::warehouse::Warehouse>> {
+        self.warehouses.read().unwrap().get(name).map(|(w, _)| w.clone())
+    }
+
+    pub fn warehouse_names(&self) -> Vec<String> {
+        self.warehouses.read().unwrap().keys().cloned().collect()
+    }
+
+    /// Apre/riapre i magazzini (le locazioni sono persistenti in SQLite).
+    async fn sync_warehouses(&self, defs: &[crate::config::WarehouseDef]) {
+        for d in defs {
+            let signature = serde_json::to_string(d).unwrap_or_default();
+            if self.warehouses.read().unwrap().get(&d.name).is_some_and(|(_, t)| t.signature == signature) {
+                continue;
+            }
+            match crate::warehouse::Warehouse::open(d.clone(), self.store.clone()).await {
+                Ok(wh) => {
+                    let handle = tokio::spawn(crate::warehouse::run(wh.clone(), self.db.clone()));
+                    if let Some((_, old)) = self.warehouses.write().unwrap().insert(d.name.clone(), (wh, Task { signature, handle })) {
+                        old.handle.abort();
+                    }
+                }
+                Err(e) => tracing::error!("magazzino {}: {e:#}", d.name),
+            }
+        }
+        self.warehouses.write().unwrap().retain(|n, (_, t)| {
+            let keep = defs.iter().any(|d| &d.name == n);
+            if !keep {
+                t.handle.abort();
+            }
+            keep
+        });
+    }
+
     /// Valida un progetto senza applicarlo (verifica e anteprima dal Designer).
     pub fn check_project(&self, project: Project) -> Result<Config> {
         let cand = self.base.with_project(project)?;
@@ -224,6 +259,9 @@ impl AppState {
         self.sync_drivers(&cand);
         self.sync_decisions(&cand.decision_points);
         self.sync_timers(&cand.timer_scripts);
+        let me = self.arc();
+        let whs = cand.warehouses.clone();
+        tokio::spawn(async move { me.sync_warehouses(&whs).await });
         self.sorting.configure(&cand.sort_classes, cand.wms.clone());
         *self.cfg.write().unwrap() = Arc::new(cand);
         let _ = self.events.send(Event::Project);
@@ -273,6 +311,7 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
         drivers: Default::default(),
         decisions: Default::default(),
         timers: Default::default(),
+        warehouses: Default::default(),
         edit_lock: Default::default(),
         me: Default::default(),
     });
@@ -280,6 +319,7 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
     app.sync_drivers(&cfg);
     app.sync_decisions(&cfg.decision_points);
     app.sync_timers(&cfg.timer_scripts);
+    app.sync_warehouses(&cfg.warehouses).await;
     tokio::spawn(alarms::run(app.clone()));
     tokio::spawn(historian(app.clone()));
     tokio::spawn(housekeeping(app.clone()));

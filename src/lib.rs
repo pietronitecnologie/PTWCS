@@ -10,4 +10,5 @@ pub mod sorting;
 pub mod store;
 pub mod tagdb;
 pub mod value;
+pub mod warehouse;
 pub mod web;
