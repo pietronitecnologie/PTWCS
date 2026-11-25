@@ -62,9 +62,24 @@ pub struct DriverStatus {
 pub type StatusBoard = Arc<RwLock<HashMap<String, DriverStatus>>>;
 
 /// Loop principale di un driver.
+/// Periodo di lettura di ogni tag (ms): scan class del tag, altrimenti `poll_ms` del driver.
+pub fn scan_rates(cfg: &DriverConfig, tags: &[TagDef], classes: &[crate::config::ScanClass]) -> Vec<u64> {
+    tags.iter()
+        .map(|t| {
+            t.scan_class
+                .as_ref()
+                .and_then(|n| classes.iter().find(|c| &c.name == n))
+                .map(|c| c.rate_ms)
+                .unwrap_or(cfg.poll_ms)
+                .max(10)
+        })
+        .collect()
+}
+
 pub async fn run(
     cfg: DriverConfig,
     tags: Vec<TagDef>,
+    rates: Vec<u64>,
     db: Arc<TagDb>,
     mut rx: mpsc::Receiver<WriteCmd>,
     board: StatusBoard,
@@ -97,7 +112,15 @@ pub async fn run(
     };
 
     let timeout = Duration::from_millis(cfg.timeout_ms);
-    let poll = Duration::from_millis(cfg.poll_ms.max(10));
+    // Scan class: gruppi di tag per periodo di lettura.
+    let mut groups: Vec<(u64, Vec<usize>)> = Vec::new();
+    for (i, r) in rates.iter().enumerate() {
+        match groups.iter_mut().find(|g| g.0 == *r) {
+            Some(g) => g.1.push(i),
+            None => groups.push((*r, vec![i])),
+        }
+    }
+    let poll = Duration::from_millis(groups.iter().map(|g| g.0).min().unwrap_or(cfg.poll_ms).max(10));
     let mut backoff = Duration::from_millis(500);
 
     'outer: loop {
@@ -145,6 +168,7 @@ pub async fn run(
         // ---- ciclo operativo ----
         let mut ticker = tokio::time::interval(poll);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut last_read: Vec<Option<Instant>> = vec![None; groups.len()];
         loop {
             tokio::select! {
                 biased;
@@ -163,11 +187,20 @@ pub async fn run(
                 _ = ticker.tick() => {
                     if tags.is_empty() { continue; }
                     let t0 = Instant::now();
-                    match tokio::time::timeout(timeout, drv.read(&tags)).await {
+                    // gruppi in scadenza (tolleranza di mezzo periodo base)
+                    let slack = poll / 2;
+                    let due: Vec<usize> = (0..groups.len())
+                        .filter(|&g| last_read[g].is_none_or(|t| t0 + slack >= t + Duration::from_millis(groups[g].0)))
+                        .collect();
+                    if due.is_empty() { continue; }
+                    let idx: Vec<usize> = due.iter().flat_map(|&g| groups[g].1.iter().copied()).collect();
+                    let batch: Vec<TagDef> = idx.iter().map(|&i| tags[i].clone()).collect();
+                    match tokio::time::timeout(timeout, drv.read(&batch)).await {
                         Ok(Ok(values)) => {
-                            for (t, v) in tags.iter().zip(values) {
+                            for (t, v) in batch.iter().zip(values) {
                                 db.update(&t.name, v, Quality::Good);
                             }
+                            for &g in &due { last_read[g] = Some(t0); }
                             let ms = t0.elapsed().as_secs_f64() * 1000.0;
                             set(&|s| { s.reads += 1; s.cycle_ms = ms; });
                         }

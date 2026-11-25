@@ -4,3 +4,6 @@ config/*.db-*
 scripts/__pycache__/
 *.py.bak
 *.py.check
+config/*.yaml.bak
+config/*.yaml.tmp
+config/rules/*.tmp

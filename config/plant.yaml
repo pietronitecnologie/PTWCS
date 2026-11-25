@@ -25,6 +25,7 @@ drivers:
     port: 5020
     unit_id: 1
     poll_ms: 100
+    area: Linea
 
   # Esempi per gli altri protocolli (rimuovere il commento e adattare):
   # - name: PLC_S7
@@ -44,33 +45,9 @@ drivers:
   - name: WCS_INTERNO        # variabili interne (setpoint, modalità, ...)
     protocol: sim
     poll_ms: 250
+    area: Servizi
 
-# I tag sono in tags.yaml (gestiti dal Designer). Qui si possono aggiungere tag
-# di sola lettura per il Designer con una sezione `tags:`.
-tags_file: tags.yaml
+# Il progetto (aree, scan class, UDT, tag, punti di decisione/protocollo,
+# classi di smistamento, WMS, allarmi) è in project.yaml ed è gestito dal Designer.
+project_file: project.yaml
 rules_dir: rules
-
-decision_points:
-  - name: SC1
-    description: Scanner barcode – scelta uscita del collo
-    request_tag: SC1.ReqID
-    response_tag: SC1.RespID
-    inputs:
-      barcode: SC1.Barcode
-      weight: SC1.Weight
-    outputs:
-      destination: SC1.Dest
-      result: SC1.Result
-    function: decide_sc1         # chiamata solo se nessuna regola grafica scatta
-    timeout_ms: 300
-    fallback:              # usato se lo script fallisce o va in timeout
-      destination: 99
-      result: 9
-
-alarms:
-  - { id: CV1.FAULT, tag: CV1.Fault, message: "CV1 – guasto motore", severity: alarm }
-  - { id: CV2.FAULT, tag: CV2.Fault, message: "CV2 – guasto motore", severity: alarm }
-  - { id: CV3.FAULT, tag: CV3.Fault, message: "CV3 – guasto motore", severity: alarm }
-  - { id: ESTOP,     tag: Line.EStop, message: "Emergenza premuta", severity: critical }
-  - { id: CV1.TEMP,  tag: CV1.Temp, op: ">", value: 450, message: "CV1 – temperatura motore alta (>45 °C)", severity: warning }
-  - { id: SC1.TMO,   tag: SC1.Timeouts, op: ">", value: 0, message: "SC1 – il PLC ha registrato timeout di risposta WCS", severity: info }

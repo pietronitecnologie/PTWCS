@@ -32,6 +32,7 @@ pub struct DecisionRecord {
 pub struct AlarmEvent {
     pub ts: i64,
     pub alarm: String,
+    pub area: String,
     /// raised | cleared | acked
     pub event: String,
     pub message: String,
@@ -59,6 +60,7 @@ impl Store {
         )?;
         // migrazione: colonna 'rule' aggiunta in seguito (errore ignorato se esiste già)
         let _ = conn.execute("ALTER TABLE decisions ADD COLUMN rule TEXT", []);
+        let _ = conn.execute("ALTER TABLE alarm_events ADD COLUMN area TEXT", []);
         Ok(Self { conn: Arc::new(Mutex::new(conn)) })
     }
 
@@ -108,8 +110,8 @@ impl Store {
     pub async fn log_alarm(&self, e: AlarmEvent) -> Result<()> {
         self.run(move |c| {
             c.execute(
-                "INSERT INTO alarm_events VALUES(?1,?2,?3,?4,?5,?6,?7)",
-                params![e.ts, e.alarm, e.event, e.message, e.severity, e.value, e.user],
+                "INSERT INTO alarm_events(ts,alarm,event,message,severity,value,user,area) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+                params![e.ts, e.alarm, e.event, e.message, e.severity, e.value, e.user, e.area],
             )
         })
         .await?;
@@ -119,7 +121,7 @@ impl Store {
     pub async fn alarm_history(&self, limit: u32) -> Result<Vec<AlarmEvent>> {
         self.run(move |c| {
             let mut st = c.prepare(
-                "SELECT ts,alarm,event,message,severity,value,user FROM alarm_events ORDER BY ts DESC, rowid DESC LIMIT ?1",
+                "SELECT ts,alarm,event,message,severity,value,user,COALESCE(area,'') FROM alarm_events ORDER BY ts DESC, rowid DESC LIMIT ?1",
             )?;
             st.query_map(params![limit], |r| {
                 Ok(AlarmEvent {
@@ -130,6 +132,7 @@ impl Store {
                     severity: r.get(4)?,
                     value: r.get(5)?,
                     user: r.get(6)?,
+                    area: r.get(7)?,
                 })
             })?
             .collect()

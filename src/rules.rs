@@ -40,6 +40,29 @@ pub enum Op {
     Regex,
     Empty,
     NotEmpty,
+    /// il valore appartiene a una delle classi (lista separata da virgole)
+    InClass,
+    NotInClass,
+    /// il valore appartiene ad almeno una classe di smistamento
+    HasClass,
+    /// il WMS conosce una destinazione per il valore
+    WmsKnown,
+}
+
+/// Accesso ai dati esterni durante la valutazione.
+pub trait Resolver {
+    fn tag(&self, name: &str) -> Value;
+    fn in_class(&self, value: &str, class: &str) -> bool;
+    /// Destinazione della prima classe che contiene il valore.
+    fn class_dest(&self, value: &str) -> Option<String>;
+    /// Destinazione fornita dal WMS (già in cache).
+    fn wms_dest(&self, value: &str) -> Option<String>;
+}
+
+/// Controlli di esistenza per la validazione.
+pub struct Checker<'a> {
+    pub tag: &'a dyn Fn(&str) -> bool,
+    pub class: &'a dyn Fn(&str) -> bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -193,7 +216,7 @@ impl RulesEngine {
             }
             let set: RuleSet = serde_json::from_str(&std::fs::read_to_string(&p)?)
                 .with_context(|| format!("regole {}", p.display()))?;
-            validate(&set, dp, &|_| true)?;
+            validate(&set, dp, &Checker { tag: &|_| true, class: &|_| true })?;
             let regex = compile(&set)?;
             tracing::info!("regole {}: {} caricate", dp.name, set.rules.len());
             sets.insert(dp.name.clone(), Compiled { set, regex, hits: Default::default(), rr: Default::default() });
@@ -216,8 +239,8 @@ impl RulesEngine {
     }
 
     /// Salva e applica subito un insieme di regole.
-    pub fn save(&self, dp: &DecisionPointDef, set: RuleSet, tag_exists: &dyn Fn(&str) -> bool) -> Result<()> {
-        validate(&set, dp, tag_exists)?;
+    pub fn save(&self, dp: &DecisionPointDef, set: RuleSet, chk: &Checker) -> Result<()> {
+        validate(&set, dp, chk)?;
         let regex = compile(&set)?;
         let p = self.dir.join(format!("{}.json", dp.name));
         let tmp = p.with_extension("json.tmp");
@@ -229,13 +252,39 @@ impl RulesEngine {
         Ok(())
     }
 
-    /// Valuta le regole di un punto. `inputs`: alias -> valore; `tag`: lettura tag.
+    /// Campi di input per cui le regole chiedono la destinazione al WMS
+    /// (da interrogare prima della valutazione).
+    pub fn wms_fields(&self, point: &str) -> Vec<String> {
+        let sets = self.sets.read().unwrap();
+        let Some(c) = sets.get(point) else { return vec![] };
+        let mut out = vec![];
+        let actions = c.set.rules.iter().map(|r| &r.then).chain(c.set.default.iter());
+        for a in actions {
+            for v in a.outputs.values() {
+                if let Some(f) = v.trim().strip_prefix("wms:") {
+                    out.push(f.trim().to_string());
+                }
+            }
+        }
+        for r in &c.set.rules {
+            for cond in &r.when {
+                if cond.op == Op::WmsKnown {
+                    out.push(cond.field.clone());
+                }
+            }
+        }
+        out.sort();
+        out.dedup();
+        out
+    }
+
+    /// Valuta le regole di un punto. `inputs`: alias -> valore.
     /// Con `dry_run` non aggiorna contatori e rotazioni (test dal Designer).
     pub fn evaluate(
         &self,
         point: &str,
         inputs: &HashMap<String, Value>,
-        tag: &dyn Fn(&str) -> Value,
+        res: &dyn Resolver,
         dry_run: bool,
     ) -> (Option<Outcome>, Vec<RuleTrace>) {
         let mut sets = self.sets.write().unwrap();
@@ -245,19 +294,51 @@ impl RulesEngine {
         }
         let resolve = |s: &str| -> String {
             match s.strip_prefix("tag:") {
-                Some(t) => value_str(&tag(t.trim())),
+                Some(t) => value_str(&res.tag(t.trim())),
                 None => s.to_string(),
             }
         };
         let field = |f: &str| -> String {
             match f.strip_prefix("tag:") {
-                Some(t) => value_str(&tag(t.trim())),
+                Some(t) => value_str(&res.tag(t.trim())),
                 None => inputs.get(f).map(value_str).unwrap_or_default(),
             }
         };
+        // Risolve le uscite di un'azione; None se un valore class:/wms: non è disponibile.
+        let outputs_of = |c: &mut Compiled, id: &str, a: &Action| -> Option<BTreeMap<String, Value>> {
+            let mut outputs = BTreeMap::new();
+            for (alias, raw) in &a.outputs {
+                let raw = raw.trim();
+                let raw = if let Some(f) = raw.strip_prefix("class:") {
+                    res.class_dest(&field(f.trim()))?
+                } else if let Some(f) = raw.strip_prefix("wms:") {
+                    res.wms_dest(&field(f.trim()))?
+                } else {
+                    raw.to_string()
+                };
+                let chosen = if raw.contains('|') {
+                    let opts: Vec<&str> = raw.split('|').map(str::trim).filter(|s| !s.is_empty()).collect();
+                    let key = format!("{id}/{alias}");
+                    let i = *c.rr.get(&key).unwrap_or(&0);
+                    if !dry_run {
+                        c.rr.insert(key, i + 1);
+                    }
+                    opts.get(i % opts.len().max(1)).copied().unwrap_or("").to_string()
+                } else {
+                    raw
+                };
+                let v = match chosen.strip_prefix("tag:") {
+                    Some(t) => res.tag(t.trim()),
+                    None => parse_out(&chosen),
+                };
+                outputs.insert(alias.clone(), v);
+            }
+            Some(outputs)
+        };
         let mut trace = vec![];
-        let mut hit: Option<(String, String, Action)> = None;
-        for r in &c.set.rules {
+        let mut hit: Option<(String, String, Action, BTreeMap<String, Value>)> = None;
+        let rules = c.set.rules.clone();
+        for r in &rules {
             let results: Vec<bool> = r
                 .when
                 .iter()
@@ -285,46 +366,36 @@ impl RulesEngine {
                         Op::Regex => c.regex.get(&cond.value).is_some_and(|re| re.is_match(&a)),
                         Op::Empty => a.trim().is_empty(),
                         Op::NotEmpty => !a.trim().is_empty(),
+                        Op::InClass => b.split(',').any(|cl| res.in_class(&a, cl.trim())),
+                        Op::NotInClass => !b.split(',').any(|cl| res.in_class(&a, cl.trim())),
+                        Op::HasClass => res.class_dest(&a).is_some(),
+                        Op::WmsKnown => res.wms_dest(&a).is_some(),
                     }
                 })
                 .collect();
-            let matched = r.enabled
+            let mut matched = r.enabled
                 && if r.mode == "any" { results.iter().any(|x| *x) } else { results.iter().all(|x| *x) };
-            trace.push(RuleTrace { id: r.id.clone(), enabled: r.enabled, conditions: results, matched });
             if matched && hit.is_none() {
-                hit = Some((r.id.clone(), r.name.clone(), r.then.clone()));
-                if !dry_run {
-                    break;
+                match outputs_of(c, &r.id, &r.then) {
+                    Some(o) => hit = Some((r.id.clone(), r.name.clone(), r.then.clone(), o)),
+                    None => matched = false, // uscita class:/wms: non risolta: si prova la regola successiva
                 }
             }
+            trace.push(RuleTrace { id: r.id.clone(), enabled: r.enabled, conditions: results, matched });
+            if hit.is_some() && !dry_run {
+                break;
+            }
         }
-        let (id, name, action) = match hit {
+        let (id, name, action, outputs) = match hit {
             Some(h) => h,
-            None => match &c.set.default {
-                Some(d) => ("default".to_string(), "Default".to_string(), d.clone()),
+            None => match c.set.default.clone() {
+                Some(d) => match outputs_of(c, "default", &d) {
+                    Some(o) => ("default".to_string(), "Default".to_string(), d, o),
+                    None => return (None, trace),
+                },
                 None => return (None, trace),
             },
         };
-        let mut outputs = BTreeMap::new();
-        for (alias, raw) in &action.outputs {
-            let raw = raw.trim();
-            let chosen = if raw.contains('|') {
-                let opts: Vec<&str> = raw.split('|').map(str::trim).filter(|s| !s.is_empty()).collect();
-                let key = format!("{id}/{alias}");
-                let i = *c.rr.get(&key).unwrap_or(&0);
-                if !dry_run {
-                    c.rr.insert(key, i + 1);
-                }
-                opts.get(i % opts.len().max(1)).copied().unwrap_or("").to_string()
-            } else {
-                raw.to_string()
-            };
-            let v = match chosen.strip_prefix("tag:") {
-                Some(t) => tag(t.trim()),
-                None => parse_out(&chosen),
-            };
-            outputs.insert(alias.clone(), v);
-        }
         let log = action.log.as_ref().map(|l| {
             let mut s = l.clone();
             for (k, v) in inputs {
@@ -339,12 +410,21 @@ impl RulesEngine {
     }
 }
 
-fn validate(set: &RuleSet, dp: &DecisionPointDef, tag_exists: &dyn Fn(&str) -> bool) -> Result<()> {
+fn validate(set: &RuleSet, dp: &DecisionPointDef, chk: &Checker) -> Result<()> {
     let mut ids = std::collections::HashSet::new();
+    let known_field = |f: &str| f == "request_id" || dp.inputs.contains_key(f);
     let check_ref = |s: &str, ctx: &str| -> Result<()> {
-        if let Some(t) = s.trim().strip_prefix("tag:") {
-            if !tag_exists(t.trim()) {
+        let s = s.trim();
+        if let Some(t) = s.strip_prefix("tag:") {
+            if !(chk.tag)(t.trim()) {
                 bail!("{ctx}: tag sconosciuto '{}'", t.trim());
+            }
+        }
+        for p in ["class:", "wms:"] {
+            if let Some(f) = s.strip_prefix(p) {
+                if !known_field(f.trim()) {
+                    bail!("{ctx}: '{s}' – campo '{}' non è un input del punto", f.trim());
+                }
             }
         }
         Ok(())
@@ -378,7 +458,13 @@ fn validate(set: &RuleSet, dp: &DecisionPointDef, tag_exists: &dyn Fn(&str) -> b
                 bail!("{ctx}: campo '{f}' sconosciuto (input: {:?}, oppure tag:Nome)", dp.inputs.keys().collect::<Vec<_>>());
             }
             check_ref(f, &ctx)?;
-            if !matches!(c.op, Op::Empty | Op::NotEmpty | Op::Regex) {
+            if matches!(c.op, Op::InClass | Op::NotInClass) {
+                for cl in c.value.split(',') {
+                    if !(chk.class)(cl.trim()) {
+                        bail!("{ctx}: classe di smistamento sconosciuta '{}'", cl.trim());
+                    }
+                }
+            } else if !matches!(c.op, Op::Empty | Op::NotEmpty | Op::Regex | Op::HasClass | Op::WmsKnown) {
                 for part in c.value.split([',']).flat_map(|x| x.split("..")) {
                     check_ref(part, &ctx)?;
                 }
@@ -410,18 +496,33 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("wcs_rules_{}", std::process::id()));
         let e = RulesEngine::load(dir, &[]).unwrap();
         let set: RuleSet = serde_json::from_str(set).unwrap();
-        e.save(&dp(), set, &|t| t == "MAXW" || t == "OUT3").unwrap();
+        e.save(&dp(), set, &Checker { tag: &|t| t == "MAXW" || t == "OUT3", class: &|c| c == "SUD" }).unwrap();
         e
+    }
+
+    struct R;
+    impl Resolver for R {
+        fn tag(&self, t: &str) -> Value {
+            match t {
+                "MAXW" => Value::Int(3000),
+                "OUT3" => Value::Bool(false),
+                _ => Value::Null,
+            }
+        }
+        fn in_class(&self, v: &str, c: &str) -> bool {
+            c == "SUD" && v.starts_with("IT-NA")
+        }
+        fn class_dest(&self, v: &str) -> Option<String> {
+            v.starts_with("IT-NA").then(|| "2".into())
+        }
+        fn wms_dest(&self, v: &str) -> Option<String> {
+            (v == "WMS-1").then(|| "7".into())
+        }
     }
 
     fn eval(e: &RulesEngine, bc: &str, w: i64) -> Option<Outcome> {
         let inputs = HashMap::from([("barcode".to_string(), Value::Str(bc.into())), ("weight".to_string(), Value::Int(w))]);
-        let tag = |t: &str| match t {
-            "MAXW" => Value::Int(3000),
-            "OUT3" => Value::Bool(false),
-            _ => Value::Null,
-        };
-        e.evaluate("SC1", &inputs, &tag, false).0
+        e.evaluate("SC1", &inputs, &R, false).0
     }
 
     #[test]
@@ -448,10 +549,28 @@ mod tests {
     }
 
     #[test]
+    fn classes_and_wms_chain() {
+        let e = engine(
+            r#"{"rules":[
+              {"id":"w","when":[{"field":"barcode","op":"not_empty"}],"then":{"outputs":{"destination":"wms:barcode"}}},
+              {"id":"c","when":[{"field":"barcode","op":"in_class","value":"SUD"}],"then":{"outputs":{"destination":"class:barcode"}}}
+            ],"default":{"outputs":{"destination":"99"}}}"#,
+        );
+        // WMS conosce il collo
+        assert_eq!(eval(&e, "WMS-1", 1).unwrap().outputs["destination"], Value::Int(7));
+        // WMS no, classe sì: la regola 'w' viene saltata
+        let o = eval(&e, "IT-NA-5", 1).unwrap();
+        assert_eq!((o.rule.as_str(), &o.outputs["destination"]), ("c", &Value::Int(2)));
+        assert_eq!(eval(&e, "ZZ", 1).unwrap().rule, "default");
+        assert_eq!(e.wms_fields("SC1"), vec!["barcode"]);
+    }
+
+    #[test]
     fn validation() {
         let dir = std::env::temp_dir().join(format!("wcs_rules_v_{}", std::process::id()));
         let e = RulesEngine::load(dir, &[]).unwrap();
-        let bad = |s: &str| e.save(&dp(), serde_json::from_str(s).unwrap(), &|_| false).is_err();
+        let bad = |s: &str| e.save(&dp(), serde_json::from_str(s).unwrap(), &Checker { tag: &|_| false, class: &|_| false }).is_err();
+        assert!(bad(r#"{"rules":[{"id":"a","when":[{"field":"barcode","op":"in_class","value":"NOPE"}],"then":{"outputs":{"destination":"1"}}}]}"#));
         assert!(bad(r#"{"rules":[{"id":"a","when":[{"field":"nope","op":"eq","value":"1"}],"then":{"outputs":{"destination":"1"}}}]}"#));
         assert!(bad(r#"{"rules":[{"id":"a","when":[{"field":"barcode","op":"eq","value":"1"}],"then":{"outputs":{"bogus":"1"}}}]}"#));
         assert!(bad(r#"{"rules":[{"id":"a","when":[{"field":"barcode","op":"regex","value":"("}],"then":{"outputs":{"destination":"1"}}}]}"#));

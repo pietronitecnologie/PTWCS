@@ -1,11 +1,13 @@
-//! Stato applicativo condiviso e avvio di tutti i sottosistemi.
+//! Stato applicativo condiviso, avvio dei sottosistemi e applicazione a caldo
+//! delle modifiche di progetto fatte dal Designer.
 
 use crate::alarms::{self, AlarmManager, AlarmState};
-use crate::config::{Config, DriverConfig, TagDef};
+use crate::config::{Config, DecisionPointDef, Project, TagDef};
 use crate::decision;
 use crate::drivers::{self, StatusBoard};
 use crate::rules::RulesEngine;
 use crate::script::ScriptHost;
+use crate::sorting::Sorting;
 use crate::store::{DecisionRecord, Store};
 use crate::tagdb::{TagDb, now_ms};
 use crate::value::Value;
@@ -13,7 +15,7 @@ use anyhow::{Result, bail};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc};
 
@@ -24,15 +26,25 @@ pub enum Event {
     Decision(DecisionRecord),
     Alarms(Vec<AlarmState>),
     Log { ts: i64, level: String, source: String, message: String },
+    /// Il progetto è cambiato (le pagine ricaricano tag/aree).
+    Project,
+}
+
+struct Task {
+    /// Firma della configurazione: se cambia il task viene riavviato.
+    signature: String,
+    handle: tokio::task::JoinHandle<()>,
 }
 
 pub struct AppState {
-    pub cfg: Config,
+    /// Solo file di impianto (base su cui si applica il progetto).
+    base: Config,
+    /// Configurazione effettiva corrente (impianto + progetto).
+    cfg: RwLock<Arc<Config>>,
     pub db: Arc<TagDb>,
     /// Processo Python dedicato ai punti di decisione (tempo reale).
     pub scripts: Arc<ScriptHost>,
-    /// Processo Python separato per gli eventi HMI: uno script lento lanciato
-    /// da un operatore non può ritardare le risposte ai PLC.
+    /// Processo Python separato per gli eventi HMI.
     pub hmi_scripts: Arc<ScriptHost>,
     pub store: Store,
     pub alarms: AlarmManager,
@@ -41,23 +53,24 @@ pub struct AppState {
     pub views_dir: PathBuf,
     pub symbols_dir: PathBuf,
     pub script_path: Option<PathBuf>,
-    /// Regole di smistamento grafiche.
     pub rules: RulesEngine,
-    /// Task dei driver attivi (riavviati a caldo quando cambiano i loro tag).
-    drivers: std::sync::Mutex<HashMap<String, DriverTask>>,
-    /// Tag modificabili dal Designer (salvati in `tags_file`).
-    pub editable_tags: RwLock<HashSet<String>>,
-    /// Serializza le modifiche di configurazione dal Designer.
+    pub sorting: Arc<Sorting>,
+    drivers: Mutex<HashMap<String, Task>>,
+    decisions: Mutex<HashMap<String, Task>>,
+    /// Serializza le modifiche di progetto dal Designer.
     pub edit_lock: tokio::sync::Mutex<()>,
-}
-
-struct DriverTask {
-    /// Firma (config + tag) per capire se va riavviato.
-    signature: String,
-    handle: tokio::task::JoinHandle<()>,
+    me: std::sync::OnceLock<std::sync::Weak<AppState>>,
 }
 
 impl AppState {
+    pub fn cfg(&self) -> Arc<Config> {
+        self.cfg.read().unwrap().clone()
+    }
+
+    fn arc(&self) -> Arc<AppState> {
+        self.me.get().and_then(|w| w.upgrade()).expect("AppState non inizializzato")
+    }
+
     /// Ricarica il modulo Python in entrambi i processi.
     pub async fn reload_scripts(&self) -> Result<crate::script::ScriptStatus> {
         let _ = self.hmi_scripts.reload().await;
@@ -68,27 +81,36 @@ impl AppState {
         let _ = self.events.send(Event::Log { ts: now_ms(), level: level.into(), source: source.into(), message });
     }
 
-    /// Avvia, riavvia o ferma i task driver in base a configurazione e tag.
-    /// Solo i driver la cui configurazione o lista di tag è cambiata vengono
-    /// riavviati: gli altri continuano a comunicare senza interruzioni.
-    pub fn sync_drivers(&self, drivers: &[DriverConfig], tags: &[TagDef]) {
+    pub fn audit(&self, user: &str, action: &str, detail: String) {
+        let s = self.store.clone();
+        let (u, a) = (user.to_string(), action.to_string());
+        tokio::spawn(async move {
+            let _ = s.audit(now_ms(), u, a, detail).await;
+        });
+    }
+
+    /// Avvia, riavvia o ferma i task driver. Solo i driver la cui configurazione,
+    /// lista di tag o scan class sono cambiate vengono riavviati.
+    fn sync_drivers(&self, cfg: &Config) {
         let mut tasks = self.drivers.lock().unwrap();
-        for d in drivers {
-            let dtags: Vec<TagDef> = tags.iter().filter(|t| t.driver == d.name).cloned().collect();
-            let signature = serde_json::to_string(&(d, &dtags)).unwrap_or_default();
+        for d in &cfg.drivers {
+            let dtags: Vec<TagDef> = cfg.tags.iter().filter(|t| t.driver == d.name).cloned().collect();
+            let rates = drivers::scan_rates(d, &dtags, &cfg.scan_classes);
+            let signature = serde_json::to_string(&(d, &dtags, &rates)).unwrap_or_default();
             if tasks.get(&d.name).is_some_and(|t| t.signature == signature) {
                 continue;
             }
             if let Some(old) = tasks.remove(&d.name) {
                 old.handle.abort();
-                tracing::info!(driver = %d.name, "riavvio driver per modifica tag");
+                tracing::info!(driver = %d.name, "riavvio driver per modifica di progetto");
             }
             let (tx, rx) = mpsc::channel(256);
             self.db.set_writer(&d.name, Some(tx));
-            let handle = tokio::spawn(drivers::run(d.clone(), dtags, self.db.clone(), rx, self.board.clone()));
-            tasks.insert(d.name.clone(), DriverTask { signature, handle });
+            let handle =
+                tokio::spawn(drivers::run(d.clone(), dtags, rates, self.db.clone(), rx, self.board.clone()));
+            tasks.insert(d.name.clone(), Task { signature, handle });
         }
-        let names: HashSet<&str> = drivers.iter().map(|d| d.name.as_str()).collect();
+        let names: HashSet<&str> = cfg.drivers.iter().map(|d| d.name.as_str()).collect();
         tasks.retain(|n, t| {
             let keep = names.contains(n.as_str());
             if !keep {
@@ -100,43 +122,59 @@ impl AppState {
         });
     }
 
-    /// Applica una nuova lista completa di tag (dal Designer): valida, prova a
-    /// creare i driver coinvolti (verifica indirizzi), salva su file e applica a caldo.
-    pub fn apply_tags(&self, tags: Vec<TagDef>, editable: HashSet<String>) -> Result<()> {
-        let mut cand = self.cfg.clone();
-        cand.tags = tags.clone();
-        cand.validate()?;
+    /// Avvia/riavvia i task dei punti di decisione (protocollo request/reply).
+    fn sync_decisions(&self, points: &[DecisionPointDef]) {
+        let mut tasks = self.decisions.lock().unwrap();
+        for dp in points {
+            let signature = serde_json::to_string(dp).unwrap_or_default();
+            if tasks.get(&dp.name).is_some_and(|t| t.signature == signature) {
+                continue;
+            }
+            if let Some(old) = tasks.remove(&dp.name) {
+                old.handle.abort();
+                tracing::info!(point = %dp.name, "riavvio punto di decisione per modifica di protocollo");
+            }
+            let handle = tokio::spawn(decision::run(self.arc(), dp.clone()));
+            tasks.insert(dp.name.clone(), Task { signature, handle });
+        }
+        let names: HashSet<&str> = points.iter().map(|d| d.name.as_str()).collect();
+        tasks.retain(|n, t| {
+            let keep = names.contains(n.as_str());
+            if !keep {
+                t.handle.abort();
+            }
+            keep
+        });
+    }
+
+    /// Valida un progetto senza applicarlo (verifica e anteprima dal Designer).
+    pub fn check_project(&self, project: Project) -> Result<Config> {
+        let cand = self.base.with_project(project)?;
         for d in &cand.drivers {
-            let dtags: Vec<TagDef> = tags.iter().filter(|t| t.driver == d.name).cloned().collect();
+            let dtags: Vec<TagDef> = cand.tags.iter().filter(|t| t.driver == d.name).cloned().collect();
             if let Err(e) = drivers::create(d, &dtags) {
                 bail!("{e:#}");
             }
         }
-        for t in &tags {
-            if t.name.trim().is_empty() || t.name.chars().any(|c| c.is_whitespace() || c == '\'' || c == '"') {
-                bail!("nome tag non valido: '{}' (niente spazi o apici)", t.name);
-            }
-        }
-        cand.editable_tags = editable.clone();
-        cand.save_editable_tags(&tags)?;
-        *self.editable_tags.write().unwrap() = editable;
-        self.db.set_defs(tags.clone());
-        self.sync_drivers(&cand.drivers, &tags);
-        Ok(())
+        Ok(cand)
     }
 
-    pub fn audit(&self, user: &str, action: &str, detail: String) {
-        let s = self.store.clone();
-        let (u, a) = (user.to_string(), action.to_string());
-        tokio::spawn(async move {
-            let _ = s.audit(now_ms(), u, a, detail).await;
-        });
+    /// Valida, salva e applica a caldo un nuovo progetto.
+    pub fn apply_project(&self, project: Project) -> Result<()> {
+        let cand = self.check_project(project)?;
+        cand.save_project(&cand.project)?;
+        self.db.set_defs(cand.tags.clone());
+        self.sync_drivers(&cand);
+        self.sync_decisions(&cand.decision_points);
+        self.sorting.configure(&cand.sort_classes, cand.wms.clone());
+        *self.cfg.write().unwrap() = Arc::new(cand);
+        let _ = self.events.send(Event::Project);
+        Ok(())
     }
 }
 
-pub async fn start(cfg: Config) -> Result<Arc<AppState>> {
+pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
     let db = TagDb::new(&cfg.tags);
-    let board: StatusBoard = Default::default();
 
     let script_path = cfg.scripting.module.as_ref().map(|m| cfg.resolve(m));
     let scripts = ScriptHost::new(cfg.scripting.python.clone(), script_path.clone());
@@ -156,31 +194,36 @@ pub async fn start(cfg: Config) -> Result<Arc<AppState>> {
     std::fs::create_dir_all(&views_dir)?;
     std::fs::create_dir_all(&symbols_dir)?;
     let rules = RulesEngine::load(cfg.resolve(&cfg.rules_dir), &cfg.decision_points)?;
+    let sorting = Sorting::new();
+    sorting.configure(&cfg.sort_classes, cfg.wms.clone());
 
     let app = Arc::new(AppState {
-        cfg: cfg.clone(),
-        db: db.clone(),
+        base,
+        cfg: RwLock::new(Arc::new(cfg.clone())),
+        db,
         scripts,
         hmi_scripts,
         store,
         alarms: AlarmManager::default(),
-        board: board.clone(),
+        board: Default::default(),
         events,
         views_dir,
         symbols_dir,
         script_path,
         rules,
+        sorting: sorting.clone(),
         drivers: Default::default(),
-        editable_tags: RwLock::new(cfg.editable_tags.clone()),
+        decisions: Default::default(),
         edit_lock: Default::default(),
+        me: Default::default(),
     });
-    app.sync_drivers(&cfg.drivers, &cfg.tags);
-    for dp in &cfg.decision_points {
-        tokio::spawn(decision::run(app.clone(), dp.clone()));
-    }
+    let _ = app.me.set(Arc::downgrade(&app));
+    app.sync_drivers(&cfg);
+    app.sync_decisions(&cfg.decision_points);
     tokio::spawn(alarms::run(app.clone()));
     tokio::spawn(historian(app.clone()));
     tokio::spawn(housekeeping(app.clone()));
+    tokio::spawn(crate::sorting::sync_task(sorting));
     Ok(app)
 }
 
@@ -212,7 +255,7 @@ async fn housekeeping(app: Arc<AppState>) {
     let mut t = tokio::time::interval(Duration::from_secs(3600));
     loop {
         t.tick().await;
-        let before = now_ms() - app.cfg.server.retention_days as i64 * 86_400_000;
+        let before = now_ms() - app.cfg().server.retention_days as i64 * 86_400_000;
         if let Err(e) = app.store.purge(before).await {
             tracing::warn!("purge storico: {e:#}");
         }

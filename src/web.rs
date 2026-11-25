@@ -42,12 +42,19 @@ fn bad(msg: impl Into<String>) -> ApiError {
 }
 
 pub fn router(app: Arc<AppState>) -> Router {
-    let web_root = app.cfg.resolve(&app.cfg.server.web_root);
+    let web_root = app.cfg().resolve(&app.cfg().server.web_root);
     Router::new()
         .route("/api/info", get(info))
         .route("/api/tags", get(tags).post(create_tag))
         .route("/api/tags/write", post(write_tag))
         .route("/api/tags/def/{name}", axum::routing::put(update_tag).delete(delete_tag))
+        .route("/api/project", get(project_get).put(project_put))
+        .route("/api/project/check", post(project_check))
+        .route("/api/project/udt_preview", post(udt_preview))
+        .route("/api/areas", get(areas_summary))
+        .route("/api/sorting/status", get(sorting_status))
+        .route("/api/sorting/lookup", get(sorting_lookup))
+        .route("/api/sorting/sync", post(sorting_sync))
         .route("/api/drivers", get(drivers_list))
         .route("/api/rules", get(rules_list))
         .route("/api/rules/{point}", get(rules_get).put(rules_put))
@@ -73,7 +80,7 @@ pub fn router(app: Arc<AppState>) -> Router {
 }
 
 fn require_designer(app: &AppState) -> R<()> {
-    if app.cfg.server.designer { Ok(()) } else { Err(ApiError(StatusCode::FORBIDDEN, "designer disabilitato".into())) }
+    if app.cfg().server.designer { Ok(()) } else { Err(ApiError(StatusCode::FORBIDDEN, "designer disabilitato".into())) }
 }
 
 /// Id sicuro per file (viste, simboli): niente path traversal.
@@ -89,11 +96,11 @@ fn safe_id(id: &str) -> R<()> {
 async fn info(State(app): S) -> Json<J> {
     let drivers: Vec<_> = app.board.read().unwrap().values().cloned().collect();
     Json(json!({
-        "plant": app.cfg.plant,
+        "plant": app.cfg().plant,
         "drivers": drivers,
         "scripts": app.scripts.status(),
-        "designer": app.cfg.server.designer,
-        "decision_points": app.cfg.decision_points.iter().map(|d| json!({
+        "designer": app.cfg().server.designer,
+        "decision_points": app.cfg().decision_points.iter().map(|d| json!({
             "name": d.name, "description": d.description, "function": d.function,
             "request_tag": d.request_tag, "response_tag": d.response_tag,
             "inputs": d.inputs, "outputs": d.outputs,
@@ -103,7 +110,8 @@ async fn info(State(app): S) -> Json<J> {
 
 async fn tags(State(app): S) -> Json<J> {
     let snap = app.db.snapshot();
-    let editable = app.editable_tags.read().unwrap().clone();
+    let cfg = app.cfg();
+    let editable: std::collections::HashSet<&str> = cfg.project.tags.iter().map(|t| t.name.as_str()).collect();
     let list: Vec<J> = app
         .db
         .defs()
@@ -115,7 +123,7 @@ async fn tags(State(app): S) -> Json<J> {
             j["value"] = st.map(|s| value_to_json(&s.value)).unwrap_or(J::Null);
             j["quality"] = json!(st.map(|s| s.quality));
             j["ts"] = json!(st.map(|s| s.ts));
-            j["editable"] = json!(editable.contains(&t.name));
+            j["editable"] = json!(editable.contains(t.name.as_str()));
             j
         })
         .collect();
@@ -125,21 +133,16 @@ async fn tags(State(app): S) -> Json<J> {
 // ---------------------------------------------------------------- gestione tag (Designer)
 
 async fn drivers_list(State(app): S) -> Json<J> {
-    Json(json!(app.cfg.drivers.iter().map(|d| json!({"name": d.name, "protocol": d.protocol})).collect::<Vec<_>>()))
+    Json(json!(app.cfg().drivers.iter().map(|d| json!({"name": d.name, "protocol": d.protocol})).collect::<Vec<_>>()))
 }
 
 async fn create_tag(State(app): S, Json(t): Json<TagDef>) -> R<Json<J>> {
     require_designer(&app)?;
     let _g = app.edit_lock.lock().await;
-    let mut tags = app.db.defs();
-    if tags.iter().any(|x| x.name == t.name) {
-        return Err(bad(format!("esiste già un tag '{}'", t.name)));
-    }
-    let mut editable = app.editable_tags.read().unwrap().clone();
-    editable.insert(t.name.clone());
+    let mut p = app.cfg().project.clone();
     let name = t.name.clone();
-    tags.push(t);
-    app.apply_tags(tags, editable)?;
+    p.tags.push(t);
+    app.apply_project(p)?;
     app.audit("designer", "create_tag", name);
     Ok(Json(json!({"ok": true})))
 }
@@ -147,21 +150,12 @@ async fn create_tag(State(app): S, Json(t): Json<TagDef>) -> R<Json<J>> {
 async fn update_tag(State(app): S, Path(name): Path<String>, Json(t): Json<TagDef>) -> R<Json<J>> {
     require_designer(&app)?;
     let _g = app.edit_lock.lock().await;
-    let mut editable = app.editable_tags.read().unwrap().clone();
-    if !editable.contains(&name) {
-        return Err(bad(format!("il tag '{name}' è definito nel file di impianto e non è modificabile dal Designer")));
-    }
-    let mut tags = app.db.defs();
-    let Some(i) = tags.iter().position(|x| x.name == name) else {
-        return Err(ApiError(StatusCode::NOT_FOUND, format!("tag {name} non trovato")));
+    let mut p = app.cfg().project.clone();
+    let Some(i) = p.tags.iter().position(|x| x.name == name) else {
+        return Err(bad(format!("il tag '{name}' non è un tag di progetto modificabile (UDT o file di impianto)")));
     };
-    if t.name != name && tags.iter().any(|x| x.name == t.name) {
-        return Err(bad(format!("esiste già un tag '{}'", t.name)));
-    }
-    editable.remove(&name);
-    editable.insert(t.name.clone());
-    tags[i] = t;
-    app.apply_tags(tags, editable)?;
+    p.tags[i] = t;
+    app.apply_project(p)?;
     app.audit("designer", "update_tag", name);
     Ok(Json(json!({"ok": true})))
 }
@@ -169,20 +163,117 @@ async fn update_tag(State(app): S, Path(name): Path<String>, Json(t): Json<TagDe
 async fn delete_tag(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
     require_designer(&app)?;
     let _g = app.edit_lock.lock().await;
-    let mut editable = app.editable_tags.read().unwrap().clone();
-    if !editable.remove(&name) {
-        return Err(bad(format!("il tag '{name}' non è modificabile dal Designer")));
+    let mut p = app.cfg().project.clone();
+    let n = p.tags.len();
+    p.tags.retain(|x| x.name != name);
+    if p.tags.len() == n {
+        return Err(bad(format!("il tag '{name}' non è un tag di progetto modificabile")));
     }
-    let tags: Vec<TagDef> = app.db.defs().into_iter().filter(|x| x.name != name).collect();
-    app.apply_tags(tags, editable)?;
+    app.apply_project(p)?;
     app.audit("designer", "delete_tag", name);
     Ok(Json(json!({"ok": true})))
+}
+
+// ---------------------------------------------------------------- progetto
+
+async fn project_get(State(app): S) -> Json<J> {
+    let cfg = app.cfg();
+    Json(json!({
+        "project": cfg.project,
+        "drivers": cfg.drivers.iter().map(|d| json!({"name": d.name, "protocol": d.protocol, "area": d.area})).collect::<Vec<_>>(),
+        "static": {
+            "areas": cfg.areas.iter().filter(|a| !cfg.project.areas.iter().any(|x| x.name == a.name)).map(|a| &a.name).collect::<Vec<_>>(),
+            "scan_classes": cfg.scan_classes.iter().filter(|a| !cfg.project.scan_classes.iter().any(|x| x.name == a.name)).map(|a| &a.name).collect::<Vec<_>>(),
+        },
+        "functions": app.scripts.status().functions,
+    }))
+}
+
+async fn project_put(State(app): S, Json(p): Json<crate::config::Project>) -> R<Json<J>> {
+    require_designer(&app)?;
+    let _g = app.edit_lock.lock().await;
+    app.apply_project(p)?;
+    app.audit("designer", "save_project", String::new());
+    let cfg = app.cfg();
+    Ok(Json(json!({"ok": true, "tags": cfg.tags.len()})))
+}
+
+/// Verifica un progetto senza salvarlo (errori di validazione e indirizzi).
+async fn project_check(State(app): S, Json(p): Json<crate::config::Project>) -> Json<J> {
+    match app.check_project(p) {
+        Ok(c) => Json(json!({"ok": true, "tags": c.tags.len(), "decision_points": c.decision_points.iter().map(|d| json!({
+            "name": d.name, "request_tag": d.request_tag, "response_tag": d.response_tag, "inputs": d.inputs, "outputs": d.outputs
+        })).collect::<Vec<_>>()})),
+        Err(e) => Json(json!({"ok": false, "error": format!("{e:#}")})),
+    }
+}
+
+#[derive(Deserialize)]
+struct UdtPreview {
+    #[serde(rename = "type")]
+    udt: crate::config::UdtType,
+    instance: crate::config::UdtInstance,
+}
+
+/// Anteprima dei tag generati da un'istanza UDT (indirizzi risolti).
+async fn udt_preview(State(app): S, Json(r): Json<UdtPreview>) -> Json<J> {
+    match r.udt.expand(&r.instance) {
+        Ok(tags) => {
+            let cfg = app.cfg();
+            let check = cfg.drivers.iter().find(|d| d.name == r.instance.driver).map(|d| crate::drivers::create(d, &tags));
+            let err = match check {
+                Some(Err(e)) => Some(format!("{e:#}")),
+                None => Some(format!("driver '{}' sconosciuto", r.instance.driver)),
+                _ => None,
+            };
+            Json(json!({"ok": err.is_none(), "error": err, "tags": tags}))
+        }
+        Err(e) => Json(json!({"ok": false, "error": format!("{e:#}"), "tags": []})),
+    }
+}
+
+async fn areas_summary(State(app): S) -> Json<J> {
+    Json(json!(app.alarms.summary(&app)))
+}
+
+async fn sorting_status(State(app): S) -> Json<J> {
+    Json(json!({"wms": app.sorting.status()}))
+}
+
+#[derive(Deserialize)]
+struct LookupQ {
+    barcode: String,
+    #[serde(default)]
+    wms: bool,
+}
+
+/// Classi di appartenenza di un barcode (e risposta WMS se richiesta).
+async fn sorting_lookup(State(app): S, Query(q): Query<LookupQ>) -> Json<J> {
+    let wms = if q.wms {
+        Some(match app.sorting.wms_lookup(&q.barcode).await {
+            Ok(a) => json!(a),
+            Err(e) => json!({"error": format!("{e:#}")}),
+        })
+    } else {
+        None
+    };
+    Json(json!({
+        "barcode": q.barcode,
+        "classes": app.sorting.classes_of(&q.barcode),
+        "class": app.sorting.classify(&q.barcode),
+        "wms": wms,
+    }))
+}
+
+async fn sorting_sync(State(app): S) -> R<Json<J>> {
+    let n = app.sorting.sync_classes().await?;
+    Ok(Json(json!({"synced": n, "status": app.sorting.status()})))
 }
 
 // ---------------------------------------------------------------- regole di smistamento
 
 fn point(app: &AppState, name: &str) -> R<crate::config::DecisionPointDef> {
-    app.cfg
+    app.cfg()
         .decision_points
         .iter()
         .find(|d| d.name == name)
@@ -191,7 +282,7 @@ fn point(app: &AppState, name: &str) -> R<crate::config::DecisionPointDef> {
 }
 
 async fn rules_list(State(app): S) -> Json<J> {
-    Json(json!(app.cfg.decision_points.iter().map(|d| json!({
+    Json(json!(app.cfg().decision_points.iter().map(|d| json!({
         "name": d.name, "description": d.description, "function": d.function,
         "inputs": d.inputs, "outputs": d.outputs, "fallback": d.fallback,
         "rules": app.rules.get(&d.name).map(|r| r.rules.len()).unwrap_or(0),
@@ -212,7 +303,9 @@ async fn rules_get(State(app): S, Path(p): Path<String>) -> R<Json<J>> {
 async fn rules_put(State(app): S, Path(p): Path<String>, Json(set): Json<crate::rules::RuleSet>) -> R<Json<J>> {
     require_designer(&app)?;
     let dp = point(&app, &p)?;
-    app.rules.save(&dp, set, &|t| app.db.def(t).is_some())?;
+    let cfg = app.cfg();
+    let classes = |c: &str| cfg.sort_classes.iter().any(|x| x.name == c);
+    app.rules.save(&dp, set, &crate::rules::Checker { tag: &|t| app.db.def(t).is_some(), class: &classes })?;
     app.audit("designer", "save_rules", p);
     Ok(Json(json!({"ok": true})))
 }
@@ -230,18 +323,20 @@ struct RuleTest {
 async fn rules_test(State(app): S, Path(p): Path<String>, Json(t): Json<RuleTest>) -> R<Json<J>> {
     let dp = point(&app, &p)?;
     let inputs: HashMap<String, crate::value::Value> = t.inputs.iter().map(|(k, v)| (k.clone(), json_to_value(v))).collect();
-    let tag = |n: &str| app.db.value(n);
     let (outcome, trace) = match t.ruleset {
         Some(set) => {
             // motore temporaneo in memoria per provare la bozza
             let dir = std::env::temp_dir().join(format!("wcs_rules_try_{}", std::process::id()));
             let eng = crate::rules::RulesEngine::load(dir, &[])?;
-            eng.save(&dp, set, &|n| app.db.def(n).is_some())?;
-            eng.evaluate(&p, &inputs, &tag, true)
+            let cfg = app.cfg();
+            let classes = |c: &str| cfg.sort_classes.iter().any(|x| x.name == c);
+            eng.save(&dp, set, &crate::rules::Checker { tag: &|n| app.db.def(n).is_some(), class: &classes })?;
+            crate::decision::evaluate_rules_on(&app, &eng, &p, &inputs, true).await
         }
-        None => app.rules.evaluate(&p, &inputs, &tag, true),
+        None => crate::decision::evaluate_rules(&app, &p, &inputs, true).await,
     };
-    Ok(Json(json!({"outcome": outcome, "trace": trace, "function": dp.function, "fallback": dp.fallback})))
+    let classes = inputs.values().map(|v| v.to_string()).flat_map(|v| app.sorting.classes_of(&v)).collect::<Vec<_>>();
+    Ok(Json(json!({"outcome": outcome, "trace": trace, "function": dp.function, "fallback": dp.fallback, "classes": classes})))
 }
 
 async fn rules_reset(State(app): S, Path(p): Path<String>) -> R<Json<J>> {
@@ -274,11 +369,13 @@ async fn alarms(State(app): S) -> Json<J> {
 #[derive(Deserialize)]
 struct AckReq {
     id: Option<String>,
+    #[serde(default)]
+    area: Option<String>,
     user: Option<String>,
 }
 
 async fn ack(State(app): S, Json(r): Json<AckReq>) -> Json<J> {
-    let n = app.alarms.ack(&app, r.id.as_deref(), r.user.as_deref().unwrap_or("hmi"));
+    let n = app.alarms.ack(&app, r.id.as_deref(), r.area.as_deref(), r.user.as_deref().unwrap_or("hmi"));
     Json(json!({"acked": n}))
 }
 
@@ -494,7 +591,7 @@ async fn put_script_source(State(app): S, Json(b): Json<SourceBody>) -> R<Json<J
     let p = app.script_path.clone().ok_or_else(|| bad("nessun modulo script configurato"))?;
     let tmp = p.with_extension("py.check");
     std::fs::write(&tmp, &b.source)?;
-    let out = tokio::process::Command::new(&app.cfg.scripting.python)
+    let out = tokio::process::Command::new(&app.cfg().scripting.python)
         .args(["-c", "import sys,py_compile; py_compile.compile(sys.argv[1], doraise=True)"])
         .arg(&tmp)
         .output()
@@ -566,7 +663,7 @@ async fn ws_session(app: Arc<AppState>, mut sock: WebSocket) {
                 Err(_) => return,
             },
             r = ev_rx.recv() => if let Ok(ev) = r {
-                let msg = match &ev { Event::Alarms(_) | Event::Decision(_) | Event::Log { .. } => json!(ev) };
+                let msg = match &ev { Event::Project => json!({"type": "project"}), _ => json!(ev) };
                 if sock.send(Message::Text(msg.to_string().into())).await.is_err() { return; }
             },
             _ = flush.tick() => if !batch.is_empty() {

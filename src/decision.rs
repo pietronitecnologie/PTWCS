@@ -10,7 +10,7 @@
 //!    suo timeout applica una destinazione di default (fail-safe lato PLC).
 
 use crate::app::{AppState, Event};
-use crate::config::DecisionPointDef;
+use crate::config::{DecisionPointDef, Handshake};
 use crate::store::DecisionRecord;
 use crate::tagdb::{Quality, now_ms};
 use crate::value::Value;
@@ -62,8 +62,23 @@ pub async fn run(app: Arc<AppState>, dp: DecisionPointDef) {
             },
             _ = recheck.tick() => {}
         }
+        if dp.handshake == Handshake::Flag {
+            // Il PLC ha ritirato la richiesta: azzera l'ack (fine ciclo handshake).
+            let req = app.db.get(&dp.request_tag);
+            let ack = app.db.get(&dp.response_tag);
+            if let (Some(r), Some(a)) = (req, ack) {
+                if r.quality == Quality::Good && a.quality == Quality::Good
+                    && r.value.as_bool() == Some(false) && a.value.as_bool() == Some(true)
+                {
+                    if let Err(e) = app.db.write(&dp.response_tag, Value::Bool(false)).await {
+                        tracing::warn!(point = %dp.name, "reset ack fallito: {e:#}");
+                    }
+                    last_handled = None;
+                }
+            }
+        }
         let Some(req) = pending_request(&app, &dp) else { continue };
-        if last_handled == Some(req) {
+        if dp.handshake == Handshake::Counter && last_handled == Some(req) {
             continue;
         }
         match handle(&app, &dp, req).await {
@@ -83,8 +98,65 @@ fn pending_request(app: &AppState, dp: &DecisionPointDef) -> Option<i64> {
     if req.quality != Quality::Good || resp.quality != Quality::Good {
         return None;
     }
-    let r = req.value.as_i64()?;
-    (r != 0 && Some(r) != resp.value.as_i64()).then_some(r)
+    match dp.handshake {
+        Handshake::Counter => {
+            let r = req.value.as_i64()?;
+            (r != 0 && Some(r) != resp.value.as_i64()).then_some(r)
+        }
+        // flag: richiesta = Req alto e Ack basso
+        Handshake::Flag => (req.value.as_bool()? && !resp.value.as_bool()?).then_some(1),
+    }
+}
+
+/// Collega le regole a tag, classi di smistamento e WMS.
+struct AppResolver<'a>(&'a AppState);
+
+impl crate::rules::Resolver for AppResolver<'_> {
+    fn tag(&self, name: &str) -> Value {
+        self.0.db.value(name)
+    }
+    fn in_class(&self, value: &str, class: &str) -> bool {
+        self.0.sorting.in_class(value, class)
+    }
+    fn class_dest(&self, value: &str) -> Option<String> {
+        self.0.sorting.classify(value).map(|c| c.1).filter(|d| !d.is_empty())
+    }
+    fn wms_dest(&self, value: &str) -> Option<String> {
+        self.0.sorting.wms_cached(value).and_then(|a| a.destination)
+    }
+}
+
+/// Valuta le regole di un punto, interrogando prima il WMS se le regole lo usano.
+pub async fn evaluate_rules(
+    app: &AppState,
+    point: &str,
+    inputs: &std::collections::HashMap<String, Value>,
+    dry_run: bool,
+) -> (Option<crate::rules::Outcome>, Vec<crate::rules::RuleTrace>) {
+    evaluate_rules_on(app, &app.rules, point, inputs, dry_run).await
+}
+
+/// Come `evaluate_rules` ma su un motore regole qualsiasi (bozze dal Designer).
+pub async fn evaluate_rules_on(
+    app: &AppState,
+    engine: &crate::rules::RulesEngine,
+    point: &str,
+    inputs: &std::collections::HashMap<String, Value>,
+    dry_run: bool,
+) -> (Option<crate::rules::Outcome>, Vec<crate::rules::RuleTrace>) {
+    if app.sorting.wms_enabled() {
+        for f in engine.wms_fields(point) {
+            if let Some(v) = inputs.get(&f) {
+                let key = v.to_string();
+                if !key.trim().is_empty() {
+                    if let Err(e) = app.sorting.wms_lookup(&key).await {
+                        app.log("warn", point, format!("WMS non raggiungibile per {key}: {e:#}"));
+                    }
+                }
+            }
+        }
+    }
+    engine.evaluate(point, inputs, &AppResolver(app), dry_run)
 }
 
 async fn handle(app: &AppState, dp: &DecisionPointDef, req: i64) -> Result<()> {
@@ -96,7 +168,7 @@ async fn handle(app: &AppState, dp: &DecisionPointDef, req: i64) -> Result<()> {
     // 1) regole grafiche
     let rule_inputs: std::collections::HashMap<String, Value> =
         payload.iter().map(|(k, v)| (k.clone(), json_to_value(v))).collect();
-    let (outcome, _) = app.rules.evaluate(&dp.name, &rule_inputs, &|t| app.db.value(t), false);
+    let (outcome, _) = evaluate_rules(app, &dp.name, &rule_inputs, false).await;
     let mut rule_name: Option<String> = None;
     let mut rule_outputs: Option<BTreeMap<String, Value>> = None;
     let mut script_fn = dp.function.clone();
@@ -152,7 +224,11 @@ async fn handle(app: &AppState, dp: &DecisionPointDef, req: i64) -> Result<()> {
         let tag = &dp.outputs[alias];
         app.db.write(tag, v.clone()).await.map_err(|e| anyhow!("scrittura {tag}: {e:#}"))?;
     }
-    app.db.write(&dp.response_tag, Value::Int(req)).await.map_err(|e| anyhow!("scrittura RespID: {e:#}"))?;
+    let ack = match dp.handshake {
+        Handshake::Counter => Value::Int(req),
+        Handshake::Flag => Value::Bool(true),
+    };
+    app.db.write(&dp.response_tag, ack).await.map_err(|e| anyhow!("scrittura risposta: {e:#}"))?;
     for e in apply_script_writes(app, &extra_writes, &dp.name).await {
         app.log("warn", &dp.name, format!("scrittura script fallita {e}"));
     }

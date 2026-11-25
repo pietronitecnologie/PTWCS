@@ -1,0 +1,297 @@
+# Progetto WCS-SCADA – gestito dal Designer (modificabile a mano a WCS fermo).
+areas:
+- name: Linea
+  description: Linea di smistamento colli
+- name: Carico
+  description: Nastro di carico CV1
+  parent: Linea
+- name: Scanner
+  description: Lettura barcode e pesatura
+  parent: Linea
+- name: Smistamento
+  description: Deviatore DV1 e uscite
+  parent: Linea
+- name: Servizi
+  description: Variabili interne WCS e simulazione
+scan_classes:
+- name: veloce
+  rate_ms: 100
+  description: Handshake e segnali di processo
+- name: normale
+  rate_ms: 500
+  description: Stati e contatori
+- name: lenta
+  rate_ms: 2000
+  description: Analogici lenti e diagnostica
+udt_types:
+- name: Nastro
+  description: Nastro trasportatore con marcia e guasto
+  params:
+  - name: Idx
+    description: Indice del nastro nella mappa Modbus
+  members:
+  - name: Run
+    type: bool
+    address: coil:{Idx}
+    writable: true
+    description: Marcia (comando/stato)
+  - name: Fault
+    type: bool
+    address: di:{Idx}
+    description: Guasto motore
+    alarms:
+    - name: FAULT
+      op: ==
+      value: true
+      message: '{Instance} – guasto motore'
+      severity: alarm
+- name: TelegrammaScanner
+  description: 'Protocollo request/reply scanner: dati + ReqID (PLC), uscite + RespID (WCS)'
+  params:
+  - name: Base
+    default: 0
+    description: Primo holding register del telegramma
+  members:
+  - name: ReqID
+    type: u16
+    address: hr:{Base}
+    description: Contatore richiesta (PLC)
+    scan_class: veloce
+    role: request
+  - name: Weight
+    type: u16
+    address: hr:{Base+1}
+    description: Peso collo
+    unit: g×10
+    role: input
+  - name: Barcode
+    type: string
+    address: hr:{Base+2}
+    description: Barcode letto
+    role: input
+  - name: RespID
+    type: u16
+    address: hr:{Base+12}
+    writable: true
+    description: Eco ReqID a risposta pronta (WCS)
+    role: response
+  - name: Destination
+    type: u16
+    address: hr:{Base+13}
+    writable: true
+    description: Uscita assegnata
+    role: output
+  - name: Result
+    type: u16
+    address: hr:{Base+14}
+    writable: true
+    description: 'Esito: 0 ok, 1 noread, 2 sovrappeso, 3 destinazione sconosciuta, 9 fallback'
+    role: output
+udt_instances:
+- name: CV1
+  type: Nastro
+  driver: PLC_LINEA
+  area: Carico
+  scan_class: normale
+  params:
+    Idx: 0
+  description: Nastro carico
+- name: CV2
+  type: Nastro
+  driver: PLC_LINEA
+  area: Scanner
+  scan_class: normale
+  params:
+    Idx: 1
+  description: Nastro scanner
+- name: CV3
+  type: Nastro
+  driver: PLC_LINEA
+  area: Smistamento
+  scan_class: normale
+  params:
+    Idx: 2
+  description: Nastro smistamento
+- name: SC1
+  type: TelegrammaScanner
+  driver: PLC_LINEA
+  area: Scanner
+  scan_class: veloce
+  params:
+    Base: 0
+  description: Scanner SC1
+tags:
+- name: Line.ResetFaults
+  driver: PLC_LINEA
+  address: coil:30
+  type: bool
+  writable: true
+  area: Linea
+- name: Sim.InjectFault
+  driver: PLC_LINEA
+  address: coil:31
+  type: bool
+  writable: true
+  area: Servizi
+- name: Line.EStop
+  driver: PLC_LINEA
+  address: di:4
+  type: bool
+  description: Emergenza
+  area: Linea
+  scan_class: veloce
+  alarms:
+  - name: ESTOP
+    op: ==
+    value: true
+    message: Emergenza premuta
+    severity: critical
+- name: CV1.Speed
+  driver: PLC_LINEA
+  address: ir:5
+  type: u16
+  unit: m/min×10
+  historize: true
+  area: Carico
+  scan_class: normale
+- name: CV1.Current
+  driver: PLC_LINEA
+  address: ir:6
+  type: u16
+  unit: A×10
+  historize: true
+  area: Carico
+  scan_class: normale
+- name: CV1.Temp
+  driver: PLC_LINEA
+  address: ir:7
+  type: u16
+  unit: °C×10
+  historize: true
+  area: Carico
+  scan_class: lenta
+  alarms:
+  - name: TEMP
+    op: '>'
+    value: 450
+    message: CV1 – temperatura motore alta (>45 °C)
+    severity: warning
+- name: SC1.PhotoEye
+  driver: PLC_LINEA
+  address: di:3
+  type: bool
+  area: Scanner
+  scan_class: veloce
+- name: DV1.Position
+  driver: PLC_LINEA
+  address: hr:20
+  type: u16
+  area: Smistamento
+  scan_class: veloce
+- name: OUT1.Count
+  driver: PLC_LINEA
+  address: ir:0
+  type: u16
+  historize: true
+  area: Smistamento
+  scan_class: normale
+- name: OUT2.Count
+  driver: PLC_LINEA
+  address: ir:1
+  type: u16
+  historize: true
+  area: Smistamento
+  scan_class: normale
+- name: OUT3.Count
+  driver: PLC_LINEA
+  address: ir:2
+  type: u16
+  historize: true
+  area: Smistamento
+  scan_class: normale
+- name: REJECT.Count
+  driver: PLC_LINEA
+  address: ir:3
+  type: u16
+  historize: true
+  area: Smistamento
+  scan_class: normale
+- name: SC1.Timeouts
+  driver: PLC_LINEA
+  address: ir:4
+  type: u16
+  area: Scanner
+  scan_class: normale
+  alarms:
+  - name: TMO
+    op: '>'
+    value: 0
+    message: SC1 – il PLC ha registrato timeout di risposta WCS
+    severity: info
+- name: WCS.MaxWeight
+  driver: WCS_INTERNO
+  address: max_weight
+  type: u16
+  writable: true
+  description: Peso massimo accettato
+  unit: g×10
+  initial: 3000
+  area: Servizi
+- name: WCS.Out3Enabled
+  driver: WCS_INTERNO
+  address: out3_enabled
+  type: bool
+  writable: true
+  description: Uscita 3 abilitata
+  initial: true
+  area: Servizi
+decision_points:
+- name: SC1
+  description: Scanner barcode – scelta uscita del collo
+  telegram: SC1
+  handshake: counter
+  function: decide_sc1
+  timeout_ms: 300
+  fallback:
+    destination: 99
+    result: 9
+sort_classes:
+- name: NORD
+  description: Nord Italia
+  destination: '1'
+  source: local
+  patterns:
+  - IT-MI*
+  - IT-TO*
+  - IT-BO*
+- name: CENTROSUD
+  description: Centro-Sud Italia
+  destination: '2'
+  source: local
+  patterns:
+  - IT-RM*
+  - IT-NA*
+  - IT-FI*
+- name: ESTERO
+  description: Spedizioni estere
+  destination: '3'
+  source: local
+  patterns:
+  - DE-*
+  - FR-*
+  - ES-*
+- name: PRIORITARI
+  description: Ordini prioritari (elenco barcode dal WMS)
+  destination: '1'
+  source: wms
+wms:
+  enabled: true
+  base_url: http://127.0.0.1:8090/api
+  destination_path: /parcels/{barcode}/destination
+  destination_field: destination
+  class_field: class
+  classes_path: /sort-classes
+  sync_interval_s: 30
+  timeout_ms: 250
+  cache_ttl_s: 300
+alarms: []
