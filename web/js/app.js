@@ -1,7 +1,7 @@
 // Client Runtime (operatore): viste, allarmi, decisioni, tag, trend, diagnostica.
 import { api, Live, esc, fmtTs, toast } from './core.js';
 import { ViewRenderer, runActions, createPopup, compileSymbol, invalidateView, whCellDialog, scopeFor, subst } from './render.js';
-import { showMenu } from './ctxmenu.js';
+import { showMenu, editItems } from './ctxmenu.js';
 import { showWcs } from './wcs.js';
 
 const live = new Live();
@@ -119,9 +119,9 @@ function componentAt(e) {
 }
 
 function runtimeMenu(e) {
-  if (e.shiftKey || e.target.closest('input, textarea, select, .ctxmenu')) return; // Maiusc = menu del browser
+  if (e.shiftKey || e.target.closest('.ctxmenu')) return; // Maiusc = menu del browser
   const hit = componentAt(e);
-  const items = [];
+  const items = editItems(e, { notify: toast });
   if (hit) {
     const scope = scopeFor(hit.comp, hit.r.scope || {});
     const acts = hit.comp.events?.onClick?.actions || [];

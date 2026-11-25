@@ -2,6 +2,7 @@
 // riga, marcatori di errore, suggerimenti (Ctrl+Spazio), snippet, indentazione
 // automatica e commento di riga (Ctrl+/).
 import { esc } from './core.js';
+import { showMenu, clipWrite, clipRead } from './ctxmenu.js';
 
 const KW = new Set('False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case'.split(' '));
 const BUILTINS = 'abs all any bool dict dir divmod enumerate filter float format getattr hasattr int isinstance len list map max min next print range repr reversed round set sorted str sum tuple type zip Exception ValueError KeyError TypeError RuntimeError'.split(' ');
@@ -309,6 +310,32 @@ export function createEditor(host, { value = '', onChange, onSave, onRun, hints 
   ta.addEventListener('click', () => { hideSuggest(); updateCur(); showTip(); });
   ta.addEventListener('keyup', (e) => { if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End' || e.key === 'PageUp' || e.key === 'PageDown') { updateCur(); showTip(); } });
   ta.addEventListener('blur', () => setTimeout(hideSuggest, 150));
+  ta.addEventListener('contextmenu', (e) => {
+    if (e.shiftKey) return;
+    hideSuggest();
+    const has = ta.selectionStart !== ta.selectionEnd;
+    const selTxt = () => ta.value.slice(ta.selectionStart, ta.selectionEnd);
+    showMenu(e, [
+      { label: 'Annulla', icon: '↶', key: 'Ctrl+Z', action: () => { ta.focus(); document.execCommand('undo'); changed(); } },
+      { label: 'Ripeti', icon: '↷', key: 'Ctrl+Y', action: () => { ta.focus(); document.execCommand('redo'); changed(); } },
+      { sep: true },
+      { label: 'Taglia', icon: '✂', key: 'Ctrl+X', disabled: !has, action: async () => { await clipWrite(selTxt()); insert(''); } },
+      { label: 'Copia', icon: '⧉', key: 'Ctrl+C', disabled: !has, action: () => clipWrite(selTxt()) },
+      { label: 'Incolla', icon: '📋', key: 'Ctrl+V', action: async () => { const v = await clipRead(); if (v != null) insert(v); else alert('Incolla non consentito dal browser: usa Ctrl+V'); } },
+      { label: 'Seleziona tutto', icon: '▦', key: 'Ctrl+A', action: () => { ta.focus(); ta.select(); } },
+      { sep: true },
+      { label: 'Suggerimenti', icon: '💡', key: 'Ctrl+Spazio', action: () => { ta.focus(); showSuggest(true); } },
+      { label: 'Inserisci snippet', icon: '✂', sub: SNIPPETS.map((sn) => ({ label: sn.label, key: sn.key, action: () => insertSnippet(sn.body, ta.selectionStart, ta.selectionEnd) })) },
+      { label: 'Commenta / decommenta', icon: '#', key: 'Ctrl+/', action: toggleComment },
+      { label: 'Indenta', icon: '⇥', key: 'Tab', action: () => indentLines(1) },
+      { label: 'Riduci rientro', icon: '⇤', key: 'Maiusc+Tab', action: () => indentLines(-1) },
+      { label: 'Duplica riga', icon: '⎘', key: 'Ctrl+D', action: duplicateLine },
+      { label: 'Vai alla riga…', icon: '↧', action: () => { const n = parseInt(prompt('Riga:') || '', 10); if (n > 0) api.gotoLine(n); } },
+      { sep: true },
+      onSave ? { label: 'Salva', icon: '💾', key: 'Ctrl+S', action: onSave } : null,
+      onRun ? { label: 'Esegui test', icon: '▶', key: 'Ctrl+Invio', action: onRun } : null,
+    ]);
+  });
 
   function selLines() {
     const s = ta.value.lastIndexOf('\n', ta.selectionStart - 1) + 1;
@@ -338,7 +365,7 @@ export function createEditor(host, { value = '', onChange, onSave, onRun, hints 
   }
 
   render();
-  return {
+  const api = {
     get value() { return ta.value; },
     set value(v) { ta.value = v; marks = {}; curLine = 0; render(); },
     focus: () => ta.focus(),
@@ -366,4 +393,5 @@ export function createEditor(host, { value = '', onChange, onSave, onRun, hints 
     insertSnippet: (body) => insertSnippet(body, ta.selectionStart, ta.selectionEnd),
     insertText: (t) => insert(t),
   };
+  return api;
 }

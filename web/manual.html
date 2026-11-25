@@ -22,6 +22,23 @@
   <script type="module">
     import { esc } from './js/core.js';
     import { MANUAL_PAGES, renderMarkdown, manualLink, loadPage, setCurrentPage } from './js/markdown.js';
+    import { installDefaultMenu, clipWrite } from './js/ctxmenu.js';
+    installDefaultMenu((e) => {
+      const h = e.target.closest('h1, h2, h3, h4');
+      return [
+        h ? { label: 'Copia link a questa sezione', icon: '🔗', action: () => clipWrite(`${location.origin}${location.pathname}#${page}/${h.id}`) } : null,
+        { label: 'Indietro', icon: '←', action: () => history.back() },
+        { label: 'Avanti', icon: '→', action: () => history.forward() },
+        { label: 'Aggiorna', icon: '⟳', action: () => location.reload() },
+        { sep: true },
+        { label: 'Pagine', icon: '☰', sub: MANUAL_PAGES.map(([p, t]) => ({ label: t, checked: p === page, action: () => (location.hash = p) })) },
+        { label: 'Cerca nel manuale', icon: '🔍', action: () => search.focus() },
+        { label: 'Stampa pagina', icon: '🖨', action: () => window.print() },
+        { sep: true },
+        { label: 'Apri il runtime', icon: '↗', action: () => window.open('index.html', '_blank') },
+        { label: 'Apri il Designer', icon: '✎', action: () => window.open('designer.html', '_blank') },
+      ];
+    });
     const nav = document.getElementById('mNav'), main = document.getElementById('mMain'), tocEl = document.getElementById('mToc');
     const search = document.getElementById('mSearch');
     let page = null;

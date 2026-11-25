@@ -77,6 +77,25 @@ Scheda **Componenti**: trascina sulla vista, o doppio click per aggiungere al ce
 
 Gli **appunti** valgono tra viste diverse e tra schede del browser, quindi puoi copiare da una vista e incollare in un'altra.
 
+In **tutte le altre parti del Designer** (Tag e UDT, Smistamento, Progetto, pannelli laterali, tabelle) il tasto destro apre il menu del Designer al posto di quello del browser:
+
+| Voce | Funzione |
+|---|---|
+| Taglia, Copia, Incolla, Elimina, Seleziona tutto, Svuota campo | sui campi di testo |
+| Copia testo / Copia riga | su celle e righe di tabella |
+| Apri link in una nuova scheda / Copia indirizzo | sui link |
+| **Aggiorna sezione** | ricarica i dati del workspace corrente senza ricaricare la pagina |
+| **Ricarica pagina** | ricarica il Designer (chiede conferma se ci sono modifiche non salvate) |
+| **Vai a** | cambia workspace |
+| **Salva vista**, **Salva progetto** | salvataggi |
+| **Guida: *riquadro*** | apre la guida del riquadro cliccato |
+| **Guida di *workspace*** (F1) | apre la guida del workspace |
+| Manuale completo, Apri il runtime, Schermo intero | |
+
+Nell'**editor degli script** il menu offre: annulla/ripeti, taglia/copia/incolla, suggerimenti, inserisci snippet, commenta, indenta, duplica riga, vai alla riga, salva ed esegui test.
+
+Maiusc + tasto destro apre comunque il menu del browser.
+
 ### Scorciatoie
 
 | Tasti | Azione |

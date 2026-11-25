@@ -40,7 +40,10 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - **riorganizzazione (defrag)** automatica nei tempi morti, con simulazione del piano e indici di frammentazione;
   - **KPI dei trasli**: utilizzo, disponibilità, missioni/h, ciclo medio, cicli doppi.
 - **Libreria standard** (`stdlib/`, parte dello SCADA e indipendente dal progetto): 74 simboli in 3 menu (Intralogistica, Macchine, Processo), 28 UDT standard per famiglia e **un faceplate per ogni simbolo**.
-- **Menu tasto destro**: nel Designer per modificare (copia, incolla, elimina, ordine, allineamento…), nel runtime per navigare tra viste e aree.
+- **Menu tasto destro** al posto di quello del browser, ovunque:
+  - Designer: modifica delle viste (copia, incolla, elimina, ordine, allineamento…), editor degli script, campi e tabelle (taglia/copia/incolla), aggiorna sezione, vai a workspace, salva, guida del riquadro;
+  - runtime: navigazione tra viste e aree;
+  - manuale.
 
 ## Avvio rapido (demo)
 

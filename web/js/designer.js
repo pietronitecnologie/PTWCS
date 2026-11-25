@@ -7,8 +7,8 @@ import {
 import { P, loadProject, saveProject, onProject } from './project.js';
 import { whCellDialog } from './render.js';
 import { kvEditor, makeSplitter } from './forms.js';
-import { showMenu } from './ctxmenu.js';
-import { helpBtn } from './markdown.js';
+import { showMenu, installDefaultMenu } from './ctxmenu.js';
+import { helpBtn, openHelp } from './markdown.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
@@ -1010,6 +1010,52 @@ async function showWorkspace(ws) {
   else wsLoaded[ws].show?.();
 }
 document.querySelectorAll('.wstabs [data-ws]').forEach((b) => (b.onclick = () => showWorkspace(b.dataset.ws)));
+
+// ---------------------------------------------------------------- menu tasto destro predefinito (tutte le sezioni)
+const WS_LIST = [['views', '🖼 Viste', 'designer'], ['tags', '🏷 Tag e UDT', 'designer-tag'], ['sort', '🔀 Smistamento', 'designer-smistamento'],
+  ['project', '⚙ Progetto', 'designer-progetto'], ['scripts', '🐍 Script', 'designer-script']];
+const curWs = () => localStorage.getItem('designer.ws') || 'views';
+async function refreshSection() {
+  const ws = curWs();
+  if (ws === 'views') {
+    await Promise.all([loadViews(), loadSymbols(), loadTags()]);
+    if (S.viewId && !S.dirty) await openView(S.viewId);
+  } else {
+    wsLoaded[ws]?.show?.();
+  }
+  toast('Sezione aggiornata', 'ok');
+}
+installDefaultMenu((e) => {
+  const ws = curWs();
+  const [, wsLabel, page] = WS_LIST.find(([k]) => k === ws) || WS_LIST[0];
+  // guida della sezione più vicina (primo pulsante ? del riquadro cliccato)
+  const box = e.target.closest('.sec, .rule, .pp, aside, .side, .sc-test, .formgrid');
+  const hb = box?.querySelector('[data-help]');
+  const titled = e.target.closest('.sec, .rule, .pp, .sc-test, aside, .side');
+  const hEl = titled?.querySelector('h3, h4')?.cloneNode(true);
+  hEl?.querySelectorAll('button, input, select, .muted, .grow').forEach((x) => x.remove());
+  const title = hEl?.textContent.replace(/[?●]|\(\d+\)/g, '').replace(/\s+/g, ' ').trim();
+  return [
+    { header: `Designer · ${wsLabel.slice(2).trim()}` },
+    { label: 'Aggiorna sezione', icon: '⟳', action: refreshSection },
+    { label: 'Ricarica pagina', icon: '↻', key: 'F5', action: () => { if ((!S.dirty && !P.dirty) || confirm('Ci sono modifiche non salvate: ricaricare comunque?')) location.reload(); } },
+    { sep: true },
+    { label: 'Vai a', icon: '☰', sub: WS_LIST.map(([k, l]) => ({ label: l, checked: k === ws, action: () => showWorkspace(k) })) },
+    ws === 'views' && S.view ? { label: 'Salva vista', icon: '💾', key: 'Ctrl+S', action: save } : null,
+    { label: `Salva progetto${P.dirty ? ' ●' : ''}`, icon: '💾', disabled: !P.dirty, action: () => $('#btnSaveProject').click() },
+    { sep: true },
+    hb ? { label: title ? `Guida: ${title}` : 'Guida di questo riquadro', icon: '❓', action: () => openHelp(hb.dataset.help) } : null,
+    { label: `Guida di ${wsLabel.slice(2).trim()}`, icon: '📖', key: 'F1', action: () => openHelp(page) },
+    { label: 'Manuale completo', icon: '📚', action: () => window.open(`manual.html#${page}`, '_blank') },
+    { label: 'Apri il runtime', icon: '↗', action: () => window.open('index.html', '_blank') },
+    { label: document.fullscreenElement ? 'Esci da schermo intero' : 'Schermo intero', icon: '⛶', action: () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()) },
+  ];
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'F1') return;
+  e.preventDefault();
+  openHelp((WS_LIST.find(([k]) => k === curWs()) || WS_LIST[0])[2]);
+});
 $('#btnSaveProject').onclick = async () => { if (await saveProject()) { await loadTags(); invalidateView(); } };
 onProject(() => {
   $('#projDirty').hidden = !P.dirty;

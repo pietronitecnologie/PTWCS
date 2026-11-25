@@ -44,6 +44,8 @@ Click su un'area apre il **menu delle viste** dell'area e delle sue sotto-aree, 
 | **Schermo intero** | attiva o disattiva lo schermo intero (F11) |
 | **Modifica vista nel Designer** | apre il Designer sulla vista corrente (se il Designer è abilitato) |
 
+Sui campi di testo il menu aggiunge Taglia, Copia, Incolla, Elimina e Seleziona tutto; sulle tabelle aggiunge *Copia testo* e *Copia riga*; sulle selezioni aggiunge *Copia*. La voce **Manuale utente** (F1) apre questo manuale.
+
 Maiusc + tasto destro apre il menu normale del browser.
 
 ## Faceplate

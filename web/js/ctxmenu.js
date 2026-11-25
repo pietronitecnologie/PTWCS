@@ -68,3 +68,65 @@ window.addEventListener('mousedown', (e) => { if (root && !e.target.closest('.ct
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 window.addEventListener('blur', closeMenu);
 window.addEventListener('hashchange', closeMenu);
+
+// ---------------------------------------------------------------- voci comuni (testo, appunti, link)
+export async function clipWrite(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {
+    const t = document.createElement('textarea');
+    t.value = text; t.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(t); t.select();
+    const ok = document.execCommand('copy'); t.remove(); return ok;
+  }
+}
+export async function clipRead() {
+  try { return await navigator.clipboard.readText(); } catch { return null; }
+}
+
+/** Voci di modifica del testo per il punto cliccato (campo di input, selezione, link, cella di tabella). */
+export function editItems(e, { notify } = {}) {
+  const t = e.target;
+  const field = t.closest('input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]), textarea, [contenteditable=true]');
+  const sel = String(window.getSelection?.() || '');
+  const items = [];
+  if (field && !field.matches('[contenteditable=true]')) {
+    const ro = field.readOnly || field.disabled;
+    const has = field.selectionStart !== field.selectionEnd;
+    const selected = () => field.value.slice(field.selectionStart, field.selectionEnd);
+    const put = (txt) => { field.focus(); if (!document.execCommand('insertText', false, txt)) field.setRangeText(txt, field.selectionStart, field.selectionEnd, 'end'); field.dispatchEvent(new Event('input', { bubbles: true })); field.dispatchEvent(new Event('change', { bubbles: true })); };
+    items.push(
+      { label: 'Taglia', icon: '✂', key: 'Ctrl+X', disabled: ro || !has, action: async () => { await clipWrite(selected()); put(''); } },
+      { label: 'Copia', icon: '⧉', key: 'Ctrl+C', disabled: !has, action: () => clipWrite(selected()) },
+      { label: 'Incolla', icon: '📋', key: 'Ctrl+V', disabled: ro, action: async () => { const v = await clipRead(); if (v == null) notify?.('Incolla non consentito dal browser: usa Ctrl+V', 'error'); else put(v); } },
+      { label: 'Elimina', icon: '⌫', disabled: ro || !has, action: () => put('') },
+      { label: 'Seleziona tutto', icon: '▦', key: 'Ctrl+A', action: () => { field.focus(); field.select(); } },
+      ...(field.value && !ro ? [{ label: 'Svuota campo', icon: '✕', action: () => { field.focus(); field.select(); put(''); } }] : []),
+      { sep: true });
+  } else if (sel.trim()) {
+    items.push({ label: 'Copia', icon: '⧉', key: 'Ctrl+C', action: () => clipWrite(sel) }, { sep: true });
+  }
+  const a = t.closest('a[href]');
+  if (a) {
+    items.push(
+      { label: 'Apri link in una nuova scheda', icon: '↗', action: () => window.open(a.href, '_blank') },
+      { label: 'Copia indirizzo del link', icon: '🔗', action: () => clipWrite(a.href) }, { sep: true });
+  }
+  const cell = !field && t.closest('td, th, .mono, code, pre');
+  if (cell && cell.textContent.trim() && !sel.trim()) {
+    items.push({ label: 'Copia testo', icon: '⧉', action: () => clipWrite(cell.textContent.trim()) });
+    const row = cell.closest('tr');
+    if (row) items.push({ label: 'Copia riga', icon: '☰', action: () => clipWrite([...row.cells].map((c) => c.textContent.trim()).join('\t')) });
+    items.push({ sep: true });
+  }
+  return items;
+}
+
+/**
+ * Sostituisce il menu del browser ovunque non ci sia un menu specifico.
+ * `extra(e)` aggiunge le voci della pagina (navigazione, aggiorna…).
+ */
+export function installDefaultMenu(extra = () => []) {
+  document.addEventListener('contextmenu', (e) => {
+    if (e.defaultPrevented || e.shiftKey) return; // Maiusc + tasto destro = menu del browser
+    showMenu(e, [...editItems(e), ...extra(e)]);
+  });
+}
