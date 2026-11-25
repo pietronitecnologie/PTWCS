@@ -1,0 +1,277 @@
+{
+ "title": "Faceplate – Lettore barcode (pianta)",
+ "width": 460,
+ "height": 392,
+ "background": "#0b1220",
+ "home": false,
+ "faceplate": true,
+ "params": {
+  "device": ""
+ },
+ "components": [
+  {
+   "id": "bg",
+   "type": "rect",
+   "name": "bg",
+   "x": 0,
+   "y": 0,
+   "w": 460,
+   "h": 392,
+   "rotation": 0,
+   "props": {
+    "fill": "#111a2e",
+    "stroke": "#24324f",
+    "radius": 10
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "title",
+   "type": "label",
+   "name": "title",
+   "x": 20,
+   "y": 14,
+   "w": 300,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "text": "",
+    "fontSize": 20,
+    "bold": true
+   },
+   "bindings": {
+    "text": {
+     "kind": "expr",
+     "expr": "param('device') || '(nessun dispositivo)'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "subtitle",
+   "type": "label",
+   "name": "subtitle",
+   "x": 20,
+   "y": 42,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "Lettore barcode (pianta) · UDT Scanner",
+    "fontSize": 12,
+    "color": "#8b9bb8"
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "preview",
+   "type": "symbol",
+   "name": "preview",
+   "x": 318,
+   "y": 24,
+   "w": 122,
+   "h": 110,
+   "rotation": 0,
+   "props": {
+    "symbol": "dev_scanner"
+   },
+   "bindings": {
+    "elements.label.text": {
+     "kind": "expr",
+     "expr": "param('device') || ''"
+    },
+    "elements.fault.visible": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    },
+    "elements.led.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.NoRead') ? '#ef4444' : tag('{device}.ReadOk') ? '#22c55e' : '#334155'"
+    },
+    "elements.beam.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.NoRead') ? '#ef4444' : '#22c55e'"
+    },
+    "elements.code.text": {
+     "kind": "tag",
+     "tag": "{device}.LastCode"
+    },
+    "elements.body.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_state",
+   "type": "label",
+   "name": "h_state",
+   "x": 20,
+   "y": 150,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "STATO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "st_ReadOk",
+   "type": "lamp",
+   "name": "st_ReadOk",
+   "x": 20,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Lettura OK",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.ReadOk"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_NoRead",
+   "type": "lamp",
+   "name": "st_NoRead",
+   "x": 235,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Mancata lettura",
+    "colorOn": "#ef4444"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.NoRead"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Fault",
+   "type": "lamp",
+   "name": "st_Fault",
+   "x": 20,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Guasto",
+    "colorOn": "#ef4444"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_val",
+   "type": "label",
+   "name": "h_val",
+   "x": 20,
+   "y": 242,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "MISURE",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "v_LastCode",
+   "type": "value",
+   "name": "v_LastCode",
+   "x": 20,
+   "y": 282,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Ultimo codice",
+    "unit": "",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.LastCode"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Reads",
+   "type": "value",
+   "name": "v_Reads",
+   "x": 235,
+   "y": 282,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Letture",
+    "unit": "",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Reads"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_NoReads",
+   "type": "value",
+   "name": "v_NoReads",
+   "x": 20,
+   "y": 334,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Mancate letture",
+    "unit": "",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.NoReads"
+    }
+   },
+   "events": {}
+  }
+ ]
+}

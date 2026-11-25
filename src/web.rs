@@ -52,6 +52,7 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/project/check", post(project_check))
         .route("/api/project/udt_preview", post(udt_preview))
         .route("/api/areas", get(areas_summary))
+        .route("/api/library", get(library))
         .route("/api/sorting/status", get(sorting_status))
         .route("/api/sorting/lookup", get(sorting_lookup))
         .route("/api/sorting/sync", post(sorting_sync))
@@ -230,6 +231,16 @@ async fn udt_preview(State(app): S, Json(r): Json<UdtPreview>) -> Json<J> {
         }
         Err(e) => Json(json!({"ok": false, "error": format!("{e:#}"), "tags": []})),
     }
+}
+
+/// Libreria: metadati simboli (categoria, famiglia UDT, faceplate, binding
+/// predefiniti) e tipi UDT standard importabili nel progetto.
+async fn library(State(app): S) -> Json<J> {
+    let dir = app.cfg().resolve("library");
+    let read = |f: &str| -> J {
+        std::fs::read_to_string(dir.join(f)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(J::Null)
+    };
+    Json(json!({"symbols": read("symbols.json"), "udts": read("udts.json")}))
 }
 
 async fn areas_summary(State(app): S) -> Json<J> {
@@ -416,7 +427,10 @@ async fn list_views(State(app): S) -> R<Json<J>> {
             let id = p.file_stem().unwrap().to_string_lossy().to_string();
             let v: J = std::fs::read_to_string(&p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(J::Null);
             out.push(json!({"id": id, "title": v.get("title").cloned().unwrap_or(json!(id)),
-                            "home": v.get("home").cloned().unwrap_or(json!(false))}));
+                            "home": v.get("home").cloned().unwrap_or(json!(false)),
+                            "area": v.get("area").cloned().unwrap_or(J::Null),
+                            "faceplate": v.get("faceplate").cloned().unwrap_or(json!(false)),
+                            "params": v.get("params").cloned().unwrap_or(json!({}))}));
         }
     }
     out.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));

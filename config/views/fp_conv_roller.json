@@ -1,0 +1,409 @@
+{
+ "title": "Faceplate – Rulliera motorizzata",
+ "width": 460,
+ "height": 586,
+ "background": "#0b1220",
+ "home": false,
+ "faceplate": true,
+ "params": {
+  "device": ""
+ },
+ "components": [
+  {
+   "id": "bg",
+   "type": "rect",
+   "name": "bg",
+   "x": 0,
+   "y": 0,
+   "w": 460,
+   "h": 586,
+   "rotation": 0,
+   "props": {
+    "fill": "#111a2e",
+    "stroke": "#24324f",
+    "radius": 10
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "title",
+   "type": "label",
+   "name": "title",
+   "x": 20,
+   "y": 14,
+   "w": 300,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "text": "",
+    "fontSize": 20,
+    "bold": true
+   },
+   "bindings": {
+    "text": {
+     "kind": "expr",
+     "expr": "param('device') || '(nessun dispositivo)'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "subtitle",
+   "type": "label",
+   "name": "subtitle",
+   "x": 20,
+   "y": 42,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "Rulliera motorizzata · UDT Trasporto",
+    "fontSize": 12,
+    "color": "#8b9bb8"
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "preview",
+   "type": "symbol",
+   "name": "preview",
+   "x": 300,
+   "y": 58,
+   "w": 140,
+   "h": 42,
+   "rotation": 0,
+   "props": {
+    "symbol": "conv_roller"
+   },
+   "bindings": {
+    "elements.label.text": {
+     "kind": "expr",
+     "expr": "param('device') || ''"
+    },
+    "elements.fault.visible": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    },
+    "elements.load.visible": {
+     "kind": "tag",
+     "tag": "{device}.Occupied"
+    },
+    "elements.body.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+    },
+    "elements.flow.flow": {
+     "kind": "tag",
+     "tag": "{device}.Run"
+    },
+    "elements.flow.visible": {
+     "kind": "tag",
+     "tag": "{device}.Run"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_state",
+   "type": "label",
+   "name": "h_state",
+   "x": 20,
+   "y": 150,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "STATO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "st_Run",
+   "type": "lamp",
+   "name": "st_Run",
+   "x": 20,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "In marcia",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Run"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Fault",
+   "type": "lamp",
+   "name": "st_Fault",
+   "x": 235,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Guasto",
+    "colorOn": "#ef4444"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Auto",
+   "type": "lamp",
+   "name": "st_Auto",
+   "x": 20,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Automatico",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Auto"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Occupied",
+   "type": "lamp",
+   "name": "st_Occupied",
+   "x": 235,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Occupato",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Occupied"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_val",
+   "type": "label",
+   "name": "h_val",
+   "x": 20,
+   "y": 242,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "MISURE",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "v_Speed",
+   "type": "value",
+   "name": "v_Speed",
+   "x": 20,
+   "y": 282,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Velocità",
+    "unit": "m/min",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Speed"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Current",
+   "type": "value",
+   "name": "v_Current",
+   "x": 235,
+   "y": 282,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Corrente motore",
+    "unit": "A",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Current"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_cmd",
+   "type": "label",
+   "name": "h_cmd",
+   "x": 20,
+   "y": 330,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "COMANDI",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "c_Cmd_Start",
+   "type": "button",
+   "name": "c_Cmd_Start",
+   "x": 20,
+   "y": 356,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Comando marcia",
+    "fill": "#15803d",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Start",
+       "value": "true"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "c_Cmd_Stop",
+   "type": "button",
+   "name": "c_Cmd_Stop",
+   "x": 163,
+   "y": 356,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Comando arresto",
+    "fill": "#b91c1c",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Stop",
+       "value": "true"
+      }
+     ],
+     "confirm": "Comando arresto?"
+    }
+   }
+  },
+  {
+   "id": "c_Cmd_Reset",
+   "type": "button",
+   "name": "c_Cmd_Reset",
+   "x": 306,
+   "y": 356,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Reset guasto",
+    "fill": "#1d4ed8",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Reset",
+       "value": "true"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "h_trend",
+   "type": "label",
+   "name": "h_trend",
+   "x": 20,
+   "y": 412,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "TREND – VELOCITÀ",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "trend",
+   "type": "trend",
+   "name": "trend",
+   "x": 20,
+   "y": 436,
+   "w": 420,
+   "h": 130,
+   "rotation": 0,
+   "props": {
+    "tags": "{device}.Speed",
+    "minutes": 10
+   },
+   "bindings": {},
+   "events": {}
+  }
+ ]
+}

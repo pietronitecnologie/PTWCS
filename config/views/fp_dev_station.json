@@ -1,0 +1,336 @@
+{
+ "title": "Faceplate – Postazione picking",
+ "width": 460,
+ "height": 474,
+ "background": "#0b1220",
+ "home": false,
+ "faceplate": true,
+ "params": {
+  "device": ""
+ },
+ "components": [
+  {
+   "id": "bg",
+   "type": "rect",
+   "name": "bg",
+   "x": 0,
+   "y": 0,
+   "w": 460,
+   "h": 474,
+   "rotation": 0,
+   "props": {
+    "fill": "#111a2e",
+    "stroke": "#24324f",
+    "radius": 10
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "title",
+   "type": "label",
+   "name": "title",
+   "x": 20,
+   "y": 14,
+   "w": 300,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "text": "",
+    "fontSize": 20,
+    "bold": true
+   },
+   "bindings": {
+    "text": {
+     "kind": "expr",
+     "expr": "param('device') || '(nessun dispositivo)'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "subtitle",
+   "type": "label",
+   "name": "subtitle",
+   "x": 20,
+   "y": 42,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "Postazione picking · UDT Postazione",
+    "fontSize": 12,
+    "color": "#8b9bb8"
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "preview",
+   "type": "symbol",
+   "name": "preview",
+   "x": 300,
+   "y": 31,
+   "w": 140,
+   "h": 96,
+   "rotation": 0,
+   "props": {
+    "symbol": "dev_station"
+   },
+   "bindings": {
+    "elements.label.text": {
+     "kind": "expr",
+     "expr": "param('device') || ''"
+    },
+    "elements.fault.visible": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    },
+    "elements.operator.visible": {
+     "kind": "tag",
+     "tag": "{device}.Operator"
+    },
+    "elements.screen.text": {
+     "kind": "tag",
+     "tag": "{device}.Order"
+    },
+    "elements.lamp.fill": {
+     "kind": "tag",
+     "tag": "{device}.Lamp",
+     "transform": {
+      "kind": "map",
+      "rules": [
+       {
+        "in": "true",
+        "out": "#f59e0b"
+       }
+      ],
+      "default": "#334155"
+     }
+    },
+    "elements.lamp.blink": {
+     "kind": "tag",
+     "tag": "{device}.Lamp"
+    },
+    "elements.body.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_state",
+   "type": "label",
+   "name": "h_state",
+   "x": 20,
+   "y": 150,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "STATO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "st_Operator",
+   "type": "lamp",
+   "name": "st_Operator",
+   "x": 20,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Operatore presente",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Operator"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Lamp",
+   "type": "lamp",
+   "name": "st_Lamp",
+   "x": 235,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Lampada pick",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Lamp"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Fault",
+   "type": "lamp",
+   "name": "st_Fault",
+   "x": 20,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Guasto",
+    "colorOn": "#ef4444"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_val",
+   "type": "label",
+   "name": "h_val",
+   "x": 20,
+   "y": 242,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "MISURE",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "v_Order",
+   "type": "value",
+   "name": "v_Order",
+   "x": 20,
+   "y": 282,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Ordine",
+    "unit": "",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Order"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_ToPick",
+   "type": "value",
+   "name": "v_ToPick",
+   "x": 235,
+   "y": 282,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Da prelevare",
+    "unit": "pz",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.ToPick"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Picked",
+   "type": "value",
+   "name": "v_Picked",
+   "x": 20,
+   "y": 334,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Prelevati",
+    "unit": "pz",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Picked"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_cmd",
+   "type": "label",
+   "name": "h_cmd",
+   "x": 20,
+   "y": 382,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "COMANDI",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "c_Cmd_Confirm",
+   "type": "button",
+   "name": "c_Cmd_Confirm",
+   "x": 20,
+   "y": 408,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Conferma",
+    "fill": "#1d4ed8",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Confirm",
+       "value": "true"
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

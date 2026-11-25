@@ -128,15 +128,13 @@ impl AlarmManager {
             let was = cur.map(|s| s.active).unwrap_or(false);
             if was == active {
                 // aggiorna il testo se cambia (es. conteggio tag in errore)
-                if active {
-                    if let Some(s) = st.get_mut(id) {
-                        if s.message != msg {
+                if active
+                    && let Some(s) = st.get_mut(id)
+                        && s.message != msg {
                             s.message = msg.into();
                             drop(st);
                             let _ = app.events.send(Event::Alarms(self.list()));
                         }
-                    }
-                }
                 return;
             }
             if active {

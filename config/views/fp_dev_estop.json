@@ -1,0 +1,195 @@
+{
+ "title": "Faceplate – Pulsante di emergenza",
+ "width": 460,
+ "height": 306,
+ "background": "#0b1220",
+ "home": false,
+ "faceplate": true,
+ "params": {
+  "device": ""
+ },
+ "components": [
+  {
+   "id": "bg",
+   "type": "rect",
+   "name": "bg",
+   "x": 0,
+   "y": 0,
+   "w": 460,
+   "h": 306,
+   "rotation": 0,
+   "props": {
+    "fill": "#111a2e",
+    "stroke": "#24324f",
+    "radius": 10
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "title",
+   "type": "label",
+   "name": "title",
+   "x": 20,
+   "y": 14,
+   "w": 300,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "text": "",
+    "fontSize": 20,
+    "bold": true
+   },
+   "bindings": {
+    "text": {
+     "kind": "expr",
+     "expr": "param('device') || '(nessun dispositivo)'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "subtitle",
+   "type": "label",
+   "name": "subtitle",
+   "x": 20,
+   "y": 42,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "Pulsante di emergenza · UDT Emergenza",
+    "fontSize": 12,
+    "color": "#8b9bb8"
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "preview",
+   "type": "symbol",
+   "name": "preview",
+   "x": 330,
+   "y": 24,
+   "w": 110,
+   "h": 110,
+   "rotation": 0,
+   "props": {
+    "symbol": "dev_estop"
+   },
+   "bindings": {
+    "elements.label.text": {
+     "kind": "expr",
+     "expr": "param('device') || ''"
+    },
+    "elements.ring.blink": {
+     "kind": "tag",
+     "tag": "{device}.Pressed"
+    },
+    "elements.ring.visible": {
+     "kind": "tag",
+     "tag": "{device}.Pressed"
+    },
+    "elements.body.fill": {
+     "kind": "tag",
+     "tag": "{device}.Pressed",
+     "transform": {
+      "kind": "map",
+      "rules": [
+       {
+        "in": "true",
+        "out": "#ef4444"
+       }
+      ],
+      "default": "#b91c1c"
+     }
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_state",
+   "type": "label",
+   "name": "h_state",
+   "x": 20,
+   "y": 150,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "STATO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "st_Pressed",
+   "type": "lamp",
+   "name": "st_Pressed",
+   "x": 20,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Premuto",
+    "colorOn": "#ef4444"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Pressed"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_cmd",
+   "type": "label",
+   "name": "h_cmd",
+   "x": 20,
+   "y": 214,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "COMANDI",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "c_Cmd_Reset",
+   "type": "button",
+   "name": "c_Cmd_Reset",
+   "x": 20,
+   "y": 240,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Ripristino",
+    "fill": "#1d4ed8",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Reset",
+       "value": "true"
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

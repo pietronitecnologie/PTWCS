@@ -1,0 +1,276 @@
+{
+ "title": "Faceplate – Valvola a 3 vie",
+ "width": 460,
+ "height": 334,
+ "background": "#0b1220",
+ "home": false,
+ "faceplate": true,
+ "params": {
+  "device": ""
+ },
+ "components": [
+  {
+   "id": "bg",
+   "type": "rect",
+   "name": "bg",
+   "x": 0,
+   "y": 0,
+   "w": 460,
+   "h": 334,
+   "rotation": 0,
+   "props": {
+    "fill": "#111a2e",
+    "stroke": "#24324f",
+    "radius": 10
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "title",
+   "type": "label",
+   "name": "title",
+   "x": 20,
+   "y": 14,
+   "w": 300,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "text": "",
+    "fontSize": 20,
+    "bold": true
+   },
+   "bindings": {
+    "text": {
+     "kind": "expr",
+     "expr": "param('device') || '(nessun dispositivo)'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "subtitle",
+   "type": "label",
+   "name": "subtitle",
+   "x": 20,
+   "y": 42,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "Valvola a 3 vie · UDT Valvola",
+    "fontSize": 12,
+    "color": "#8b9bb8"
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "preview",
+   "type": "symbol",
+   "name": "preview",
+   "x": 330,
+   "y": 24,
+   "w": 110,
+   "h": 110,
+   "rotation": 0,
+   "props": {
+    "symbol": "proc_valve3"
+   },
+   "bindings": {
+    "elements.label.text": {
+     "kind": "expr",
+     "expr": "param('device') || ''"
+    },
+    "elements.fault.visible": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    },
+    "elements.body.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.Open') ? '#22c55e' : '#64748b'"
+    },
+    "elements.body3.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.Open') ? '#64748b' : '#22c55e'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_state",
+   "type": "label",
+   "name": "h_state",
+   "x": 20,
+   "y": 150,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "STATO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "st_Open",
+   "type": "lamp",
+   "name": "st_Open",
+   "x": 20,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Aperta",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Open"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Closed",
+   "type": "lamp",
+   "name": "st_Closed",
+   "x": 235,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Chiusa",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Closed"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Fault",
+   "type": "lamp",
+   "name": "st_Fault",
+   "x": 20,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Guasto",
+    "colorOn": "#ef4444"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Auto",
+   "type": "lamp",
+   "name": "st_Auto",
+   "x": 235,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Automatico",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Auto"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_cmd",
+   "type": "label",
+   "name": "h_cmd",
+   "x": 20,
+   "y": 242,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "COMANDI",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "c_Cmd_Open",
+   "type": "button",
+   "name": "c_Cmd_Open",
+   "x": 20,
+   "y": 268,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Comando apertura",
+    "fill": "#15803d",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Open",
+       "value": "true"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "c_Cmd_Close",
+   "type": "button",
+   "name": "c_Cmd_Close",
+   "x": 163,
+   "y": 268,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Comando chiusura",
+    "fill": "#b91c1c",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Close",
+       "value": "true"
+      }
+     ],
+     "confirm": "Comando chiusura?"
+    }
+   }
+  }
+ ]
+}

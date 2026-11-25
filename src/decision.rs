@@ -4,10 +4,14 @@
 //! 1. Il PLC scrive i dati (barcode, peso, ...) e poi incrementa `request_tag`
 //!    (ReqID, ≠ 0). I dati e il ReqID devono stare in un'area contigua così
 //!    vengono letti nello stesso blocco (lettura consistente).
-//! 2. Il WCS rileva ReqID ≠ RespID, chiama la funzione Python, scrive le uscite
-//!    e per ultimo scrive `response_tag` = ReqID.
+//! 2. Il WCS rileva ReqID ≠ RespID, valuta le regole grafiche (poi l'eventuale
+//!    funzione Python, poi il fallback), scrive le uscite e per ultimo
+//!    `response_tag` = ReqID.
 //! 3. Il PLC usa le uscite solo quando RespID == ReqID; se non arriva entro il
 //!    suo timeout applica una destinazione di default (fail-safe lato PLC).
+//!
+//! Variante "flag": il PLC alza Req, il WCS risponde e alza Ack; il PLC
+//! abbassa Req e il WCS abbassa Ack (fine ciclo).
 
 use crate::app::{AppState, Event};
 use crate::config::{DecisionPointDef, Handshake};
@@ -37,11 +41,16 @@ pub fn tags_ctx(app: &AppState) -> Json {
 
 /// Applica le scritture richieste da uno script con ctx.write().
 pub async fn apply_script_writes(app: &AppState, writes: &[(String, Json)], source: &str) -> Vec<String> {
+    apply_writes(app, writes, source, true).await
+}
+
+/// Scritture richieste da uno script; `audit` = registra ogni scrittura (no per i timer).
+pub async fn apply_writes(app: &AppState, writes: &[(String, Json)], source: &str, audit: bool) -> Vec<String> {
     let mut errors = vec![];
     for (tag, v) in writes {
-        if let Err(e) = app.db.write(tag, json_to_value(v)).await {
+        if let Err(e) = app.db.write_ext(tag, json_to_value(v), !audit).await {
             errors.push(format!("{tag}: {e:#}"));
-        } else {
+        } else if audit {
             app.audit("script", "write", format!("{source}: {tag}={v}"));
         }
     }
@@ -66,8 +75,8 @@ pub async fn run(app: Arc<AppState>, dp: DecisionPointDef) {
             // Il PLC ha ritirato la richiesta: azzera l'ack (fine ciclo handshake).
             let req = app.db.get(&dp.request_tag);
             let ack = app.db.get(&dp.response_tag);
-            if let (Some(r), Some(a)) = (req, ack) {
-                if r.quality == Quality::Good && a.quality == Quality::Good
+            if let (Some(r), Some(a)) = (req, ack)
+                && r.quality == Quality::Good && a.quality == Quality::Good
                     && r.value.as_bool() == Some(false) && a.value.as_bool() == Some(true)
                 {
                     if let Err(e) = app.db.write(&dp.response_tag, Value::Bool(false)).await {
@@ -75,7 +84,6 @@ pub async fn run(app: Arc<AppState>, dp: DecisionPointDef) {
                     }
                     last_handled = None;
                 }
-            }
         }
         let Some(req) = pending_request(&app, &dp) else { continue };
         if dp.handshake == Handshake::Counter && last_handled == Some(req) {
@@ -107,6 +115,9 @@ fn pending_request(app: &AppState, dp: &DecisionPointDef) -> Option<i64> {
         Handshake::Flag => (req.value.as_bool()? && !resp.value.as_bool()?).then_some(1),
     }
 }
+
+/// Uscite decise + scritture extra richieste dallo script.
+type Decided = (BTreeMap<String, Value>, Vec<(String, Json)>);
 
 /// Collega le regole a tag, classi di smistamento e WMS.
 struct AppResolver<'a>(&'a AppState);
@@ -148,11 +159,10 @@ pub async fn evaluate_rules_on(
         for f in engine.wms_fields(point) {
             if let Some(v) = inputs.get(&f) {
                 let key = v.to_string();
-                if !key.trim().is_empty() {
-                    if let Err(e) = app.sorting.wms_lookup(&key).await {
+                if !key.trim().is_empty()
+                    && let Err(e) = app.sorting.wms_lookup(&key).await {
                         app.log("warn", point, format!("WMS non raggiungibile per {key}: {e:#}"));
                     }
-                }
             }
         }
     }
@@ -185,7 +195,7 @@ async fn handle(app: &AppState, dp: &DecisionPointDef, req: i64) -> Result<()> {
         }
     }
 
-    let result: Result<(BTreeMap<String, Value>, Vec<(String, Json)>)> = if let Some(o) = rule_outputs {
+    let result: Result<Decided> = if let Some(o) = rule_outputs {
         // uscite non specificate dalla regola -> fallback del punto
         complete(dp, o).map(|o| (o, vec![]))
     } else if let Some(func) = &script_fn {

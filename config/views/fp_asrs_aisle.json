@@ -1,0 +1,438 @@
+{
+ "title": "Faceplate – Corsia magazzino con traslo (pianta)",
+ "width": 460,
+ "height": 690,
+ "background": "#0b1220",
+ "home": false,
+ "faceplate": true,
+ "params": {
+  "device": ""
+ },
+ "components": [
+  {
+   "id": "bg",
+   "type": "rect",
+   "name": "bg",
+   "x": 0,
+   "y": 0,
+   "w": 460,
+   "h": 690,
+   "rotation": 0,
+   "props": {
+    "fill": "#111a2e",
+    "stroke": "#24324f",
+    "radius": 10
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "title",
+   "type": "label",
+   "name": "title",
+   "x": 20,
+   "y": 14,
+   "w": 300,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "text": "",
+    "fontSize": 20,
+    "bold": true
+   },
+   "bindings": {
+    "text": {
+     "kind": "expr",
+     "expr": "param('device') || '(nessun dispositivo)'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "subtitle",
+   "type": "label",
+   "name": "subtitle",
+   "x": 20,
+   "y": 42,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "Corsia magazzino con traslo (pianta) · UDT Traslo",
+    "fontSize": 12,
+    "color": "#8b9bb8"
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "preview",
+   "type": "symbol",
+   "name": "preview",
+   "x": 300,
+   "y": 49,
+   "w": 140,
+   "h": 59,
+   "rotation": 0,
+   "props": {
+    "symbol": "asrs_aisle"
+   },
+   "bindings": {
+    "elements.label.text": {
+     "kind": "expr",
+     "expr": "param('device') || ''"
+    },
+    "elements.load.visible": {
+     "kind": "tag",
+     "tag": "{device}.Loaded"
+    },
+    "elements.crane.tx": {
+     "kind": "expr",
+     "expr": "(tag('{device}.PctX') || 0) * 2.2"
+    },
+    "elements.body.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Moving') ? '#22c55e' : '#64748b'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_state",
+   "type": "label",
+   "name": "h_state",
+   "x": 20,
+   "y": 150,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "STATO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "st_Moving",
+   "type": "lamp",
+   "name": "st_Moving",
+   "x": 20,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "In movimento",
+    "colorOn": "#f59e0b"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Moving"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Fault",
+   "type": "lamp",
+   "name": "st_Fault",
+   "x": 235,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Guasto",
+    "colorOn": "#ef4444"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Auto",
+   "type": "lamp",
+   "name": "st_Auto",
+   "x": 20,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Automatico",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Auto"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Loaded",
+   "type": "lamp",
+   "name": "st_Loaded",
+   "x": 235,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Carico a bordo",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Loaded"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_val",
+   "type": "label",
+   "name": "h_val",
+   "x": 20,
+   "y": 242,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "MISURE",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "v_Mission",
+   "type": "value",
+   "name": "v_Mission",
+   "x": 20,
+   "y": 282,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Missione in corso",
+    "unit": "",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Mission"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_PosX",
+   "type": "value",
+   "name": "v_PosX",
+   "x": 235,
+   "y": 282,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Posizione corsia",
+    "unit": "m",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.PosX"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_PosY",
+   "type": "value",
+   "name": "v_PosY",
+   "x": 20,
+   "y": 334,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Posizione verticale",
+    "unit": "m",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.PosY"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_PctX",
+   "type": "value",
+   "name": "v_PctX",
+   "x": 235,
+   "y": 334,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Posizione corsia %",
+    "unit": "%",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.PctX"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_PctY",
+   "type": "value",
+   "name": "v_PctY",
+   "x": 20,
+   "y": 386,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Posizione verticale %",
+    "unit": "%",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.PctY"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Fork",
+   "type": "value",
+   "name": "v_Fork",
+   "x": 235,
+   "y": 386,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Forche (-100..100)",
+    "unit": "%",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Fork"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_cmd",
+   "type": "label",
+   "name": "h_cmd",
+   "x": 20,
+   "y": 434,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "COMANDI",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "c_Cmd_Reset",
+   "type": "button",
+   "name": "c_Cmd_Reset",
+   "x": 20,
+   "y": 460,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Reset guasto",
+    "fill": "#1d4ed8",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Reset",
+       "value": "true"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "h_trend",
+   "type": "label",
+   "name": "h_trend",
+   "x": 20,
+   "y": 516,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "TREND – POSIZIONE CORSIA",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "trend",
+   "type": "trend",
+   "name": "trend",
+   "x": 20,
+   "y": 540,
+   "w": 420,
+   "h": 130,
+   "rotation": 0,
+   "props": {
+    "tags": "{device}.PosX",
+    "minutes": 10
+   },
+   "bindings": {},
+   "events": {}
+  }
+ ]
+}

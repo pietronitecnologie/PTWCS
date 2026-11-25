@@ -1,0 +1,505 @@
+{
+ "title": "Faceplate – Robot antropomorfo (vista laterale)",
+ "width": 460,
+ "height": 718,
+ "background": "#0b1220",
+ "home": false,
+ "faceplate": true,
+ "params": {
+  "device": ""
+ },
+ "components": [
+  {
+   "id": "bg",
+   "type": "rect",
+   "name": "bg",
+   "x": 0,
+   "y": 0,
+   "w": 460,
+   "h": 718,
+   "rotation": 0,
+   "props": {
+    "fill": "#111a2e",
+    "stroke": "#24324f",
+    "radius": 10
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "title",
+   "type": "label",
+   "name": "title",
+   "x": 20,
+   "y": 14,
+   "w": 300,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "text": "",
+    "fontSize": 20,
+    "bold": true
+   },
+   "bindings": {
+    "text": {
+     "kind": "expr",
+     "expr": "param('device') || '(nessun dispositivo)'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "subtitle",
+   "type": "label",
+   "name": "subtitle",
+   "x": 20,
+   "y": 42,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "Robot antropomorfo (vista laterale) · UDT Macchina",
+    "fontSize": 12,
+    "color": "#8b9bb8"
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "preview",
+   "type": "symbol",
+   "name": "preview",
+   "x": 330,
+   "y": 24,
+   "w": 110,
+   "h": 110,
+   "rotation": 0,
+   "props": {
+    "symbol": "mac_robot"
+   },
+   "bindings": {
+    "elements.label.text": {
+     "kind": "expr",
+     "expr": "param('device') || ''"
+    },
+    "elements.fault.visible": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    },
+    "elements.body.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.Fault') ? '#ef4444' : tag('{device}.Run') ? '#22c55e' : '#64748b'"
+    },
+    "elements.arm.rotate": {
+     "kind": "tag",
+     "tag": "{device}.Angle"
+    },
+    "elements.gripper.fill": {
+     "kind": "tag",
+     "tag": "{device}.Occupied",
+     "transform": {
+      "kind": "map",
+      "rules": [
+       {
+        "in": "true",
+        "out": "#f59e0b"
+       }
+      ],
+      "default": "#475569"
+     }
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_state",
+   "type": "label",
+   "name": "h_state",
+   "x": 20,
+   "y": 150,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "STATO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "st_Run",
+   "type": "lamp",
+   "name": "st_Run",
+   "x": 20,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "In marcia",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Run"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Fault",
+   "type": "lamp",
+   "name": "st_Fault",
+   "x": 235,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Guasto",
+    "colorOn": "#ef4444"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Auto",
+   "type": "lamp",
+   "name": "st_Auto",
+   "x": 20,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Automatico",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Auto"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Ready",
+   "type": "lamp",
+   "name": "st_Ready",
+   "x": 235,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Pronta",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Ready"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Occupied",
+   "type": "lamp",
+   "name": "st_Occupied",
+   "x": 20,
+   "y": 232,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Prodotto presente",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Occupied"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_val",
+   "type": "label",
+   "name": "h_val",
+   "x": 20,
+   "y": 270,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "MISURE",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "v_AlarmCode",
+   "type": "value",
+   "name": "v_AlarmCode",
+   "x": 20,
+   "y": 310,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Codice allarme",
+    "unit": "",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.AlarmCode"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Count",
+   "type": "value",
+   "name": "v_Count",
+   "x": 235,
+   "y": 310,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Pezzi prodotti",
+    "unit": "pz",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Count"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Speed",
+   "type": "value",
+   "name": "v_Speed",
+   "x": 20,
+   "y": 362,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Cadenza",
+    "unit": "pz/h",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Speed"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Angle",
+   "type": "value",
+   "name": "v_Angle",
+   "x": 235,
+   "y": 362,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Angolo asse",
+    "unit": "°",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Angle"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Progress",
+   "type": "value",
+   "name": "v_Progress",
+   "x": 20,
+   "y": 414,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Avanzamento ciclo",
+    "unit": "%",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Progress"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_cmd",
+   "type": "label",
+   "name": "h_cmd",
+   "x": 20,
+   "y": 462,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "COMANDI",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "c_Cmd_Start",
+   "type": "button",
+   "name": "c_Cmd_Start",
+   "x": 20,
+   "y": 488,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Comando marcia",
+    "fill": "#15803d",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Start",
+       "value": "true"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "c_Cmd_Stop",
+   "type": "button",
+   "name": "c_Cmd_Stop",
+   "x": 163,
+   "y": 488,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Comando arresto",
+    "fill": "#b91c1c",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Stop",
+       "value": "true"
+      }
+     ],
+     "confirm": "Comando arresto?"
+    }
+   }
+  },
+  {
+   "id": "c_Cmd_Reset",
+   "type": "button",
+   "name": "c_Cmd_Reset",
+   "x": 306,
+   "y": 488,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Reset guasto",
+    "fill": "#1d4ed8",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Reset",
+       "value": "true"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "h_trend",
+   "type": "label",
+   "name": "h_trend",
+   "x": 20,
+   "y": 544,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "TREND – CADENZA",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "trend",
+   "type": "trend",
+   "name": "trend",
+   "x": 20,
+   "y": 568,
+   "w": 420,
+   "h": 130,
+   "rotation": 0,
+   "props": {
+    "tags": "{device}.Speed",
+    "minutes": 10
+   },
+   "bindings": {},
+   "events": {}
+  }
+ ]
+}

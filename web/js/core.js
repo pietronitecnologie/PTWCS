@@ -39,6 +39,37 @@ export class Live {
     this.connected = false;
     this.handlers = {};
     this._delay = 500;
+    this.hist = new Map();       // nome -> [[ts, valore numerico]] (buffer trend)
+    this.histLoaded = new Set();
+  }
+
+  /** Serie per i trend (storico dal server + aggiornamenti live). */
+  history(name) { return this.hist.get(name) || []; }
+
+  _push(name, st) {
+    const v = typeof st.value === 'boolean' ? (st.value ? 1 : 0) : st.value;
+    if (typeof v !== 'number' || !isFinite(v)) return;
+    let a = this.hist.get(name);
+    if (!a) { a = []; this.hist.set(name, a); }
+    if (a.length && a.at(-1)[0] >= st.ts) return;
+    a.push([st.ts, v]);
+    if (a.length > 4000) a.splice(0, a.length - 4000);
+  }
+
+  /** Carica (una volta) lo storico di 1 ora dei tag richiesti da un trend. */
+  watchHistory(names) {
+    for (const n of names) {
+      if (this.histLoaded.has(n)) continue;
+      this.histLoaded.add(n);
+      const to = Date.now(), from = to - 3600_000;
+      api.get(`/api/trend?tag=${encodeURIComponent(n)}&from=${from}&to=${to}`).then((rows) => {
+        const pts = rows.filter((r) => r[1] !== null);
+        const cur = this.hist.get(n) || [];
+        const first = cur.length ? cur[0][0] : Infinity;
+        this.hist.set(n, [...pts.filter((p) => p[0] < first), ...cur]);
+        this.emit('tags', [n]);
+      }).catch(() => {});
+    }
   }
   on(type, fn) { (this.handlers[type] ||= []).push(fn); return this; }
   emit(type, data) { (this.handlers[type] || []).forEach((f) => { try { f(data); } catch (e) { console.error(e); } }); }
@@ -59,12 +90,13 @@ export class Live {
       switch (msg.type) {
         case 'snapshot':
           this.tags = new Map(Object.entries(msg.tags));
+          for (const [k, v] of this.tags) this._push(k, v);
           this.alarms = msg.alarms;
           this.emit('tags', [...this.tags.keys()]);
           this.emit('alarms', this.alarms);
           break;
         case 'tags':
-          for (const [k, v] of Object.entries(msg.tags)) this.tags.set(k, v);
+          for (const [k, v] of Object.entries(msg.tags)) { this.tags.set(k, v); this._push(k, v); }
           this.emit('tags', Object.keys(msg.tags));
           break;
         case 'alarms': this.alarms = msg.data; this.emit('alarms', msg.data); break;

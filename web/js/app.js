@@ -1,21 +1,24 @@
 // Client Runtime (operatore): viste, allarmi, decisioni, tag, trend, diagnostica.
 import { api, Live, esc, fmtTs, toast } from './core.js';
-import { ViewRenderer, runActions } from './render.js';
+import { ViewRenderer, runActions, createPopup, compileSymbol, invalidateView } from './render.js';
 
 const live = new Live();
 const page = document.getElementById('page');
 let info = null, views = [], symbols = [], current = null, renderer = null, refresh = null;
-let decisions = [], logs = [];
+let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '';
 
 // ------------------------------------------------------------ routing
 function route() {
   clearInterval(refresh);
+  popups.forEach((p) => p.win.remove());
+  popups = [];
   renderer = null;
   const [, kind, arg] = location.hash.split('/');
   page.className = 'page';
   markNav();
   if (kind === 'view' && arg) return showView(arg);
   if (kind === 'alarms') return showAlarms();
+  if (kind === 'areas') return showAreas(arg);
   if (kind === 'decisions') return showDecisions();
   if (kind === 'tags') return showTags();
   if (kind === 'trend') return showTrend();
@@ -27,14 +30,15 @@ function route() {
 function buildNav() {
   const n = live.alarms.filter((a) => !a.acked).length;
   document.getElementById('nav').innerHTML =
-    views.map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
-    `<a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
+    views.filter((v) => !v.faceplate).map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
+    `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
      <a href="#/decisions">Decisioni</a><a href="#/tags">Tag</a><a href="#/trend">Trend</a><a href="#/diag">Diagnostica</a>`;
   markNav();
 }
 
 function markNav() {
-  document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === location.hash));
+  document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === location.hash
+    || (location.hash.startsWith('#/areas') && a.getAttribute('href') === '#/areas')));
 }
 
 // ------------------------------------------------------------ viste
@@ -48,35 +52,106 @@ async function showView(id) {
     return;
   }
   page.innerHTML = `<div class="viewhost"><svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg></div>`;
-  renderer = new ViewRenderer(page.querySelector('svg'), live, {
-    onAction: (comp, ev) => runActions(comp, ev, { live, api, toast, viewId: id, navigate: (v) => (location.hash = `#/view/${v}`) }),
-  });
-  renderer.setSymbols(symbols);
+  renderer = new ViewRenderer(page.querySelector('svg'), live, { api, symbols: compiled, onAction: actionHandler(id) });
   renderer.load(current);
+}
+
+/** Gestore azioni per una vista (o un popup): passa lo scope del componente. */
+function actionHandler(viewId) {
+  return (comp, ev, scope) => runActions(comp, ev, {
+    live, api, toast, viewId, scope, openPopup,
+    navigate: (v) => (location.hash = `#/view/${v}`),
+  });
+}
+
+/** Apre una vista in popup (faceplate) passandole i parametri. */
+function openPopup(viewId, params = {}, title) {
+  const p = createPopup({
+    live, api, toast, symbols: compiled, viewId, params, title,
+    onAction: actionHandler(viewId),
+    onClose: (r) => { popups = popups.filter((x) => x.renderer !== r); },
+  });
+  popups.push(p);
+}
+
+// ------------------------------------------------------------ aree
+async function showAreas(name) {
+  const draw = async () => {
+    if (!location.hash.startsWith('#/areas')) return;
+    const areas = await api.get('/api/areas');
+    const sel = name ? decodeURIComponent(name) : '';
+    const kids = (a) => areas.filter((x) => x.parent === a);
+    const card = (a) => `<div class="card area-card ${a.worst ? 'sev-' + a.worst : ''}" data-area="${esc(a.name)}">
+        <div class="row"><b class="grow">${esc(a.name)}</b>${a.worst ? `<span class="sev ${a.worst}">${a.worst}</span>` : '<span style="color:var(--ok)">OK</span>'}</div>
+        <div class="muted">${esc(a.description || '')}</div>
+        <div class="row" style="margin-top:8px;gap:18px">
+          <div><div class="big">${a.active}</div><div class="muted">allarmi attivi</div></div>
+          <div><div class="big">${a.unacked}</div><div class="muted">da riconoscere</div></div>
+          <div><div class="big" style="color:${a.bad_tags ? 'var(--warn)' : 'inherit'}">${a.bad_tags}</div><div class="muted">tag in errore / ${a.tags}</div></div>
+        </div></div>`;
+    if (!sel) {
+      const roots = areas.filter((a) => !a.parent);
+      page.innerHTML = roots.map((r) => `<h3 style="margin:6px 0 8px">${esc(r.name)}</h3><div class="grid-areas">${card(r)}${kids(r.name).map(card).join('')}</div>`).join('');
+    } else {
+      const a = areas.find((x) => x.name === sel);
+      const list = live.alarms.filter((al) => inArea(al.area, sel, areas));
+      const vs = views.filter((v) => v.area === sel);
+      page.innerHTML = `<div class="row" style="margin-bottom:10px"><a href="#/areas" style="color:var(--muted)">← Aree</a><h3 class="grow" style="margin:0 0 0 10px">${esc(sel)}</h3>
+          <button id="ackArea">Riconosci allarmi area</button></div>
+        <div class="grid2">${a ? card(a) : ''}${kids(sel).map(card).join('')}
+          <div class="card"><h3>Viste dell'area</h3>${vs.map((v) => `<a href="#/view/${esc(v.id)}" style="color:var(--accent);display:block">${esc(v.title)}</a>`).join('') || '<span class="muted">Nessuna vista associata (proprietà "Area" della vista nel Designer)</span>'}</div></div>
+        <div class="card"><h3>Allarmi</h3><table><thead><tr><th>Ora</th><th>Gravità</th><th>Area</th><th>Id</th><th>Messaggio</th><th>Stato</th><th></th></tr></thead>
+        <tbody>${alarmRows(list) || '<tr><td colspan=7 class="muted">Nessun allarme</td></tr>'}</tbody></table></div>`;
+      page.querySelector('#ackArea').onclick = () => api.post('/api/alarms/ack', { area: sel });
+      bindAck();
+    }
+    page.querySelectorAll('[data-area]').forEach((c) => (c.onclick = () => (location.hash = `#/areas/${encodeURIComponent(c.dataset.area)}`)));
+  };
+  showAreas.draw = draw;
+  await draw();
+  refresh = setInterval(draw, 3000);
+}
+
+function inArea(area, target, areas) {
+  let cur = area, guard = 0;
+  while (cur && guard++ < 32) {
+    if (cur === target) return true;
+    cur = areas.find((a) => a.name === cur)?.parent;
+  }
+  return false;
+}
+
+function bindAck() {
+  page.querySelectorAll('[data-ack]').forEach((b) => (b.onclick = () => api.post('/api/alarms/ack', { id: b.dataset.ack })));
 }
 
 // ------------------------------------------------------------ allarmi
 function alarmRows(list) {
   return list.map((a) => `<tr class="${a.active ? 'active' : ''} ${a.acked ? '' : 'unacked'}">
     <td>${fmtTs(a.raised_ts)}</td><td><span class="sev ${a.severity}">${a.severity}</span></td>
-    <td class="mono">${esc(a.id)}</td><td>${esc(a.message)}</td>
+    <td>${esc(a.area || '')}</td><td class="mono">${esc(a.id)}</td><td>${esc(a.message)}</td>
     <td>${a.active ? '<b style="color:var(--alarm)">ATTIVO</b>' : 'rientrato ' + fmtTs(a.cleared_ts)}</td>
     <td>${a.acked ? '✓' : `<button class="small" data-ack="${esc(a.id)}">Riconosci</button>`}</td></tr>`).join('');
 }
 
 async function showAlarms() {
-  const hist = await api.get('/api/alarms/history?limit=200');
+  const [hist, areas] = await Promise.all([api.get('/api/alarms/history?limit=300'), api.get('/api/areas')]);
   const draw = () => {
     if (!location.hash.startsWith('#/alarms')) return;
+    const f = areaFilter;
+    const cur = live.alarms.filter((a) => !f || inArea(a.area, f, areas));
+    const h = hist.filter((e) => !f || inArea(e.area, f, areas));
     page.innerHTML = `<div class="card"><div class="row"><h3 class="grow">Allarmi correnti</h3>
-      <button id="ackAll">Riconosci tutti</button></div>
-      <table><thead><tr><th>Ora</th><th>Gravità</th><th>Id</th><th>Messaggio</th><th>Stato</th><th></th></tr></thead>
-      <tbody>${alarmRows(live.alarms) || '<tr><td colspan=6 class="muted">Nessun allarme</td></tr>'}</tbody></table></div>
-      <div class="card"><h3>Storico eventi</h3><table><thead><tr><th>Ora</th><th>Evento</th><th>Id</th><th>Messaggio</th><th>Valore</th><th>Utente</th></tr></thead>
-      <tbody>${hist.map((e) => `<tr><td>${fmtTs(e.ts)}</td><td>${esc(e.event)}</td><td class="mono">${esc(e.alarm)}</td>
+      <label class="row muted">Area <select id="areaSel"><option value="">(tutte)</option>${areas.map((a) => `<option ${a.name === f ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
+      <button id="ackAll">Riconosci ${f ? 'area' : 'tutti'}</button></div>
+      <table><thead><tr><th>Ora</th><th>Gravità</th><th>Area</th><th>Id</th><th>Messaggio</th><th>Stato</th><th></th></tr></thead>
+      <tbody>${alarmRows(cur) || '<tr><td colspan=7 class="muted">Nessun allarme</td></tr>'}</tbody></table></div>
+      <div class="card"><h3>Storico eventi</h3><table><thead><tr><th>Ora</th><th>Evento</th><th>Area</th><th>Id</th><th>Messaggio</th><th>Valore</th><th>Utente</th></tr></thead>
+      <tbody>${h.map((e) => `<tr><td>${fmtTs(e.ts)}</td><td>${esc(e.event)}</td><td>${esc(e.area || '')}</td><td class="mono">${esc(e.alarm)}</td>
         <td>${esc(e.message)}</td><td>${esc(e.value)}</td><td>${esc(e.user || '')}</td></tr>`).join('')}</tbody></table></div>`;
-    page.querySelector('#ackAll').onclick = () => api.post('/api/alarms/ack', {});
-    page.querySelectorAll('[data-ack]').forEach((b) => (b.onclick = () => api.post('/api/alarms/ack', { id: b.dataset.ack })));
+    page.querySelector('#ackAll').onclick = () => api.post('/api/alarms/ack', f ? { area: f } : {});
+    page.querySelector('#areaSel').onchange = (e) => { areaFilter = e.target.value; draw(); };
+    bindAck();
   };
   showAlarms.draw = draw;
   draw();
@@ -91,12 +166,12 @@ async function showDecisions() {
     const okN = decisions.filter((d) => d.status === 'ok').length;
     const avg = decisions.length ? decisions.reduce((s, d) => s + d.duration_ms, 0) / decisions.length : 0;
     page.innerHTML = `<div class="grid2">${dps.map((d) => `<div class="card"><h3>${esc(d.name)} <span class="muted">– ${esc(d.description)}</span></h3>
-        <div class="mono muted">${esc(d.request_tag)} → ${esc(d.function)}() → ${esc(d.response_tag)}</div></div>`).join('')}
+        <div class="mono muted">${esc(d.request_tag)} → regole${d.function ? ' / ' + esc(d.function) + '()' : ''} → ${esc(d.response_tag)}</div></div>`).join('')}
       <div class="card"><h3>Ultime ${decisions.length}</h3>ok: <b>${okN}</b> · fallback/errore: <b>${decisions.length - okN}</b> · tempo medio: <b>${avg.toFixed(1)} ms</b></div></div>
-      <div class="card"><table><thead><tr><th>Ora</th><th>Punto</th><th>Req</th><th>Input</th><th>Output</th><th>ms</th><th>Esito</th></tr></thead><tbody>
+      <div class="card"><table><thead><tr><th>Ora</th><th>Punto</th><th>Req</th><th>Input</th><th>Output</th><th>ms</th><th>Regola</th><th>Esito</th></tr></thead><tbody>
       ${decisions.slice(0, 200).map((d) => `<tr><td>${fmtTs(d.ts)}</td><td>${esc(d.point)}</td><td>${d.request_id}</td>
         <td class="mono">${esc(JSON.stringify(d.inputs))}</td><td class="mono">${esc(JSON.stringify(d.outputs))}</td>
-        <td>${d.duration_ms.toFixed(1)}</td><td>${d.status === 'ok' ? '✓' : `<span style="color:var(--warn)" title="${esc(d.error || '')}">${esc(d.status)}</span>`}</td></tr>`).join('')}
+        <td>${d.duration_ms.toFixed(1)}</td><td>${esc(d.rule || (d.status === 'ok' ? 'script' : ''))}</td><td>${d.status === 'ok' ? '✓' : `<span style="color:var(--warn)" title="${esc(d.error || '')}">${esc(d.status)}</span>`}</td></tr>`).join('')}
       </tbody></table></div>`;
   };
   showDecisions.draw = draw;
@@ -215,7 +290,13 @@ function updateAlarmBar() {
     : `<span class="muted">Nessun allarme attivo</span>${unack ? `<span class="grow"></span><span>${unack} da riconoscere</span>` : ''}`;
 }
 
-live.on('tags', () => { renderer?.update(); if (location.hash.startsWith('#/tags')) showTags.draw?.(); });
+live.on('tags', () => { renderer?.update(); popups.forEach((p) => p.renderer.update()); if (location.hash.startsWith('#/tags')) showTags.draw?.(); });
+live.on('project', async () => {
+  invalidateView();
+  [info, views] = await Promise.all([api.get('/api/info'), api.get('/api/views')]);
+  buildNav();
+  toast('Progetto aggiornato dal Designer');
+});
 live.on('alarms', () => { updateAlarmBar(); buildNav(); if (location.hash.startsWith('#/alarms')) showAlarms.draw?.(); });
 live.on('decision', (d) => { decisions.unshift(d); decisions.length = Math.min(decisions.length, 500); if (location.hash.startsWith('#/decisions')) showDecisions.draw?.(); });
 live.on('log', (l) => { logs.unshift(l); logs.length = Math.min(logs.length, 500); if (location.hash.startsWith('#/diag')) showDiag.draw?.(); });
@@ -225,6 +306,7 @@ setInterval(() => (document.getElementById('clock').textContent = new Date().toL
 
 async function init() {
   [info, views, symbols] = await Promise.all([api.get('/api/info'), api.get('/api/views'), api.get('/api/symbols')]);
+  for (const s of symbols) { try { compiled[s.id] = compileSymbol(s.svg); } catch { /* simbolo non valido */ } }
   document.getElementById('plant').textContent = info.plant.name;
   document.title = info.plant.name;
   if (!info.designer) document.getElementById('designerLink').remove();

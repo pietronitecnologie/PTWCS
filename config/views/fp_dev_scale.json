@@ -1,0 +1,368 @@
+{
+ "title": "Faceplate – Bilancia dinamica",
+ "width": 460,
+ "height": 610,
+ "background": "#0b1220",
+ "home": false,
+ "faceplate": true,
+ "params": {
+  "device": ""
+ },
+ "components": [
+  {
+   "id": "bg",
+   "type": "rect",
+   "name": "bg",
+   "x": 0,
+   "y": 0,
+   "w": 460,
+   "h": 610,
+   "rotation": 0,
+   "props": {
+    "fill": "#111a2e",
+    "stroke": "#24324f",
+    "radius": 10
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "title",
+   "type": "label",
+   "name": "title",
+   "x": 20,
+   "y": 14,
+   "w": 300,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "text": "",
+    "fontSize": 20,
+    "bold": true
+   },
+   "bindings": {
+    "text": {
+     "kind": "expr",
+     "expr": "param('device') || '(nessun dispositivo)'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "subtitle",
+   "type": "label",
+   "name": "subtitle",
+   "x": 20,
+   "y": 42,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "Bilancia dinamica · UDT Bilancia",
+    "fontSize": 12,
+    "color": "#8b9bb8"
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "preview",
+   "type": "symbol",
+   "name": "preview",
+   "x": 300,
+   "y": 44,
+   "w": 140,
+   "h": 70,
+   "rotation": 0,
+   "props": {
+    "symbol": "dev_scale"
+   },
+   "bindings": {
+    "elements.label.text": {
+     "kind": "expr",
+     "expr": "param('device') || ''"
+    },
+    "elements.fault.visible": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    },
+    "elements.display.text": {
+     "kind": "expr",
+     "expr": "(tag('{device}.Weight') ?? 0).toFixed(2) + ' kg'"
+    },
+    "elements.load.visible": {
+     "kind": "expr",
+     "expr": "(tag('{device}.Weight') || 0) > 0.05"
+    },
+    "elements.led.fill": {
+     "kind": "tag",
+     "tag": "{device}.Stable",
+     "transform": {
+      "kind": "map",
+      "rules": [
+       {
+        "in": "true",
+        "out": "#22c55e"
+       }
+      ],
+      "default": "#334155"
+     }
+    },
+    "elements.body.fill": {
+     "kind": "expr",
+     "expr": "tag('{device}.Fault') ? '#ef4444' : '#64748b'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_state",
+   "type": "label",
+   "name": "h_state",
+   "x": 20,
+   "y": 150,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "STATO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "st_Stable",
+   "type": "lamp",
+   "name": "st_Stable",
+   "x": 20,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Peso stabile",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Stable"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_Fault",
+   "type": "lamp",
+   "name": "st_Fault",
+   "x": 235,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Guasto",
+    "colorOn": "#ef4444"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.Fault"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_val",
+   "type": "label",
+   "name": "h_val",
+   "x": 20,
+   "y": 214,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "MISURE",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "v_Weight",
+   "type": "value",
+   "name": "v_Weight",
+   "x": 20,
+   "y": 254,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Peso",
+    "unit": "kg",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Weight"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Length",
+   "type": "value",
+   "name": "v_Length",
+   "x": 235,
+   "y": 254,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Lunghezza",
+    "unit": "mm",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Length"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Width",
+   "type": "value",
+   "name": "v_Width",
+   "x": 20,
+   "y": 306,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Larghezza",
+    "unit": "mm",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Width"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_Height",
+   "type": "value",
+   "name": "v_Height",
+   "x": 235,
+   "y": 306,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Altezza",
+    "unit": "mm",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Height"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_cmd",
+   "type": "label",
+   "name": "h_cmd",
+   "x": 20,
+   "y": 354,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "COMANDI",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "c_Cmd_Zero",
+   "type": "button",
+   "name": "c_Cmd_Zero",
+   "x": 20,
+   "y": 380,
+   "w": 133,
+   "h": 40,
+   "rotation": 0,
+   "props": {
+    "text": "Azzera",
+    "fill": "#1d4ed8",
+    "fontSize": 13
+   },
+   "bindings": {},
+   "events": {
+    "onClick": {
+     "actions": [
+      {
+       "kind": "write",
+       "tag": "{device}.Cmd_Zero",
+       "value": "true"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "h_trend",
+   "type": "label",
+   "name": "h_trend",
+   "x": 20,
+   "y": 436,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "TREND – PESO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "trend",
+   "type": "trend",
+   "name": "trend",
+   "x": 20,
+   "y": 460,
+   "w": 420,
+   "h": 130,
+   "rotation": 0,
+   "props": {
+    "tags": "{device}.Weight",
+    "minutes": 10
+   },
+   "bindings": {},
+   "events": {}
+  }
+ ]
+}

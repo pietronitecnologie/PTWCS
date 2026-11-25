@@ -1,0 +1,546 @@
+{
+ "title": "Faceplate – Scaffalatura porta-pallet (fronte)",
+ "width": 460,
+ "height": 668,
+ "background": "#0b1220",
+ "home": false,
+ "faceplate": true,
+ "params": {
+  "device": ""
+ },
+ "components": [
+  {
+   "id": "bg",
+   "type": "rect",
+   "name": "bg",
+   "x": 0,
+   "y": 0,
+   "w": 460,
+   "h": 668,
+   "rotation": 0,
+   "props": {
+    "fill": "#111a2e",
+    "stroke": "#24324f",
+    "radius": 10
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "title",
+   "type": "label",
+   "name": "title",
+   "x": 20,
+   "y": 14,
+   "w": 300,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "text": "",
+    "fontSize": 20,
+    "bold": true
+   },
+   "bindings": {
+    "text": {
+     "kind": "expr",
+     "expr": "param('device') || '(nessun dispositivo)'"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "subtitle",
+   "type": "label",
+   "name": "subtitle",
+   "x": 20,
+   "y": 42,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "Scaffalatura porta-pallet (fronte) · UDT Scaffale",
+    "fontSize": 12,
+    "color": "#8b9bb8"
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "preview",
+   "type": "symbol",
+   "name": "preview",
+   "x": 303,
+   "y": 24,
+   "w": 137,
+   "h": 110,
+   "rotation": 0,
+   "props": {
+    "symbol": "asrs_rack"
+   },
+   "bindings": {
+    "elements.label.text": {
+     "kind": "expr",
+     "expr": "param('device') || ''"
+    },
+    "elements.c1.visible": {
+     "kind": "tag",
+     "tag": "{device}.C1"
+    },
+    "elements.c2.visible": {
+     "kind": "tag",
+     "tag": "{device}.C2"
+    },
+    "elements.c3.visible": {
+     "kind": "tag",
+     "tag": "{device}.C3"
+    },
+    "elements.c4.visible": {
+     "kind": "tag",
+     "tag": "{device}.C4"
+    },
+    "elements.c5.visible": {
+     "kind": "tag",
+     "tag": "{device}.C5"
+    },
+    "elements.c6.visible": {
+     "kind": "tag",
+     "tag": "{device}.C6"
+    },
+    "elements.c7.visible": {
+     "kind": "tag",
+     "tag": "{device}.C7"
+    },
+    "elements.c8.visible": {
+     "kind": "tag",
+     "tag": "{device}.C8"
+    },
+    "elements.c9.visible": {
+     "kind": "tag",
+     "tag": "{device}.C9"
+    },
+    "elements.c10.visible": {
+     "kind": "tag",
+     "tag": "{device}.C10"
+    },
+    "elements.c11.visible": {
+     "kind": "tag",
+     "tag": "{device}.C11"
+    },
+    "elements.c12.visible": {
+     "kind": "tag",
+     "tag": "{device}.C12"
+    },
+    "elements.body.fill": {
+     "kind": "tag",
+     "tag": "{device}.FillPct",
+     "transform": {
+      "kind": "map",
+      "rules": [
+       {
+        "in": ">90",
+        "out": "#ef4444"
+       },
+       {
+        "in": ">70",
+        "out": "#f59e0b"
+       }
+      ],
+      "default": "#22c55e"
+     }
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_state",
+   "type": "label",
+   "name": "h_state",
+   "x": 20,
+   "y": 150,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "STATO",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "st_C1",
+   "type": "lamp",
+   "name": "st_C1",
+   "x": 20,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 1 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C1"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C2",
+   "type": "lamp",
+   "name": "st_C2",
+   "x": 235,
+   "y": 176,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 2 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C2"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C3",
+   "type": "lamp",
+   "name": "st_C3",
+   "x": 20,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 3 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C3"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C4",
+   "type": "lamp",
+   "name": "st_C4",
+   "x": 235,
+   "y": 204,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 4 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C4"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C5",
+   "type": "lamp",
+   "name": "st_C5",
+   "x": 20,
+   "y": 232,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 5 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C5"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C6",
+   "type": "lamp",
+   "name": "st_C6",
+   "x": 235,
+   "y": 232,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 6 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C6"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C7",
+   "type": "lamp",
+   "name": "st_C7",
+   "x": 20,
+   "y": 260,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 7 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C7"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C8",
+   "type": "lamp",
+   "name": "st_C8",
+   "x": 235,
+   "y": 260,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 8 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C8"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C9",
+   "type": "lamp",
+   "name": "st_C9",
+   "x": 20,
+   "y": 288,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 9 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C9"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C10",
+   "type": "lamp",
+   "name": "st_C10",
+   "x": 235,
+   "y": 288,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 10 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C10"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C11",
+   "type": "lamp",
+   "name": "st_C11",
+   "x": 20,
+   "y": 316,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 11 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C11"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "st_C12",
+   "type": "lamp",
+   "name": "st_C12",
+   "x": 235,
+   "y": 316,
+   "w": 20,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "label": "Cella 12 occupata",
+    "colorOn": "#22c55e"
+   },
+   "bindings": {
+    "on": {
+     "kind": "tag",
+     "tag": "{device}.C12"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_val",
+   "type": "label",
+   "name": "h_val",
+   "x": 20,
+   "y": 354,
+   "w": 200,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "MISURE",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "v_Cells",
+   "type": "value",
+   "name": "v_Cells",
+   "x": 20,
+   "y": 394,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Celle totali",
+    "unit": "",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.Cells"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_OccupiedCells",
+   "type": "value",
+   "name": "v_OccupiedCells",
+   "x": 235,
+   "y": 394,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Celle occupate",
+    "unit": "",
+    "decimals": 0,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.OccupiedCells"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "v_FillPct",
+   "type": "value",
+   "name": "v_FillPct",
+   "x": 20,
+   "y": 446,
+   "w": 200,
+   "h": 30,
+   "rotation": 0,
+   "props": {
+    "label": "Saturazione",
+    "unit": "%",
+    "decimals": 2,
+    "fontSize": 16
+   },
+   "bindings": {
+    "value": {
+     "kind": "tag",
+     "tag": "{device}.FillPct"
+    }
+   },
+   "events": {}
+  },
+  {
+   "id": "h_trend",
+   "type": "label",
+   "name": "h_trend",
+   "x": 20,
+   "y": 494,
+   "w": 300,
+   "h": 20,
+   "rotation": 0,
+   "props": {
+    "text": "TREND – SATURAZIONE",
+    "fontSize": 11,
+    "color": "#8b9bb8",
+    "bold": true
+   },
+   "bindings": {},
+   "events": {}
+  },
+  {
+   "id": "trend",
+   "type": "trend",
+   "name": "trend",
+   "x": 20,
+   "y": 518,
+   "w": 420,
+   "h": 130,
+   "rotation": 0,
+   "props": {
+    "tags": "{device}.FillPct",
+    "minutes": 10
+   },
+   "bindings": {},
+   "events": {}
+  }
+ ]
+}

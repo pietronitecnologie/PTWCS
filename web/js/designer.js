@@ -1,9 +1,11 @@
 // Designer: editor grafico delle viste HMI (stile Perspective).
 import { api, Live, esc, toast } from './core.js';
 import {
-  COMPONENTS, COMMON_SCHEMA, ELEMENT_ATTRS, ViewRenderer, defaultsFor, evalBinding,
-  sanitizeSvg, compileSymbol, runActions,
+  COMPONENTS, COMMON_SCHEMA, ELEMENT_ATTRS, ELEMENT_ATTR_TYPES, ViewRenderer, defaultsFor, evalBinding,
+  sanitizeSvg, compileSymbol, runActions, createPopup, scopeFor, viewScope, invalidateView,
 } from './render.js';
+import { P, loadProject, saveProject, onProject } from './project.js';
+import { kvEditor } from './forms.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
@@ -14,13 +16,22 @@ const S = {
   sel: [], zoom: 1, snap: true, grid: 10, preview: false,
   undo: [], redo: [], clip: null,
   tags: [], symbols: [], scripts: { functions: [] },
+  lib: {}, symRoot: 'Intralogistica',
 };
 
 const stage = $('#stage');
+const designAction = (viewId) => (comp, ev, scope) => runActions(comp, ev, {
+  live, api, toast, viewId, scope, navigate: (v) => openView(v),
+  openPopup: (vid, params, title) => {
+    const p = createPopup({ live, api, toast, symbols: renderer.symbols, viewId: vid, params, title, onAction: designAction(vid), onClose: () => popups.delete(p) });
+    popups.add(p);
+  },
+});
+const popups = new Set();
 const renderer = new ViewRenderer(stage, live, {
-  design: true,
+  design: true, api,
   preview: () => S.preview,
-  onAction: (comp, ev) => runActions(comp, ev, { live, api, toast, viewId: S.viewId, navigate: (v) => openView(v) }),
+  onAction: (comp, ev, scope) => designAction(S.viewId)(comp, ev, scope),
 });
 // griglia tra sfondo e componenti
 stage.insertAdjacentHTML('afterbegin', `<defs><pattern id="gridp" width="10" height="10" patternUnits="userSpaceOnUse">
@@ -83,10 +94,14 @@ function toView(e) {
 async function loadViews() {
   S.views = await api.get('/api/views');
   const ul = $('#viewList');
-  ul.innerHTML = S.views.map((v) => `<li data-id="${esc(v.id)}" class="${v.id === S.viewId ? 'on' : ''}">
-    <span>${v.home ? '🏠 ' : ''}${esc(v.title)}</span><span class="muted mono">${esc(v.id)}</span>
-    <span class="acts"><button class="small" data-dup title="Duplica">⧉</button><button class="small danger" data-del title="Elimina">✕</button></span></li>`).join('')
-    || '<li class="muted">Nessuna vista</li>';
+  const item = (v) => `<li data-id="${esc(v.id)}" class="${v.id === S.viewId ? 'on' : ''}" title="${esc(v.id)}">
+    <span class="vt">${v.home ? '🏠 ' : ''}${esc(v.title)}</span>
+    <span class="acts"><button class="small" data-dup title="Duplica">⧉</button><button class="small danger" data-del title="Elimina">✕</button></span></li>`;
+  const pages = S.views.filter((v) => !v.faceplate), fps = S.views.filter((v) => v.faceplate);
+  const openFp = fps.some((v) => v.id === S.viewId) || localStorage.getItem('designer.fpOpen') === '1';
+  ul.innerHTML = (pages.map(item).join('') || '<li class="muted">Nessuna vista</li>') +
+    (fps.length ? `<li class="muted" style="cursor:default;margin-top:8px"><details id="fpGroup" ${openFp ? 'open' : ''} style="width:100%"><summary>Faceplate / popup (${fps.length})</summary><ul class="list">${fps.map(item).join('')}</ul></details></li>` : '');
+  ul.querySelector('#fpGroup')?.addEventListener('toggle', (e) => localStorage.setItem('designer.fpOpen', e.target.open ? '1' : '0'));
   ul.querySelectorAll('li[data-id]').forEach((li) => {
     li.onclick = (e) => {
       const id = li.dataset.id;
@@ -153,6 +168,7 @@ async function save() {
   if (!S.view) return;
   try {
     const r = await api.put(`/api/views/${S.viewId}`, S.view);
+    invalidateView(S.viewId);
     S.dirty = false;
     $('#dirty').hidden = true;
     toast(r.warnings?.length ? `Salvata con avvisi:\n${r.warnings.join('\n')}` : 'Vista salvata', r.warnings?.length ? 'error' : 'ok');
@@ -311,7 +327,15 @@ $('#center').addEventListener('drop', (e) => {
     const s = renderer.symbols[sym];
     const vb = (s?.viewBox || '0 0 100 100').split(/[\s,]+/).map(Number);
     const k = 100 / Math.max(vb[2], vb[3]);
-    addComponent('symbol', p.x - 50, p.y - 50, { w: Math.round(vb[2] * k), h: Math.round(vb[3] * k), props: { symbol: sym } });
+    const m = S.lib[sym];
+    const extra = { w: Math.round(vb[2] * k), h: Math.round(vb[3] * k), props: { symbol: sym } };
+    if (m) {
+      // simbolo di libreria: proprietà personalizzata 'device' (istanza UDT), binding e faceplate
+      extra.custom = { device: '' };
+      extra.bindings = structuredClone(m.bindings || {});
+      extra.events = { onClick: { actions: [{ kind: 'popup', view: m.faceplate, params: { device: '{device}' } }] } };
+    }
+    addComponent('symbol', p.x - vb[2] * k / 2, p.y - vb[3] * k / 2, extra);
   } else if (tag) {
     // su un componente esistente: collega la proprietà principale
     const g = document.elementFromPoint(e.clientX, e.clientY)?.closest('g[data-id]');
@@ -343,14 +367,35 @@ $('#palette').addEventListener('dblclick', (e) => {
 });
 
 async function loadSymbols() {
-  S.symbols = await api.get('/api/symbols');
+  const [list, lib] = await Promise.all([api.get('/api/symbols'), api.get('/api/library').catch(() => ({}))]);
+  S.symbols = list;
+  S.lib = lib?.symbols || {};
+  S.libUdts = lib?.udts || [];
   renderer.setSymbols(S.symbols);
   if (S.view) renderer.update(true);
-  $('#symList').innerHTML = S.symbols.map((s) => `<div class="si" draggable="true" data-sym="${esc(s.id)}">
-    <img src="/api/symbols/${encodeURIComponent(s.id)}?t=${Date.now()}" alt="">
-    <div class="nm">${esc(s.id)}<button class="small danger" data-delsym="${esc(s.id)}" title="Elimina">✕</button></div></div>`).join('')
-    || '<p class="hint">Nessun simbolo importato.</p>';
+  drawSymbolMenu();
 }
+
+/** Menu simboli: radici (Intralogistica / Macchine / Processo / Altri) e sottocategorie. */
+function drawSymbolMenu() {
+  const cat = (id) => S.lib[id]?.category || renderer.symbols[id]?.category || 'Importati';
+  const roots = ['Intralogistica', 'Macchine', 'Processo', 'Altri'];
+  const rootOf = (c) => (roots.includes(c.split('/')[0]) ? c.split('/')[0] : 'Altri');
+  $('#symRoots').innerHTML = roots.map((r) => `<button data-root="${r}" class="${r === S.symRoot ? 'on' : ''}">${r}</button>`).join('');
+  $('#symRoots').querySelectorAll('[data-root]').forEach((b) => (b.onclick = () => { S.symRoot = b.dataset.root; drawSymbolMenu(); }));
+  const f = $('#symFilter').value.toLowerCase();
+  const items = S.symbols.filter((s) => rootOf(cat(s.id)) === S.symRoot)
+    .map((s) => ({ ...s, title: S.lib[s.id]?.title || renderer.symbols[s.id]?.title || s.id, cat: cat(s.id) }))
+    .filter((s) => !f || s.title.toLowerCase().includes(f) || s.id.includes(f));
+  const groups = {};
+  for (const s of items) (groups[s.cat.split('/').slice(1).join('/') || s.cat] ||= []).push(s);
+  $('#symList').innerHTML = Object.entries(groups).sort().map(([g, arr]) => `<details class="cat" open><summary>${esc(g)} <span class="muted">(${arr.length})</span></summary>
+    <div class="symgrid">${arr.map((s) => `<div class="si" draggable="true" data-sym="${esc(s.id)}" title="${esc(s.title)}${S.lib[s.id] ? `\nUDT: ${S.lib[s.id].udt} · faceplate: ${S.lib[s.id].faceplate}` : ''}">
+      <img src="/api/symbols/${encodeURIComponent(s.id)}" alt="" loading="lazy">
+      <div class="nm">${esc(s.title)}${S.lib[s.id] ? '' : `<button class="small danger" data-delsym="${esc(s.id)}" title="Elimina">✕</button>`}</div></div>`).join('')}</div></details>`).join('')
+    || '<p class="hint">Nessun simbolo in questa categoria.</p>';
+}
+$('#symFilter').oninput = () => drawSymbolMenu();
 $('#symList').addEventListener('dragstart', (e) => e.dataTransfer.setData('wcs/symbol', e.target.closest('.si').dataset.sym));
 $('#symList').addEventListener('click', async (e) => {
   const id = e.target.dataset.delsym;
@@ -398,8 +443,15 @@ function inputFor(type, value, opts) {
   if (type === 'number') return `<input type="number" step="any" data-in value="${esc(v)}">`;
   if (type === 'color') return `<span class="colorpair"><input type="color" data-color value="${/^#[0-9a-f]{6}$/i.test(v) ? v : '#000000'}"><input type="text" data-in value="${esc(v)}"></span>`;
   if (type === 'select') return `<select data-in>${opts.map((o) => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
-  if (type === 'symbol') return `<select data-in><option value=""></option>${S.symbols.map((s) => `<option ${s.id === v ? 'selected' : ''}>${esc(s.id)}</option>`).join('')}</select>`;
+  if (type === 'symbol') return `<select data-in><option value=""></option>${S.symbols.map((s) => `<option value="${esc(s.id)}" ${s.id === v ? 'selected' : ''}>${esc(S.lib[s.id]?.title || s.id)}</option>`).join('')}</select>`;
+  if (type === 'view') return `<select data-in><option value=""></option>${S.views.map((x) => `<option value="${esc(x.id)}" ${x.id === v ? 'selected' : ''}>${esc(x.title)}${x.faceplate ? ' (faceplate)' : ''}</option>`).join('')}</select>`;
+  if (type === 'json') return `<input type="text" data-in class="mono" value="${esc(typeof v === 'object' ? JSON.stringify(v) : v)}" placeholder='{"device": "{device}"}'>`;
   return `<input type="text" data-in value="${esc(v)}">`;
+}
+
+/** Scope di un componente nel Designer: parametri di default della vista + custom. */
+function compScope(c) {
+  return scopeFor(c, viewScope(S.view, {}));
 }
 
 function bindingSummary(b) {
@@ -415,7 +467,7 @@ function propRow(c, path, label, type, opts) {
   const cur = path.split('.').reduce((o, k) => (o ? o[k] : undefined), { ...defaultsFor(c.type), ...c.props });
   let body;
   if (b) {
-    const r = evalBinding(b, live);
+    const r = evalBinding(b, live, compScope(c));
     body = `<div class="bound-info" data-editbind="${esc(path)}" title="${esc(bindingSummary(b))}${r.error ? '\n' + esc(r.error) : ''}">
       ${esc(bindingSummary(b))} <span class="lv" data-live="${esc(path)}">= ${esc(JSON.stringify(r.value))}</span></div>`;
   } else body = inputFor(type, cur, opts);
@@ -443,6 +495,7 @@ function renderProps() {
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Nome</label><input data-name value="${esc(c.name || '')}"></div>
     <div class="xy">${['x', 'y', 'w', 'h'].map((k) => `<label>${k.toUpperCase()}<input type="number" data-geo="${k}" value="${Math.round(c[k])}"></label>`).join('')}</div>
     <div class="prow" style="grid-template-columns:100px 1fr;margin-top:5px"><label>Rotazione°</label><input type="number" data-geo="rotation" value="${c.rotation || 0}"></div>
+    ${customSection(c)}
     <h4>Proprietà</h4>`;
   for (const [k, t, l, o] of def.schema) h += propRow(c, k, l, t, o);
   if (c.type === 'symbol') {
@@ -451,10 +504,10 @@ function renderProps() {
       h += `<h4>Elementi SVG</h4>`;
       for (const el of sym.elements) {
         const nb = ELEMENT_ATTRS.filter((a) => c.bindings?.[`elements.${el.id}.${a}`]).length;
-        h += `<details class="el" data-elid="${esc(el.id)}" ${openEls.has(el.id) ? 'open' : ''}><summary>#${esc(el.id)} <span class="muted">${esc(el.tag)}</span>${nb ? ` <span class="badge" style="background:var(--ok)">${nb}</span>` : ''}</summary><div>`;
+        h += `<details class="el" data-elid="${esc(el.id)}" ${openEls.has(el.id) ? 'open' : ''}><summary title="${esc(el.desc || '')}">#${esc(el.id)} <span class="muted">${esc(el.desc || el.tag)}</span>${nb ? ` <span class="badge" style="background:var(--ok)">${nb}</span>` : ''}</summary><div>`;
         for (const a of ELEMENT_ATTRS) {
           if (a === 'text' && el.tag !== 'text') continue;
-          h += propRow(c, `elements.${el.id}.${a}`, a, a === 'visible' ? 'bool' : ['fill', 'stroke'].includes(a) ? 'color' : a === 'text' ? 'text' : 'number');
+          h += propRow(c, `elements.${el.id}.${a}`, a, ELEMENT_ATTR_TYPES[a] || 'number');
         }
         h += `</div></details>`;
       }
@@ -468,6 +521,24 @@ function renderProps() {
 }
 const openEls = new Set();
 
+/** Proprietà personalizzate (custom): parametri passati ai binding {nome}, a viste incorporate e popup. */
+function customSection(c) {
+  const cu = c.custom || {};
+  const fam = c.type === 'symbol' ? S.lib[c.props?.symbol]?.udt : '';
+  const insts = (P.data?.udt_instances || []).filter((i) => !fam || i.type === fam).map((i) => i.name);
+  let h = `<h4>Proprietà personalizzate <span class="grow"></span><button class="small" data-addcustom title="Aggiungi proprietà">+</button></h4>`;
+  if (!Object.keys(cu).length) return h + `<p class="hint">Nessuna. Es. <code>device</code> = istanza UDT, usabile nei binding come <code>{device}.Run</code> e passabile ai faceplate.</p>`;
+  for (const [k, v] of Object.entries(cu)) {
+    h += `<div class="prow" style="grid-template-columns:100px 1fr 26px" data-custom="${esc(k)}"><label title="{${esc(k)}}">${esc(k)}</label>
+      ${k === 'device'
+        ? `<select data-cval><option value=""></option>${[...new Set([...insts, v].filter(Boolean))].map((n) => `<option ${n === v ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`
+        : `<input data-cval value="${esc(v)}" list="instNames">`}
+      <button class="small danger" data-delcustom title="Rimuovi">✕</button></div>`;
+  }
+  if (fam) h += `<p class="hint">Istanze UDT di tipo <b>${esc(fam)}</b>. Crea nuove istanze nel workspace Tag e UDT.</p>`;
+  return h;
+}
+
 function renderEvents(c) {
   const ev = c.events?.onClick || { actions: [] };
   let h = `<h4>Evento: click <span class="grow"></span><button class="small" data-addact>+ Azione</button></h4>
@@ -476,7 +547,8 @@ function renderEvents(c) {
     h += `<div class="act" data-ai="${i}"><div class="prow"><label>Tipo</label><div class="row">
       <select data-af="kind"><option value="write" ${a.kind === 'write' ? 'selected' : ''}>Scrivi tag</option>
       <option value="script" ${a.kind === 'script' ? 'selected' : ''}>Script Python</option>
-      <option value="navigate" ${a.kind === 'navigate' ? 'selected' : ''}>Vai a vista</option></select>
+      <option value="navigate" ${a.kind === 'navigate' ? 'selected' : ''}>Vai a vista</option>
+      <option value="popup" ${a.kind === 'popup' ? 'selected' : ''}>Apri popup / faceplate</option></select>
       <button class="small" data-amove="-1">↑</button><button class="small danger" data-adel>✕</button></div></div>`;
     if (a.kind === 'write') {
       h += `<div class="prow"><label>Tag</label><input list="tagNames" data-af="tag" value="${esc(a.tag || '')}"></div>
@@ -484,6 +556,10 @@ function renderEvents(c) {
     } else if (a.kind === 'script') {
       h += `<div class="prow"><label>Funzione</label><select data-af="fn"><option></option>${S.scripts.functions.map((f) => `<option ${f === a.fn ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select></div>
         <div class="prow"><label>Payload</label><input data-af="payload" class="mono" value="${esc(a.payload || '')}" placeholder='{"chiave": 1}'></div>`;
+    } else if (a.kind === 'popup') {
+      h += `<div class="prow"><label>Vista</label><select data-af="view">${S.views.map((v) => `<option value="${esc(v.id)}" ${v.id === a.view ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
+        <div class="prow"><label>Parametri</label><input data-af="params" class="mono" value="${esc(JSON.stringify(a.params || {}))}" placeholder='{"device": "{device}"}' title="Valori con {nome} = proprietà personalizate del componente o parametri della vista"></div>
+        <div class="prow"><label>Titolo</label><input data-af="title" value="${esc(a.title || '')}" placeholder="(titolo della vista)"></div>`;
     } else {
       h += `<div class="prow"><label>Vista</label><select data-af="view">${S.views.map((v) => `<option value="${esc(v.id)}" ${v.id === a.view ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>`;
     }
@@ -499,6 +575,16 @@ function parseScalar(type, el) {
 }
 
 function wireProps(c) {
+  props.querySelector('[data-addcustom]').onclick = () => {
+    const k = prompt('Nome della proprietà personalizzata (es. device):', c.custom?.device === undefined ? 'device' : '');
+    if (!k || !/^[A-Za-z_]\w*$/.test(k)) return;
+    mutate(() => { (c.custom ||= {})[k] = ''; });
+  };
+  props.querySelectorAll('[data-custom]').forEach((row) => {
+    const k = row.dataset.custom;
+    row.querySelector('[data-cval]').onchange = (e) => mutate(() => { c.custom[k] = e.target.value; });
+    row.querySelector('[data-delcustom]').onclick = () => mutate(() => { delete c.custom[k]; });
+  });
   props.querySelector('[data-name]').onchange = (e) => mutate(() => (c.name = e.target.value.trim() || c.id), { props: false });
   props.querySelectorAll('[data-geo]').forEach((el) => (el.onchange = () => mutate(() => (c[el.dataset.geo] = +el.value || 0), { props: false })));
   props.querySelectorAll('.prow[data-path]').forEach((row) => {
@@ -522,8 +608,16 @@ function wireProps(c) {
     const i = +box.dataset.ai;
     box.querySelectorAll('[data-af]').forEach((el) => (el.onchange = () => mutate(() => {
       const a = ev().actions[i];
+      if (el.dataset.af === 'params') {
+        try { a.params = JSON.parse(el.value || '{}'); el.classList.remove('invalid'); } catch { el.classList.add('invalid'); toast('Parametri: JSON non valido', 'error'); }
+        return;
+      }
       a[el.dataset.af] = el.value;
-      if (el.dataset.af === 'kind') { for (const k of Object.keys(a)) if (k !== 'kind') delete a[k]; if (a.kind === 'navigate') a.view = S.views[0]?.id; }
+      if (el.dataset.af === 'kind') {
+        for (const k of Object.keys(a)) if (k !== 'kind') delete a[k];
+        if (a.kind === 'navigate') a.view = S.views[0]?.id;
+        if (a.kind === 'popup') { a.view = S.views.find((v) => v.faceplate)?.id || S.views[0]?.id; a.params = c.custom?.device !== undefined ? { device: '{device}' } : {}; }
+      }
     }, { props: el.dataset.af === 'kind' })));
     box.querySelector('[data-adel]').onclick = () => mutate(() => ev().actions.splice(i, 1));
     box.querySelector('[data-amove]').onclick = () => i > 0 && mutate(() => { const a = ev().actions; [a[i - 1], a[i]] = [a[i], a[i - 1]]; });
@@ -538,6 +632,10 @@ function renderViewProps() {
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Altezza</label><input type="number" data-v="height" value="${v.height}"></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Sfondo</label><span class="colorpair"><input type="color" data-vc value="${esc(v.background || '#0b1220')}"><input data-v="background" value="${esc(v.background || '')}"></span></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Pagina iniziale</label><input type="checkbox" data-v="home" ${v.home ? 'checked' : ''}></div>
+    <div class="prow" style="grid-template-columns:100px 1fr"><label>Area</label><select data-v="area"><option value=""></option>${(P.data?.areas || []).map((a) => `<option ${a.name === v.area ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
+    <div class="prow" style="grid-template-columns:100px 1fr"><label>Faceplate/popup</label><input type="checkbox" data-v="faceplate" ${v.faceplate ? 'checked' : ''} title="Nascosta dal menu del runtime, aperta come popup"></div>
+    <h4>Parametri della vista</h4><p class="hint">Ricevuti da popup o viste incorporate. Usali come <code>{nome}</code> nei binding (es. <code>{device}.Run</code>). Il valore qui è il default per il Designer.</p>
+    <div id="vparams"></div>
     <h4>Componenti (${v.components.length})</h4>
     <ul class="list">${[...v.components].reverse().map((c) => `<li data-pick="${esc(c.id)}">${COMPONENTS[c.type]?.icon || '?'} ${esc(c.name || c.id)}
       <span class="muted">${Object.keys(c.bindings || {}).length ? '🔗' + Object.keys(c.bindings).length : ''}</span></li>`).join('')}</ul>
@@ -545,9 +643,11 @@ function renderViewProps() {
   props.querySelectorAll('[data-v]').forEach((el) => (el.onchange = () => mutate(() => {
     const k = el.dataset.v;
     v[k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Math.max(100, +el.value) : el.value;
+    if (k === 'area' && !v.area) delete v.area;
     $('#viewTitle').textContent = `${v.title}  (${S.viewId})`;
     if (k === 'width' || k === 'height' || k === 'background') { renderer.load(v); gridRect.setAttribute('width', v.width); gridRect.setAttribute('height', v.height); applyZoom(); }
   })));
+  kvEditor(props.querySelector('#vparams'), (v.params ||= {}), { onChange: () => { markDirty(); renderer.load(v); }, keyLabel: 'Parametro', valLabel: 'Default', valList: 'instNames' });
   props.querySelector('[data-vc]').oninput = (e) => { const t = props.querySelector('[data-v="background"]'); t.value = e.target.value; t.onchange(); };
   props.querySelectorAll('[data-pick]').forEach((li) => (li.onclick = () => { S.sel = [li.dataset.pick]; drawOverlay(); renderProps(); }));
 }
@@ -689,7 +789,7 @@ function openBinding(c, path) {
   draw(m);
   const iv = setInterval(() => {
     if (!document.body.contains(m)) return clearInterval(iv);
-    const r = evalBinding(b, live);
+    const r = evalBinding(b, live, compScope(c));
     const p = m.querySelector('#bPrev');
     if (p) p.innerHTML = r.error ? `<span class="err">${esc(r.error)}</span>` : `${esc(JSON.stringify(r.value))}${r.bad ? ' <span class="q-bad">(qualità non buona)</span>' : ''}`;
   }, 300);
@@ -770,22 +870,46 @@ live.on('tags', () => {
   updateTagValues();
   const c = selected().length === 1 ? selected()[0] : null;
   if (c) props.querySelectorAll('[data-live]').forEach((el) => {
-    const r = evalBinding(c.bindings[el.dataset.live], live);
+    const r = evalBinding(c.bindings[el.dataset.live], live, compScope(c));
     el.textContent = '= ' + JSON.stringify(r.value);
   });
 });
 live.on('status', (st) => { if (JSON.stringify(st.scripts.functions) !== JSON.stringify(S.scripts.functions)) S.scripts = st.scripts; });
+
+// ================================================================ workspace
+const wsLoaded = {};
+async function showWorkspace(ws) {
+  document.querySelectorAll('.wstabs [data-ws]').forEach((b) => b.classList.toggle('on', b.dataset.ws === ws));
+  document.querySelectorAll('.ws').forEach((el) => (el.hidden = el.id !== `ws-${ws}`));
+  $('#viewTools').style.display = ws === 'views' ? '' : 'none';
+  localStorage.setItem('designer.ws', ws);
+  if (ws === 'views') { renderProps(); return; }
+  const mod = { tags: './ws_tags.js', sort: './ws_sort.js', project: './ws_project.js' }[ws];
+  if (!wsLoaded[ws]) wsLoaded[ws] = (await import(mod)).mount($(`#ws-${ws}`), { live, S, toast });
+  else wsLoaded[ws].show?.();
+}
+document.querySelectorAll('.wstabs [data-ws]').forEach((b) => (b.onclick = () => showWorkspace(b.dataset.ws)));
+$('#btnSaveProject').onclick = async () => { if (await saveProject()) { await loadTags(); invalidateView(); } };
+onProject(() => {
+  $('#projDirty').hidden = !P.dirty;
+  $('#instNames').innerHTML = (P.data?.udt_instances || []).map((i) => `<option value="${esc(i.name)}">`).join('');
+});
+window.addEventListener('beforeunload', (e) => { if (P.dirty) { e.preventDefault(); e.returnValue = ''; } });
+live.on('project', () => { loadTags(); invalidateView(); });
 
 async function init() {
   const info = await api.get('/api/info');
   if (!info.designer) { document.body.innerHTML = '<div class="card" style="margin:40px">Designer disabilitato (server.designer: false).</div>'; return; }
   S.scripts = info.scripts;
   document.title = `Designer – ${info.plant.name}`;
-  await Promise.all([loadViews(), loadSymbols(), loadTags()]);
+  await Promise.all([loadViews(), loadSymbols(), loadTags(), loadProject()]);
   live.connect();
   refreshAll();
   const last = localStorage.getItem('designer.view');
-  const start = S.views.find((v) => v.id === last) || S.views[0];
+  const start = S.views.find((v) => v.id === last) || S.views.find((v) => v.home) || S.views.find((v) => !v.faceplate) || S.views[0];
   if (start) { await openView(start.id); fit(); drawOverlay(); }
+  const ws = localStorage.getItem('designer.ws');
+  if (ws && ws !== 'views') showWorkspace(ws);
 }
+export { loadTags, S as designerState };
 init().catch((e) => toast(e.message, 'error'));

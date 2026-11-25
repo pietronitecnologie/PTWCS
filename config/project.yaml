@@ -13,6 +13,10 @@ areas:
   parent: Linea
 - name: Servizi
   description: Variabili interne WCS e simulazione
+- name: Magazzino
+  description: Magazzino automatico e movimentazione
+- name: Processo
+  description: Impianto di servizio (serbatoio acqua)
 scan_classes:
 - name: veloce
   rate_ms: 100
@@ -87,6 +91,527 @@ udt_types:
     writable: true
     description: 'Esito: 0 ok, 1 noread, 2 sovrappeso, 3 destinazione sconosciuta, 9 fallback'
     role: output
+- name: Trasporto
+  description: Nastro/rulliera motorizzata – layout S7 di 10 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: Run
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: In marcia
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Guasto
+  - name: Auto
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Automatico
+  - name: Occupied
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: Occupato
+  - name: Cmd_Start
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    writable: true
+    description: Comando marcia
+  - name: Cmd_Stop
+    type: bool
+    address: DB{DB}.DBX{Base+0}.5
+    writable: true
+    description: Comando arresto
+  - name: Cmd_Reset
+    type: bool
+    address: DB{DB}.DBX{Base+0}.6
+    writable: true
+    description: Reset guasto
+  - name: Speed
+    type: f32
+    address: DB{DB}.DBD{Base+2}
+    description: Velocità
+    unit: m/min
+    historize: true
+  - name: Current
+    type: f32
+    address: DB{DB}.DBD{Base+6}
+    description: Corrente motore
+    unit: A
+    historize: true
+- name: Elevatore
+  description: Elevatore / lift – layout S7 di 14 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: Moving
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: In movimento
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Guasto
+  - name: Auto
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Automatico
+  - name: Occupied
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: Carico a bordo
+  - name: Run
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    description: Rulliera di bordo in marcia
+  - name: Cmd_Reset
+    type: bool
+    address: DB{DB}.DBX{Base+0}.5
+    writable: true
+    description: Reset guasto
+  - name: Level
+    type: u16
+    address: DB{DB}.DBW{Base+2}
+    description: Piano attuale
+  - name: Target
+    type: u16
+    address: DB{DB}.DBW{Base+4}
+    writable: true
+    description: Piano destinazione
+  - name: Position
+    type: f32
+    address: DB{DB}.DBD{Base+6}
+    description: Posizione
+    unit: mm
+    historize: true
+  - name: PosPct
+    type: f32
+    address: DB{DB}.DBD{Base+10}
+    description: Posizione %
+    unit: '%'
+    historize: true
+- name: Porta
+  description: Porta automatica – layout S7 di 6 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: Open
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: Aperta
+  - name: Closed
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Chiusa
+  - name: Moving
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: In movimento
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: Guasto
+  - name: Cmd_Open
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    writable: true
+    description: Comando apertura
+  - name: Cmd_Close
+    type: bool
+    address: DB{DB}.DBX{Base+0}.5
+    writable: true
+    description: Comando chiusura
+  - name: OpenPct
+    type: f32
+    address: DB{DB}.DBD{Base+2}
+    description: Apertura
+    unit: '%'
+    historize: true
+- name: Traslo
+  description: Traslo / trasloelevatore – layout S7 di 26 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: Moving
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: In movimento
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Guasto
+  - name: Auto
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Automatico
+  - name: Loaded
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: Carico a bordo
+  - name: Cmd_Reset
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    writable: true
+    description: Reset guasto
+  - name: Mission
+    type: u32
+    address: DB{DB}.DBD{Base+2}
+    description: Missione in corso
+  - name: PosX
+    type: f32
+    address: DB{DB}.DBD{Base+6}
+    description: Posizione corsia
+    unit: m
+    historize: true
+  - name: PosY
+    type: f32
+    address: DB{DB}.DBD{Base+10}
+    description: Posizione verticale
+    unit: m
+    historize: true
+  - name: PctX
+    type: f32
+    address: DB{DB}.DBD{Base+14}
+    description: Posizione corsia %
+    unit: '%'
+    historize: true
+  - name: PctY
+    type: f32
+    address: DB{DB}.DBD{Base+18}
+    description: Posizione verticale %
+    unit: '%'
+    historize: true
+  - name: Fork
+    type: f32
+    address: DB{DB}.DBD{Base+22}
+    description: Forche (-100..100)
+    unit: '%'
+    historize: true
+- name: Scaffale
+  description: Scaffalatura / magazzino – layout S7 di 10 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: C1
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: Cella 1 occupata
+  - name: C2
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Cella 2 occupata
+  - name: C3
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Cella 3 occupata
+  - name: C4
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: Cella 4 occupata
+  - name: C5
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    description: Cella 5 occupata
+  - name: C6
+    type: bool
+    address: DB{DB}.DBX{Base+0}.5
+    description: Cella 6 occupata
+  - name: C7
+    type: bool
+    address: DB{DB}.DBX{Base+0}.6
+    description: Cella 7 occupata
+  - name: C8
+    type: bool
+    address: DB{DB}.DBX{Base+0}.7
+    description: Cella 8 occupata
+  - name: C9
+    type: bool
+    address: DB{DB}.DBX{Base+1}.0
+    description: Cella 9 occupata
+  - name: C10
+    type: bool
+    address: DB{DB}.DBX{Base+1}.1
+    description: Cella 10 occupata
+  - name: C11
+    type: bool
+    address: DB{DB}.DBX{Base+1}.2
+    description: Cella 11 occupata
+  - name: C12
+    type: bool
+    address: DB{DB}.DBX{Base+1}.3
+    description: Cella 12 occupata
+  - name: Cells
+    type: u16
+    address: DB{DB}.DBW{Base+2}
+    description: Celle totali
+  - name: OccupiedCells
+    type: u16
+    address: DB{DB}.DBW{Base+4}
+    description: Celle occupate
+  - name: FillPct
+    type: f32
+    address: DB{DB}.DBD{Base+6}
+    description: Saturazione
+    unit: '%'
+    historize: true
+- name: Veicolo
+  description: Veicolo (AGV/AMR, shuttle, carrello) – layout S7 di 24 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: Moving
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: In movimento
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Guasto
+  - name: Loaded
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Carico a bordo
+  - name: Charging
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: In carica
+  - name: Cmd_Pause
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    writable: true
+    description: Pausa
+  - name: Cmd_Resume
+    type: bool
+    address: DB{DB}.DBX{Base+0}.5
+    writable: true
+    description: Riprendi
+  - name: State
+    type: u16
+    address: DB{DB}.DBW{Base+2}
+    description: Stato
+  - name: Mission
+    type: u32
+    address: DB{DB}.DBD{Base+4}
+    description: Missione
+  - name: Battery
+    type: f32
+    address: DB{DB}.DBD{Base+8}
+    description: Batteria
+    unit: '%'
+    historize: true
+  - name: X
+    type: f32
+    address: DB{DB}.DBD{Base+12}
+    description: Posizione X
+    unit: m
+    historize: true
+  - name: Y
+    type: f32
+    address: DB{DB}.DBD{Base+16}
+    description: Posizione Y
+    unit: m
+    historize: true
+  - name: Fork
+    type: f32
+    address: DB{DB}.DBD{Base+20}
+    description: Forche
+    unit: '%'
+    historize: true
+- name: Motore
+  description: Motore / pompa / ventilatore – layout S7 di 14 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: Run
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: In marcia
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Guasto
+  - name: Auto
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Automatico
+  - name: Cmd_Start
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    writable: true
+    description: Comando marcia
+  - name: Cmd_Stop
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    writable: true
+    description: Comando arresto
+  - name: Cmd_Reset
+    type: bool
+    address: DB{DB}.DBX{Base+0}.5
+    writable: true
+    description: Reset guasto
+  - name: Speed
+    type: f32
+    address: DB{DB}.DBD{Base+2}
+    description: Velocità
+    unit: '%'
+    historize: true
+  - name: Current
+    type: f32
+    address: DB{DB}.DBD{Base+6}
+    description: Corrente
+    unit: A
+    historize: true
+  - name: Hours
+    type: u32
+    address: DB{DB}.DBD{Base+10}
+    description: Ore di funzionamento
+    unit: h
+- name: Valvola
+  description: Valvola on/off – layout S7 di 2 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: Open
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: Aperta
+  - name: Closed
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Chiusa
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Guasto
+  - name: Auto
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: Automatico
+  - name: Cmd_Open
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    writable: true
+    description: Comando apertura
+  - name: Cmd_Close
+    type: bool
+    address: DB{DB}.DBX{Base+0}.5
+    writable: true
+    description: Comando chiusura
+- name: Serbatoio
+  description: Serbatoio / silo / tramoggia – layout S7 di 14 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: HighLevel
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: Livello alto
+  - name: LowLevel
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Livello basso
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Guasto strumento
+  - name: Level
+    type: f32
+    address: DB{DB}.DBD{Base+2}
+    description: Livello
+    unit: '%'
+    historize: true
+  - name: Volume
+    type: f32
+    address: DB{DB}.DBD{Base+6}
+    description: Volume
+    unit: m³
+    historize: true
+  - name: Temp
+    type: f32
+    address: DB{DB}.DBD{Base+10}
+    description: Temperatura
+    unit: °C
+    historize: true
+- name: Strumento
+  description: Trasmettitore analogico – layout S7 di 6 byte a partire da Base
+  params:
+  - name: DB
+    default: 100
+    description: Numero DB
+  - name: Base
+    default: 0
+    description: Offset di partenza nel DB (byte)
+  members:
+  - name: HH
+    type: bool
+    address: DB{DB}.DBX{Base+0}.0
+    description: Soglia altissima
+  - name: H
+    type: bool
+    address: DB{DB}.DBX{Base+0}.1
+    description: Soglia alta
+  - name: L
+    type: bool
+    address: DB{DB}.DBX{Base+0}.2
+    description: Soglia bassa
+  - name: LL
+    type: bool
+    address: DB{DB}.DBX{Base+0}.3
+    description: Soglia bassissima
+  - name: Fault
+    type: bool
+    address: DB{DB}.DBX{Base+0}.4
+    description: Guasto
+  - name: Value
+    type: f32
+    address: DB{DB}.DBD{Base+2}
+    description: Valore
+    historize: true
 udt_instances:
 - name: CV1
   type: Nastro
@@ -120,6 +645,90 @@ udt_instances:
   params:
     Base: 0
   description: Scanner SC1
+- name: CVM1
+  type: Trasporto
+  driver: WCS_INTERNO
+  area: Magazzino
+  params:
+    Base: 0
+    DB: 200
+- name: CVM2
+  type: Trasporto
+  driver: WCS_INTERNO
+  area: Magazzino
+  params:
+    Base: 0
+    DB: 201
+- name: LIFT1
+  type: Elevatore
+  driver: WCS_INTERNO
+  area: Magazzino
+  params:
+    Base: 0
+    DB: 202
+- name: DOOR1
+  type: Porta
+  driver: WCS_INTERNO
+  area: Magazzino
+  params:
+    Base: 0
+    DB: 203
+- name: DOCK1
+  type: Porta
+  driver: WCS_INTERNO
+  area: Magazzino
+  params:
+    Base: 0
+    DB: 204
+- name: CRANE1
+  type: Traslo
+  driver: WCS_INTERNO
+  area: Magazzino
+  params:
+    Base: 0
+    DB: 205
+- name: RACK1
+  type: Scaffale
+  driver: WCS_INTERNO
+  area: Magazzino
+  params:
+    Base: 0
+    DB: 206
+- name: AGV1
+  type: Veicolo
+  driver: WCS_INTERNO
+  area: Magazzino
+  params:
+    Base: 0
+    DB: 207
+- name: TK1
+  type: Serbatoio
+  driver: WCS_INTERNO
+  area: Processo
+  params:
+    Base: 0
+    DB: 210
+- name: P1
+  type: Motore
+  driver: WCS_INTERNO
+  area: Processo
+  params:
+    Base: 0
+    DB: 211
+- name: XV1
+  type: Valvola
+  driver: WCS_INTERNO
+  area: Processo
+  params:
+    Base: 0
+    DB: 212
+- name: LT1
+  type: Strumento
+  driver: WCS_INTERNO
+  area: Processo
+  params:
+    Base: 0
+    DB: 213
 tags:
 - name: Line.ResetFaults
   driver: PLC_LINEA
@@ -295,3 +904,8 @@ wms:
   timeout_ms: 250
   cache_ttl_s: 300
 alarms: []
+timer_scripts:
+- name: sim_magazzino
+  function: sim_magazzino
+  interval_ms: 200
+  enabled: true

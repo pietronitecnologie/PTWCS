@@ -57,6 +57,7 @@ pub struct AppState {
     pub sorting: Arc<Sorting>,
     drivers: Mutex<HashMap<String, Task>>,
     decisions: Mutex<HashMap<String, Task>>,
+    timers: Mutex<HashMap<String, Task>>,
     /// Serializza le modifiche di progetto dal Designer.
     pub edit_lock: tokio::sync::Mutex<()>,
     me: std::sync::OnceLock<std::sync::Weak<AppState>>,
@@ -92,6 +93,9 @@ impl AppState {
     /// Avvia, riavvia o ferma i task driver. Solo i driver la cui configurazione,
     /// lista di tag o scan class sono cambiate vengono riavviati.
     fn sync_drivers(&self, cfg: &Config) {
+        self.db.set_sim_drivers(
+            cfg.drivers.iter().filter(|d| d.protocol == crate::config::Protocol::Sim).map(|d| d.name.clone()).collect(),
+        );
         let mut tasks = self.drivers.lock().unwrap();
         for d in &cfg.drivers {
             let dtags: Vec<TagDef> = cfg.tags.iter().filter(|t| t.driver == d.name).cloned().collect();
@@ -147,6 +151,59 @@ impl AppState {
         });
     }
 
+    /// Avvia/riavvia gli script a timer (eseguiti nel processo Python HMI,
+    /// separato da quello delle decisioni in tempo reale).
+    fn sync_timers(&self, timers: &[crate::config::TimerScript]) {
+        let mut tasks = self.timers.lock().unwrap();
+        for t in timers.iter().filter(|t| t.enabled) {
+            let signature = serde_json::to_string(t).unwrap_or_default();
+            if tasks.get(&t.name).is_some_and(|x| x.signature == signature) {
+                continue;
+            }
+            if let Some(old) = tasks.remove(&t.name) {
+                old.handle.abort();
+            }
+            let app = self.arc();
+            let def = t.clone();
+            let handle = tokio::spawn(async move {
+                let mut iv = tokio::time::interval(Duration::from_millis(def.interval_ms));
+                iv.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                let mut errors = 0u32;
+                loop {
+                    iv.tick().await;
+                    let ctx = serde_json::json!({"tags": decision::tags_ctx(&app), "point": format!("timer:{}", def.name)});
+                    let r = app.hmi_scripts.call(&def.function, serde_json::json!({}), ctx, Duration::from_millis(def.interval_ms.max(1000))).await;
+                    match r {
+                        Ok(rep) => {
+                            errors = 0;
+                            for e in decision::apply_writes(&app, &rep.writes, &format!("timer:{}", def.name), false).await {
+                                tracing::debug!("timer {}: {e}", def.name);
+                            }
+                            for l in rep.logs {
+                                app.log("info", &format!("timer:{}", def.name), l);
+                            }
+                        }
+                        Err(e) => {
+                            errors += 1;
+                            if errors == 1 || errors.is_multiple_of(100) {
+                                app.log("warn", &format!("timer:{}", def.name), format!("{e:#}"));
+                            }
+                        }
+                    }
+                }
+            });
+            tasks.insert(t.name.clone(), Task { signature, handle });
+        }
+        let names: HashSet<&str> = timers.iter().filter(|t| t.enabled).map(|t| t.name.as_str()).collect();
+        tasks.retain(|n, t| {
+            let keep = names.contains(n.as_str());
+            if !keep {
+                t.handle.abort();
+            }
+            keep
+        });
+    }
+
     /// Valida un progetto senza applicarlo (verifica e anteprima dal Designer).
     pub fn check_project(&self, project: Project) -> Result<Config> {
         let cand = self.base.with_project(project)?;
@@ -166,6 +223,7 @@ impl AppState {
         self.db.set_defs(cand.tags.clone());
         self.sync_drivers(&cand);
         self.sync_decisions(&cand.decision_points);
+        self.sync_timers(&cand.timer_scripts);
         self.sorting.configure(&cand.sort_classes, cand.wms.clone());
         *self.cfg.write().unwrap() = Arc::new(cand);
         let _ = self.events.send(Event::Project);
@@ -214,12 +272,14 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
         sorting: sorting.clone(),
         drivers: Default::default(),
         decisions: Default::default(),
+        timers: Default::default(),
         edit_lock: Default::default(),
         me: Default::default(),
     });
     let _ = app.me.set(Arc::downgrade(&app));
     app.sync_drivers(&cfg);
     app.sync_decisions(&cfg.decision_points);
+    app.sync_timers(&cfg.timer_scripts);
     tokio::spawn(alarms::run(app.clone()));
     tokio::spawn(historian(app.clone()));
     tokio::spawn(housekeeping(app.clone()));

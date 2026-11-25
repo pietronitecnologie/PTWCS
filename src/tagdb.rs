@@ -62,6 +62,8 @@ pub struct TagDb {
     states: RwLock<HashMap<String, TagState>>,
     tx: broadcast::Sender<TagUpdate>,
     writers: RwLock<HashMap<String, mpsc::Sender<WriteCmd>>>,
+    /// Driver simulati: gli script interni (timer) possono scriverne anche i tag di stato.
+    sim_drivers: RwLock<std::collections::HashSet<String>>,
 }
 
 pub fn now_ms() -> i64 {
@@ -76,6 +78,7 @@ impl TagDb {
             states: RwLock::new(HashMap::new()),
             tx,
             writers: RwLock::new(HashMap::new()),
+            sim_drivers: Default::default(),
         });
         db.set_defs(defs.to_vec());
         db
@@ -107,6 +110,10 @@ impl TagDb {
                 w.remove(driver);
             }
         }
+    }
+
+    pub fn set_sim_drivers(&self, names: std::collections::HashSet<String>) {
+        *self.sim_drivers.write().unwrap() = names;
     }
 
     /// Elenco delle definizioni nell'ordine di configurazione.
@@ -174,8 +181,14 @@ impl TagDb {
     /// Scrive un valore sul PLC tramite il driver proprietario del tag.
     /// Ritorna solo dopo la conferma del driver (o errore/timeout).
     pub async fn write(&self, name: &str, value: Value) -> Result<()> {
+        self.write_ext(name, value, false).await
+    }
+
+    /// `internal`: scrittura da script di simulazione, ammessa anche su tag non
+    /// scrivibili ma solo se appartengono a un driver simulato.
+    pub async fn write_ext(&self, name: &str, value: Value, internal: bool) -> Result<()> {
         let def = self.def(name).ok_or_else(|| anyhow!("tag sconosciuto: {name}"))?;
-        if !def.writable {
+        if !def.writable && !(internal && self.sim_drivers.read().unwrap().contains(&def.driver)) {
             return Err(anyhow!("tag {name} non scrivibile"));
         }
         let value = value.coerce(def.dtype)?;

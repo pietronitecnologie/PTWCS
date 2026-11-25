@@ -415,17 +415,15 @@ fn validate(set: &RuleSet, dp: &DecisionPointDef, chk: &Checker) -> Result<()> {
     let known_field = |f: &str| f == "request_id" || dp.inputs.contains_key(f);
     let check_ref = |s: &str, ctx: &str| -> Result<()> {
         let s = s.trim();
-        if let Some(t) = s.strip_prefix("tag:") {
-            if !(chk.tag)(t.trim()) {
+        if let Some(t) = s.strip_prefix("tag:")
+            && !(chk.tag)(t.trim()) {
                 bail!("{ctx}: tag sconosciuto '{}'", t.trim());
             }
-        }
         for p in ["class:", "wms:"] {
-            if let Some(f) = s.strip_prefix(p) {
-                if !known_field(f.trim()) {
+            if let Some(f) = s.strip_prefix(p)
+                && !known_field(f.trim()) {
                     bail!("{ctx}: '{s}' – campo '{}' non è un input del punto", f.trim());
                 }
-            }
         }
         Ok(())
     };

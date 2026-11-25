@@ -71,3 +71,20 @@ text { user-select: none; }
 .modal > .mf { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
 .field { display: grid; grid-template-columns: 130px 1fr; gap: 8px; align-items: center; margin-bottom: 8px; }
 .field > label { color: var(--muted); font-size: 13px; }
+
+/* animazioni elementi dei simboli */
+.sym-flow { animation: symflow 0.8s linear infinite; }
+@keyframes symflow { to { stroke-dashoffset: calc(-1px * var(--dl, 26)); } }
+.sym-blink { animation: symblink 1s steps(2, jump-none) infinite; }
+@keyframes symblink { 50% { opacity: 0.15; } }
+.sym-spin { animation: symspin 1.2s linear infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes symspin { to { transform: rotate(360deg); } }
+
+/* popup / faceplate */
+.popup-win { position: fixed; z-index: 601; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 60px #000c; overflow: hidden; }
+.popup-head { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--panel2); cursor: move; user-select: none; font-weight: 600; }
+.popup-body svg { display: block; }
+.area-card { cursor: pointer; border-left: 5px solid var(--ok); }
+.area-card.sev-warning { border-left-color: var(--warn); } .area-card.sev-alarm { border-left-color: var(--alarm); } .area-card.sev-critical { border-left-color: var(--crit); background: #2a0f12; }
+.area-card .big { font-size: 26px; font-weight: 700; }
+.grid-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-bottom: 8px; }

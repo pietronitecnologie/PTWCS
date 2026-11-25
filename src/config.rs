@@ -49,6 +49,8 @@ pub struct Config {
     pub wms: Option<WmsConfig>,
     #[serde(default)]
     pub alarms: Vec<AlarmDef>,
+    #[serde(default)]
+    pub timer_scripts: Vec<TimerScript>,
 
     /// Directory del file di configurazione: i path relativi partono da qui.
     #[serde(skip)]
@@ -85,6 +87,19 @@ pub struct Project {
     pub wms: Option<WmsConfig>,
     #[serde(default)]
     pub alarms: Vec<AlarmDef>,
+    /// Script Python eseguiti periodicamente (logiche di supporto, simulazioni).
+    #[serde(default)]
+    pub timer_scripts: Vec<TimerScript>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TimerScript {
+    pub name: String,
+    /// Funzione Python `def f(payload, ctx)`.
+    pub function: String,
+    pub interval_ms: u64,
+    #[serde(default = "yes")]
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -752,6 +767,7 @@ impl Config {
             c.wms = project.wms.clone();
         }
         c.alarms.extend(project.alarms.clone());
+        c.timer_scripts.extend(project.timer_scripts.clone());
         // espansione UDT
         for inst in &c.udt_instances {
             let t = c
@@ -846,12 +862,20 @@ impl Config {
         uniq("istanza UDT", self.udt_instances.iter().map(|a| a.name.as_str()).collect())?;
         uniq("classe di smistamento", self.sort_classes.iter().map(|a| a.name.as_str()).collect())?;
         uniq("punto di decisione", self.decision_points.iter().map(|a| a.name.as_str()).collect())?;
+        uniq("timer script", self.timer_scripts.iter().map(|a| a.name.as_str()).collect())?;
+        for t in &self.timer_scripts {
+            if t.interval_ms < 50 {
+                bail!("timer script {}: intervallo minimo 50 ms", t.name);
+            }
+            if self.scripting.module.is_none() {
+                bail!("timer script {}: manca scripting.module", t.name);
+            }
+        }
         for a in &self.areas {
-            if let Some(p) = &a.parent {
-                if !areas.contains(p) {
+            if let Some(p) = &a.parent
+                && !areas.contains(p) {
                     bail!("area {}: area padre sconosciuta '{p}'", a.name);
                 }
-            }
         }
         for s in &self.scan_classes {
             if s.rate_ms < 10 {
@@ -859,11 +883,10 @@ impl Config {
             }
         }
         let need_area = |ctx: &str, a: &Option<String>| -> Result<()> {
-            if let Some(a) = a {
-                if !areas.contains(a) {
+            if let Some(a) = a
+                && !areas.contains(a) {
                     bail!("{ctx}: area sconosciuta '{a}'");
                 }
-            }
             Ok(())
         };
         for d in &self.drivers {
@@ -885,11 +908,10 @@ impl Config {
                 bail!("tag {}: driver sconosciuto '{}'", t.name, t.driver);
             }
             need_area(&format!("tag {}", t.name), &t.area)?;
-            if let Some(s) = &t.scan_class {
-                if !scans.contains(s) {
+            if let Some(s) = &t.scan_class
+                && !scans.contains(s) {
                     bail!("tag {}: scan class sconosciuta '{s}'", t.name);
                 }
-            }
             for a in &t.alarms {
                 check_op(&format!("allarme {}.{}", t.name, a.name), &a.op)?;
             }
@@ -932,11 +954,10 @@ impl Config {
             check_op(&format!("allarme {}", a.id), &a.op)?;
             need_area(&format!("allarme {}", a.id), &a.area)?;
         }
-        if let Some(w) = &self.wms {
-            if w.enabled && !(w.base_url.starts_with("http://") || w.base_url.starts_with("https://")) {
+        if let Some(w) = &self.wms
+            && w.enabled && !(w.base_url.starts_with("http://") || w.base_url.starts_with("https://")) {
                 bail!("WMS: base_url deve iniziare con http:// o https://");
             }
-        }
         Ok(())
     }
 }

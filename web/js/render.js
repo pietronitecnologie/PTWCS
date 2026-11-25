@@ -1,20 +1,23 @@
 // Renderer delle viste (condiviso tra Runtime e Designer).
 //
 // Modello vista:
-// { id, title, width, height, background, home, components: [Component] }
+// { id, title, width, height, background, home, area?, params: {nome: default}, components: [Component] }
 // Component:
 // { id, type, name, x, y, w, h, rotation,
+//   custom:   { nome: valore }  proprietà personalizzate (possono usare {param} della vista)
 //   props:    { ...proprietà statiche del tipo, visible, opacity, tooltip },
 //   bindings: { "<path prop>": Binding },          // es. "running", "elements.body.fill"
 //   events:   { onClick: { confirm?, actions: [Action] } } }
-// Binding:
-// { kind: "tag", tag: "CV1.Run", transform? }  |  { kind: "expr", expr: "tag('A') > 3", transform? }
+// Binding (i {nome} sono risolti con custom del componente e parametri della vista):
+// { kind: "tag", tag: "{device}.Run", transform? }  |  { kind: "expr", expr: "tag('{device}.Level') > 3", transform? }
+// Nelle espressioni: tag(nome), param(nome), value, Math.
 // Transform:
 // { kind: "map", rules: [{ in: "true" | "10..20" | ">5", out: "..." }], default }
 // { kind: "expr", expr: "value / 10" }   |   { kind: "format", format: "{value} kg", decimals: 1 }
 // Action:
 // { kind: "write", tag, value }  (value: valore | "toggle" | "prompt")
 // { kind: "script", fn, payload }  |  { kind: "navigate", view }
+// { kind: "popup", view, params: { nome: "valore o {param}" }, title }   (faceplate)
 
 import { esc } from './core.js';
 
@@ -177,27 +180,94 @@ export const COMPONENTS = {
       return `<svg width="${w}" height="${h}" viewBox="${esc(s.viewBox)}" preserveAspectRatio="none" overflow="visible"
         ${p.fill ? `fill="${esc(p.fill)}"` : ''}>${s.body.replaceAll('__P__', `${ctx.uid}_`)}</svg>`;
     },
-    // Applica le proprietà per elemento (props.elements.<id>.fill|stroke|visible|opacity|text|rotate)
+    // Applica le proprietà per elemento (props.elements.<id>.<attr>)
     after(g, p) {
       for (const [id, a] of Object.entries(p.elements || {})) {
-        g.querySelectorAll(`[data-el="${CSS.escape(id)}"]`).forEach((el) => {
-          if (a.fill !== undefined && a.fill !== '') { el.setAttribute('fill', a.fill); el.style.fill = a.fill; }
-          if (a.stroke !== undefined && a.stroke !== '') { el.setAttribute('stroke', a.stroke); el.style.stroke = a.stroke; }
-          if (a.opacity !== undefined && a.opacity !== '') el.setAttribute('opacity', a.opacity);
-          if (a.visible !== undefined && a.visible !== '') el.style.display = bool(a.visible) ? '' : 'none';
-          if (a.text !== undefined && el.tagName.toLowerCase() === 'text') el.textContent = a.text;
-          if (a.rotate !== undefined && a.rotate !== '') {
-            const bb = el.getBBox();
-            el.setAttribute('transform', `rotate(${num(a.rotate)} ${bb.x + bb.width / 2} ${bb.y + bb.height / 2})`);
-          }
-        });
+        g.querySelectorAll(`[data-el="${CSS.escape(id)}"]`).forEach((el) => applyElement(el, a));
       }
     },
   },
+  embed: {
+    label: 'Vista incorporata', icon: '▣', size: [300, 200],
+    props: { view: '', params: '{}', border: false },
+    schema: [['view', 'view', 'Vista'], ['params', 'json', 'Parametri (JSON, {param} del padre)'], ['border', 'bool', 'Bordo']],
+    render(p, w, h) {
+      return `<rect width="${w}" height="${h}" fill="transparent" ${bool(p.border) ? 'stroke="#334155"' : ''}/>
+        <svg class="embed-host" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"></svg>`;
+    },
+  },
+  trend: {
+    label: 'Trend', icon: '📈', size: [400, 160],
+    props: { tags: '', minutes: 10, min: '', max: '', background: '#0a1120', legend: true },
+    schema: [['tags', 'text', 'Tag (separati da virgola)'], ['minutes', 'number', 'Finestra (minuti)'],
+      ['min', 'text', 'Min (vuoto = auto)'], ['max', 'text', 'Max (vuoto = auto)'], ['background', 'color', 'Sfondo'], ['legend', 'bool', 'Legenda']],
+    render(p, w, h, ctx) {
+      const tags = String(p.tags || '').split(',').map((t) => t.trim()).filter(Boolean);
+      const span = Math.max(0.5, num(p.minutes, 10)) * 60000;
+      const now = Date.now(), from = now - span;
+      const series = tags.map((t) => ({ t, d: (ctx.history?.(t) || []).filter((x) => x[0] >= from - span) }));
+      const vals = series.flatMap((s) => s.d.map((x) => x[1])).filter((x) => typeof x === 'number' && isFinite(x));
+      let lo = p.min !== '' && p.min !== undefined ? num(p.min) : Math.min(...vals);
+      let hi = p.max !== '' && p.max !== undefined ? num(p.max) : Math.max(...vals);
+      if (!isFinite(lo) || !isFinite(hi)) { lo = 0; hi = 1; }
+      if (hi === lo) { hi += 1; lo -= 1; }
+      const L = 40, R = 6, T = 6, B = 16, pw = w - L - R, ph = h - T - B;
+      const X = (ts) => L + pw * (ts - from) / span, Y = (v) => T + ph * (1 - (v - lo) / (hi - lo));
+      let out = `<rect width="${w}" height="${h}" rx="4" fill="${esc(p.background)}" stroke="#24324f"/>`;
+      for (let i = 0; i <= 4; i++) {
+        const y = T + ph * i / 4, v = hi - (hi - lo) * i / 4;
+        out += `<line x1="${L}" y1="${y}" x2="${w - R}" y2="${y}" stroke="#1e293b"/><text x="${L - 4}" y="${y}" fill="#64748b" font-size="9" text-anchor="end" dominant-baseline="central">${+v.toFixed(2)}</text>`;
+      }
+      out += `<text x="${L}" y="${h - 5}" fill="#64748b" font-size="9">-${num(p.minutes, 10)} min</text><text x="${w - R}" y="${h - 5}" fill="#64748b" font-size="9" text-anchor="end">ora</text>`;
+      series.forEach((s, k) => {
+        const col = TREND_COLORS[k % TREND_COLORS.length];
+        const pts = s.d.filter((x) => typeof x[1] === 'number');
+        if (pts.length) {
+          let d = '';
+          const all = [...pts, [now, pts.at(-1)[1]]];
+          all.forEach(([ts, v], i) => {
+            const x = Math.max(L, X(ts)).toFixed(1), y = Y(v).toFixed(1);
+            d += i ? ` H${x} V${y}` : `M${x} ${y}`;
+          });
+          out += `<path d="${d}" fill="none" stroke="${col}" stroke-width="1.6"/>`;
+        }
+        if (bool(p.legend)) out += `<text x="${L + 6}" y="${T + 10 + k * 13}" fill="${col}" font-size="10">${esc(s.t)}${pts.length ? ' = ' + (+pts.at(-1)[1].toFixed(2)) : ''}</text>`;
+      });
+      return out;
+    },
+  },
 };
+export const TREND_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899'];
 
 export const COMMON_SCHEMA = [['visible', 'bool', 'Visibile'], ['opacity', 'number', 'Opacità (0-1)'], ['tooltip', 'text', 'Tooltip']];
-export const ELEMENT_ATTRS = ['fill', 'stroke', 'visible', 'opacity', 'text', 'rotate'];
+/** Attributi animabili degli elementi di un simbolo SVG. */
+export const ELEMENT_ATTRS = ['fill', 'stroke', 'visible', 'opacity', 'text', 'rotate', 'tx', 'ty', 'flow', 'blink', 'spin'];
+export const ELEMENT_ATTR_TYPES = { visible: 'bool', flow: 'bool', blink: 'bool', spin: 'bool', fill: 'color', stroke: 'color', text: 'text' };
+
+function applyElement(el, a) {
+  const set = (v) => v !== undefined && v !== '' && v !== null;
+  if (set(a.fill)) { el.setAttribute('fill', a.fill); el.style.fill = a.fill; }
+  if (set(a.stroke)) { el.setAttribute('stroke', a.stroke); el.style.stroke = a.stroke; }
+  if (set(a.opacity)) el.setAttribute('opacity', a.opacity);
+  if (set(a.visible)) el.style.display = bool(a.visible) ? '' : 'none';
+  if (a.text !== undefined && el.tagName.toLowerCase() === 'text') el.textContent = a.text ?? '';
+  for (const [k, cls] of [['flow', 'sym-flow'], ['blink', 'sym-blink'], ['spin', 'sym-spin']]) {
+    if (a[k] !== undefined) el.classList.toggle(cls, bool(a[k]));
+  }
+  if (set(a.rotate) || set(a.tx) || set(a.ty)) {
+    if (!el.hasAttribute('data-t0')) el.setAttribute('data-t0', el.getAttribute('transform') || '');
+    let t = '';
+    if (set(a.tx) || set(a.ty)) t += `translate(${num(a.tx)} ${num(a.ty)}) `;
+    if (set(a.rotate)) {
+      let [px, py] = (el.getAttribute('data-pivot') || '').split(/[\s,]+/).map(Number);
+      if (isNaN(px) || isNaN(py)) {
+        try { const bb = el.getBBox(); px = bb.x + bb.width / 2; py = bb.y + bb.height / 2; } catch { px = 0; py = 0; }
+      }
+      t += `rotate(${num(a.rotate)} ${px} ${py}) `;
+    }
+    el.setAttribute('transform', t + el.getAttribute('data-t0'));
+  }
+}
 
 // ------------------------------------------------------------------ simboli SVG
 
@@ -223,28 +293,42 @@ export function sanitizeSvg(text) {
   return new XMLSerializer().serializeToString(svg);
 }
 
-/** Prepara un simbolo: id resi unici per istanza (prefisso __P__), elementi marcati con data-el. */
+const NON_BINDABLE = ['defs', 'lineargradient', 'radialgradient', 'stop', 'clippath', 'mask', 'style', 'title', 'desc'];
+
+/** Prepara un simbolo: id unici per istanza (prefisso __P__), elementi marcati con data-el, metadati. */
 export function compileSymbol(svgText) {
   const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
   const svg = doc.querySelector('svg');
   const ids = [];
   svg.querySelectorAll('[id]').forEach((el) => {
     const id = el.getAttribute('id');
-    ids.push({ id, tag: el.tagName.toLowerCase() });
+    ids.push({ id, tag: el.tagName.toLowerCase(), desc: el.getAttribute('data-desc') || '' });
     el.setAttribute('data-el', id);
     el.setAttribute('id', `__P__${id}`);
   });
+  const title = svg.querySelector(':scope > title')?.textContent || '';
+  svg.querySelector(':scope > title')?.remove();
   let body = svg.innerHTML;
   for (const { id } of ids) {
     const e = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     body = body.replace(new RegExp(`url\\(\\s*#${e}\\s*\\)`, 'g'), `url(#__P__${id})`)
       .replace(new RegExp(`href="#${e}"`, 'g'), `href="#__P__${id}"`);
   }
-  // Classi CSS interne potrebbero collidere tra simboli: prefissiamo i selettori #id.
-  return { viewBox: svg.getAttribute('viewBox') || '0 0 100 100', body, elements: ids.filter((x) => !['defs', 'lineargradient', 'radialgradient', 'stop', 'clippath', 'mask', 'style'].includes(x.tag)) };
+  return {
+    viewBox: svg.getAttribute('viewBox') || '0 0 100 100', body, title,
+    category: svg.getAttribute('data-category') || 'Importati',
+    udt: svg.getAttribute('data-udt') || '', faceplate: svg.getAttribute('data-faceplate') || '',
+    elements: ids.filter((x) => !NON_BINDABLE.includes(x.tag)),
+  };
 }
 
-// ------------------------------------------------------------------ binding
+// ------------------------------------------------------------------ parametri e binding
+
+/** Sostituisce {nome} con i valori dello scope (i nomi sconosciuti restano invariati). */
+export function subst(s, scope) {
+  if (typeof s !== 'string' || !scope || !s.includes('{')) return s;
+  return s.replace(/\{([A-Za-z_][\w]*)\}/g, (m, k) => (Object.hasOwn(scope, k) && scope[k] !== undefined && scope[k] !== null ? String(scope[k]) : m));
+}
 
 const exprCache = new Map();
 function compileExpr(src) {
@@ -252,10 +336,11 @@ function compileExpr(src) {
     let f;
     try {
       // eslint-disable-next-line no-new-func
-      f = new Function('value', 'tag', 'Math', `"use strict"; return (${src});`);
+      f = new Function('value', 'tag', 'Math', 'param', `"use strict"; return (${src});`);
     } catch (e) {
       f = () => { throw e; };
     }
+    if (exprCache.size > 5000) exprCache.clear();
     exprCache.set(src, f);
   }
   return exprCache.get(src);
@@ -267,20 +352,20 @@ function matchRule(rule, v) {
   let m;
   if ((m = r.match(/^(-?[\d.]+)\s*\.\.\s*(-?[\d.]+)$/))) return !isNaN(n) && n >= +m[1] && n <= +m[2];
   if ((m = r.match(/^(>=|<=|>|<|!=)\s*(-?[\d.]+)$/))) {
-    if (isNaN(n)) return false;
+    if (v === null || v === undefined || v === '' || isNaN(n)) return false;
     return { '>=': n >= +m[2], '<=': n <= +m[2], '>': n > +m[2], '<': n < +m[2], '!=': n != +m[2] }[m[1]];
   }
   if (r === 'true' || r === 'false') return bool(v) === (r === 'true') && (typeof v === 'boolean' || v === 0 || v === 1 || v === '0' || v === '1' || v === 'true' || v === 'false');
   return String(v) === r;
 }
 
-export function applyTransform(t, v, tagFn) {
+export function applyTransform(t, v, tagFn, scope = {}) {
   if (!t || !t.kind || t.kind === 'none') return v;
   if (t.kind === 'map') {
     for (const rule of t.rules || []) if (matchRule(rule, v)) return rule.out;
     return t.default !== undefined && t.default !== '' ? t.default : v;
   }
-  if (t.kind === 'expr') return compileExpr(t.expr || 'value')(v, tagFn, Math);
+  if (t.kind === 'expr') return compileExpr(subst(t.expr || 'value', scope))(v, tagFn, Math, (k) => scope[k]);
   if (t.kind === 'format') {
     const val = typeof v === 'number' && t.decimals !== undefined && t.decimals !== '' ? v.toFixed(+t.decimals) : v;
     return String(t.format || '{value}').replaceAll('{value}', val ?? '');
@@ -288,19 +373,21 @@ export function applyTransform(t, v, tagFn) {
   return v;
 }
 
-/** Valuta un binding. Ritorna {value, bad, error}. */
-export function evalBinding(b, live) {
+/** Valuta un binding nello scope dato (parametri vista + proprietà custom). Ritorna {value, bad, error, tag}. */
+export function evalBinding(b, live, scope = {}) {
   const tagFn = (n) => live.value(n);
   try {
-    let v, bad = false;
+    let v, bad = false, tag;
     if (b.kind === 'tag') {
-      const st = live.tags.get(b.tag);
+      tag = subst(b.tag || '', scope);
+      if (!tag || tag.includes('{')) return { value: undefined, tag, error: tag ? `parametro non risolto in '${tag}'` : undefined };
+      const st = live.tags.get(tag);
       v = st?.value;
       bad = !st || st.quality !== 'good';
     } else if (b.kind === 'expr') {
-      v = compileExpr(b.expr || 'null')(undefined, tagFn, Math);
+      v = compileExpr(subst(b.expr || 'null', scope))(undefined, tagFn, Math, (k) => scope[k]);
     } else return { value: undefined };
-    return { value: applyTransform(b.transform, v, tagFn), bad };
+    return { value: applyTransform(b.transform, v, tagFn, scope), bad, tag };
   } catch (e) {
     return { value: undefined, error: e.message, bad: true };
   }
@@ -318,17 +405,24 @@ function setPath(obj, path, v) {
 
 export function defaultsFor(type) {
   const d = COMPONENTS[type];
-  return { visible: true, opacity: 1, tooltip: '', ...structuredClone(d.props) };
+  return { visible: true, opacity: 1, tooltip: '', ...structuredClone(d?.props || {}) };
+}
+
+/** Scope di un componente: parametri della vista + proprietà custom (risolte nei parametri). */
+export function scopeFor(comp, viewScope = {}) {
+  const sc = { ...viewScope };
+  for (const [k, v] of Object.entries(comp.custom || {})) sc[k] = subst(String(v ?? ''), viewScope);
+  return sc;
 }
 
 /** Proprietà effettive di un componente (statiche + binding). */
-export function resolveProps(comp, live) {
+export function resolveProps(comp, live, scope = {}) {
   const p = { ...defaultsFor(comp.type), ...structuredClone(comp.props || {}) };
   let bad = false;
   const errors = [];
   for (const [path, b] of Object.entries(comp.bindings || {})) {
     if (!b || !b.kind) continue;
-    const r = evalBinding(b, live);
+    const r = evalBinding(b, live, scope);
     if (r.bad) bad = true;
     if (r.error) errors.push(`${path}: ${r.error}`);
     if (r.value !== undefined) setPath(p, path, r.value);
@@ -336,45 +430,76 @@ export function resolveProps(comp, live) {
   return { props: p, bad, errors };
 }
 
+/** Parametri effettivi di una vista: default dichiarati + valori passati. */
+export function viewScope(view, passed = {}) {
+  const sc = {};
+  for (const [k, v] of Object.entries(view?.params || {})) sc[k] = v;
+  for (const [k, v] of Object.entries(passed || {})) sc[k] = v;
+  return sc;
+}
+
 // ------------------------------------------------------------------ renderer
+
+/** Cache condivisa delle viste caricate (per viste incorporate e popup). */
+const viewCache = new Map();
+export function loadViewCached(api, id) {
+  if (!viewCache.has(id)) viewCache.set(id, api.get(`/api/views/${encodeURIComponent(id)}`).catch((e) => { viewCache.delete(id); throw e; }));
+  return viewCache.get(id);
+}
+export function invalidateView(id) { if (id) viewCache.delete(id); else viewCache.clear(); }
 
 export class ViewRenderer {
   /**
    * @param {SVGSVGElement} svg  elemento radice
    * @param {Live} live
-   * @param {{design?: boolean, onAction?: Function}} opts
+   * @param {{design?: boolean, preview?: Function, onAction?: Function, params?: object, api?: object, symbols?: object}} opts
    */
   constructor(svg, live, opts = {}) {
     this.svg = svg;
     this.live = live;
     this.opts = opts;
-    this.symbols = {};
+    this.symbols = opts.symbols || {};
     this.view = null;
+    this.params = opts.params || {};
+    this.scope = {};
     this.cache = new Map();
+    this.children = new Map();
     this.layer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     this.bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     svg.append(this.bg, this.layer);
   }
 
   setSymbols(list) {
-    this.symbols = {};
+    const out = {};
     for (const s of list) {
-      try { this.symbols[s.id] = compileSymbol(s.svg); } catch (e) { console.warn('simbolo', s.id, e); }
+      try { out[s.id] = compileSymbol(s.svg); } catch (e) { console.warn('simbolo', s.id, e); }
     }
+    this.symbols = out;
     this.cache.clear();
+    return out;
+  }
+
+  setParams(params) {
+    this.params = params || {};
+    this.scope = viewScope(this.view, this.params);
+    this.update(true);
   }
 
   load(view) {
     this.view = view;
+    this.scope = viewScope(view, this.params);
     this.cache.clear();
+    for (const ch of this.children.values()) ch.renderer?.destroy?.();
+    this.children.clear();
     this.layer.innerHTML = '';
     this.svg.setAttribute('viewBox', `0 0 ${view.width} ${view.height}`);
-    Object.assign(this.bg, {});
     this.bg.setAttribute('width', view.width);
     this.bg.setAttribute('height', view.height);
     this.bg.setAttribute('fill', view.background || '#0b1220');
     this.update(true);
   }
+
+  history(tag) { return this.live.history?.(tag) || []; }
 
   /** Ridisegna i componenti la cui uscita è cambiata. */
   update(force = false) {
@@ -390,21 +515,29 @@ export class ViewRenderer {
         g.addEventListener('click', (e) => {
           if (!this.opts.design || this.opts.preview?.()) {
             const comp = this.view.components.find((x) => x.id === c.id);
-            if (comp?.events?.onClick?.actions?.length) { e.stopPropagation(); this.opts.onAction?.(comp, 'onClick'); }
+            if (comp?.events?.onClick?.actions?.length) {
+              e.stopPropagation();
+              this.opts.onAction?.(comp, 'onClick', scopeFor(comp, this.scope));
+            }
           }
         });
       }
-      // ordine z = ordine nell'array
       if (this.layer.children[idx] !== g) this.layer.insertBefore(g, this.layer.children[idx] || null);
       const def = COMPONENTS[c.type];
       if (!def) return;
-      const { props, bad, errors } = resolveProps(c, this.live);
+      const scope = scopeFor(c, this.scope);
+      const { props, bad, errors } = resolveProps(c, this.live, scope);
+      if (c.type === 'trend') props.tags = subst(String(props.tags || ''), scope);
       const w = Math.max(1, num(c.w, def.size[0])), h = Math.max(1, num(c.h, def.size[1]));
-      const inner = def.render(props, w, h, { symbols: this.symbols, uid: c.id }) +
+      const inner = def.render(props, w, h, { symbols: this.symbols, uid: c.id, history: (t) => this.history(t) }) +
         (bad ? `<rect x="-3" y="-3" width="${w + 6}" height="${h + 6}" fill="none" stroke="#f59e0b" stroke-dasharray="3 3" class="badq"/>` : '');
       const transform = `translate(${num(c.x)} ${num(c.y)})${c.rotation ? ` rotate(${num(c.rotation)} ${w / 2} ${h / 2})` : ''}`;
       const key = inner + transform + props.visible + props.opacity + JSON.stringify(props.elements || '') + props.tooltip;
-      if (!force && this.cache.get(c.id) === key) return;
+      if (c.type === 'trend') this.live.watchHistory?.(props.tags.split(',').map((t) => t.trim()).filter(Boolean));
+      if (!force && this.cache.get(c.id) === key) {
+        if (c.type === 'embed') this.updateEmbed(c, g, props, scope);
+        return;
+      }
       this.cache.set(c.id, key);
       g.setAttribute('transform', transform);
       g.style.display = bool(props.visible) || props.visible === undefined ? '' : 'none';
@@ -413,43 +546,114 @@ export class ViewRenderer {
       g.innerHTML = (props.tooltip ? `<title>${esc(props.tooltip)}</title>` : '') + inner;
       if (errors.length) g.dataset.errors = errors.join('\n'); else delete g.dataset.errors;
       def.after?.(g, props);
+      if (c.type === 'embed') this.updateEmbed(c, g, props, scope, true);
     });
-    for (const g of [...this.layer.children]) if (!seen.has(g.dataset.id)) { g.remove(); this.cache.delete(g.dataset.id); }
+    for (const g of [...this.layer.children]) {
+      if (!seen.has(g.dataset.id)) { g.remove(); this.cache.delete(g.dataset.id); this.children.delete(g.dataset.id); }
+    }
+  }
+
+  /** Vista incorporata: crea/aggiorna il renderer figlio passando i parametri. */
+  updateEmbed(c, g, props, scope, rebuilt = false) {
+    let params = {};
+    try {
+      const raw = typeof props.params === 'string' ? JSON.parse(props.params || '{}') : props.params || {};
+      for (const [k, v] of Object.entries(raw)) params[k] = typeof v === 'string' ? subst(v, scope) : v;
+    } catch { params = {}; }
+    const host = g.querySelector('svg.embed-host');
+    let ch = this.children.get(c.id);
+    if (rebuilt || !ch || ch.host !== host || ch.viewId !== props.view) {
+      if (!props.view || !host || !this.opts.api) { this.children.delete(c.id); return; }
+      const r = new ViewRenderer(host, this.live, { ...this.opts, params, symbols: this.symbols });
+      ch = { host, renderer: r, viewId: props.view, paramsKey: JSON.stringify(params) };
+      this.children.set(c.id, ch);
+      if ((this.depth || 0) > 4) return; // protezione da annidamenti ricorsivi
+      r.depth = (this.depth || 0) + 1;
+      loadViewCached(this.opts.api, props.view).then((v) => r.load(v)).catch(() => {
+        host.innerHTML = `<text x="10" y="20" fill="#ef4444" font-size="12">vista '${esc(props.view)}' non trovata</text>`;
+      });
+      return;
+    }
+    const key = JSON.stringify(params);
+    if (key !== ch.paramsKey) { ch.paramsKey = key; ch.renderer.setParams(params); } else ch.renderer.update();
   }
 }
 
-/** Esegue le azioni di un evento (runtime). */
-export async function runActions(comp, evName, { live, api, navigate, toast, viewId }) {
+/** Esegue le azioni di un evento (runtime). `scope` = parametri del componente. */
+export async function runActions(comp, evName, { live, api, navigate, toast, viewId, openPopup, scope = {} }) {
   const ev = comp.events?.[evName];
   if (!ev) return;
-  if (ev.confirm && !confirm(ev.confirm)) return;
+  if (ev.confirm && !confirm(subst(ev.confirm, scope))) return;
   for (const a of ev.actions || []) {
     try {
       if (a.kind === 'write') {
+        const tag = subst(a.tag, scope);
         let value = a.value;
-        if (value === 'toggle') value = !bool(live.value(a.tag));
+        if (value === 'toggle') value = !bool(live.value(tag));
         else if (value === 'prompt') {
-          const s = prompt(`Nuovo valore per ${a.tag}`, live.value(a.tag) ?? '');
+          const s = prompt(`Nuovo valore per ${tag}`, live.value(tag) ?? '');
           if (s === null) return;
           value = s;
-        }
-        await api.post('/api/tags/write', { tag: a.tag, value });
+        } else if (typeof value === 'string') value = subst(value, scope);
+        await api.post('/api/tags/write', { tag, value });
       } else if (a.kind === 'script') {
         let payload = {};
-        try { payload = a.payload ? JSON.parse(a.payload) : {}; } catch { toast('Payload JSON non valido', 'error'); return; }
+        try { payload = a.payload ? JSON.parse(subst(a.payload, scope)) : {}; } catch { toast('Payload JSON non valido', 'error'); return; }
         const r = await api.post('/api/scripts/call', { fn: a.fn, payload, source: `${viewId}/${comp.name || comp.id}` });
         const res = r.result;
         if (res && typeof res === 'object') {
           if (res.message) toast(res.message);
           if (res.navigate) navigate(res.navigate);
+          if (res.popup) openPopup?.(res.popup, res.params || {}, res.title);
         }
         if (r.write_errors?.length) toast(r.write_errors.join('; '), 'error');
       } else if (a.kind === 'navigate') {
         navigate(a.view);
+      } else if (a.kind === 'popup') {
+        const params = {};
+        for (const [k, v] of Object.entries(a.params || {})) params[k] = subst(String(v), scope);
+        openPopup?.(a.view, params, subst(a.title || '', scope));
       }
     } catch (e) {
       toast(e.message, 'error');
       return;
     }
   }
+}
+
+/** Finestra popup flottante (faceplate) con una vista e i suoi parametri. */
+export function createPopup({ live, api, toast, symbols, viewId, params, title, onAction, onClose }) {
+  const win = document.createElement('div');
+  win.className = 'popup-win';
+  const n = document.querySelectorAll('.popup-win').length;
+  win.style.left = `${120 + n * 30}px`;
+  win.style.top = `${80 + n * 30}px`;
+  win.innerHTML = `<div class="popup-head"><span class="popup-title"></span><span class="grow"></span><button class="small popup-close">✕</button></div>
+    <div class="popup-body"><svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg></div>`;
+  document.body.appendChild(win);
+  win.querySelector('.popup-title').textContent = title || viewId;
+  const svg = win.querySelector('svg');
+  const r = new ViewRenderer(svg, live, { api, params, symbols, onAction });
+  r.viewId = viewId;
+  const close = () => { win.remove(); onClose?.(r); };
+  win.querySelector('.popup-close').onclick = close;
+  // trascinamento dalla barra del titolo
+  const head = win.querySelector('.popup-head');
+  head.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button')) return;
+    const ox = e.clientX - win.offsetLeft, oy = e.clientY - win.offsetTop;
+    const mv = (ev) => { win.style.left = `${ev.clientX - ox}px`; win.style.top = `${Math.max(0, ev.clientY - oy)}px`; };
+    const up = () => { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', mv);
+    window.addEventListener('mouseup', up);
+  });
+  win.addEventListener('mousedown', () => { document.querySelectorAll('.popup-win').forEach((w) => (w.style.zIndex = 600)); win.style.zIndex = 601; });
+  loadViewCached(api, viewId).then((v) => {
+    const k = Math.min(1, (window.innerHeight - 120) / v.height);
+    svg.style.width = `${Math.round(v.width * k)}px`;
+    svg.style.height = `${Math.round(v.height * k)}px`;
+    if (!title) win.querySelector('.popup-title').textContent = v.title + (params.device ? ` – ${params.device}` : '');
+    r.load(v);
+  }).catch((e) => { toast(`Vista ${viewId}: ${e.message}`, 'error'); close(); });
+  return { win, renderer: r, close };
 }
