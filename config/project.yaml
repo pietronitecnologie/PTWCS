@@ -3011,6 +3011,129 @@ tags:
   writable: true
   description: Reset guasti e inseguimento
   area: Hub
+- name: Proc.Auto
+  driver: WCS_INTERNO
+  address: proc_auto
+  type: bool
+  writable: true
+  description: Logica di servizio automatica (reintegro T1, pompe)
+  initial: true
+  area: Processo
+- name: Proc.SimActive
+  driver: WCS_INTERNO
+  address: proc_simactive
+  type: bool
+  writable: true
+  description: Simulazione fisica dei fluidi attiva
+  area: Processo
+- name: Proc.V_IN
+  driver: WCS_INTERNO
+  address: proc_v_in
+  type: bool
+  writable: true
+  description: Valvola reintegro acqua di rete
+  area: Processo
+- name: Proc.P1.Run
+  driver: WCS_INTERNO
+  address: proc_p1_run
+  type: bool
+  writable: true
+  description: 'Pompa P1 alimentazione reattori: marcia'
+  area: Processo
+- name: Proc.P1.Fb
+  driver: WCS_INTERNO
+  address: proc_p1_fb
+  type: bool
+  description: 'Pompa P1: in marcia (retroazione)'
+  area: Processo
+- name: Proc.P2.Run
+  driver: WCS_INTERNO
+  address: proc_p2_run
+  type: bool
+  writable: true
+  description: 'Pompa P2 carico autobotte: marcia'
+  area: Processo
+- name: Proc.P2.Fb
+  driver: WCS_INTERNO
+  address: proc_p2_fb
+  type: bool
+  description: 'Pompa P2: in marcia (retroazione)'
+  area: Processo
+- name: Proc.V_OUT
+  driver: WCS_INTERNO
+  address: proc_v_out
+  type: bool
+  writable: true
+  description: Valvola carico autobotte
+  area: Processo
+- name: Proc.T1.Level
+  driver: WCS_INTERNO
+  address: proc_t1_level
+  type: f32
+  description: 'T1 serbatoio acqua: livello'
+  unit: '%'
+  historize: true
+  area: Processo
+  alarms:
+  - name: HI
+    op: '>'
+    value: 95
+    message: 'T1: livello molto alto'
+    severity: warning
+- name: Proc.T1.Temp
+  driver: WCS_INTERNO
+  address: proc_t1_temp
+  type: f32
+  description: 'T1 serbatoio acqua: temperatura'
+  unit: °C
+  historize: true
+  area: Processo
+- name: Proc.T2.Level
+  driver: WCS_INTERNO
+  address: proc_t2_level
+  type: f32
+  description: 'T2 serbatoio prodotto: livello'
+  unit: '%'
+  historize: true
+  area: Processo
+  alarms:
+  - name: HI
+    op: '>'
+    value: 95
+    message: 'T2: livello molto alto'
+    severity: warning
+- name: Proc.T2.Temp
+  driver: WCS_INTERNO
+  address: proc_t2_temp
+  type: f32
+  description: 'T2 serbatoio prodotto: temperatura'
+  unit: °C
+  historize: true
+  area: Processo
+- name: Proc.F_IN
+  driver: WCS_INTERNO
+  address: proc_f_in
+  type: f32
+  description: Portata reintegro da rete
+  unit: m³/h
+  historize: true
+  area: Processo
+- name: Proc.F_P1
+  driver: WCS_INTERNO
+  address: proc_f_p1
+  type: f32
+  description: Portata mandata P1
+  unit: m³/h
+  historize: true
+  area: Processo
+- name: Proc.F_OUT
+  driver: WCS_INTERNO
+  address: proc_f_out
+  type: f32
+  description: Portata carico autobotte
+  unit: m³/h
+  historize: true
+  area: Processo
 decision_points:
 - name: SC1
   description: Scanner barcode – scelta uscita del collo
@@ -3121,6 +3244,10 @@ timer_scripts:
 - name: sim_reactor
   function: sim_reactor
   interval_ms: 500
+  enabled: true
+- name: proc_logic
+  function: proc_logic
+  interval_ms: 300
   enabled: true
 warehouses:
 - name: MP1
@@ -3435,7 +3562,7 @@ physics:
   - PLC_HUB
   - PLC_LINEA
   heartbeat_tag: SimIO.Heartbeat,HubSim.Heartbeat
-  active_tag: SimIO.Active,HubSim.Active
+  active_tag: SimIO.Active,HubSim.Active,Proc.SimActive
   materials:
   - name: Collo
     length_m: 0.4
@@ -3461,3 +3588,6 @@ physics:
     color: '#e5e7eb'
     share: 1.0
     description: Busta imbottita
+  density: 1000.0
+  cp: 4186.0
+  ambient_c: 20.0

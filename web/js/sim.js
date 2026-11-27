@@ -73,6 +73,19 @@ export async function showSim(page, setTimer) {
         else if (a === 'interval') {
           const row = el.closest('tr');
           inject({ action: 'source', key, enabled: st.components.find((c) => c.key === key)?.enabled ?? null, interval_min: +row.querySelector('[data-imin]').value, interval_max: +row.querySelector('[data-imax]').value });
+        } else if (a === 'valve' || a === 'pump' || a === 'heater' || a === 'motor') {
+          const k = { valve: 'stuck', pump: 'tripped', heater: 'failed', motor: 'failed' }[a];
+          inject({ action: a, key, [k]: el.dataset.v === '1' });
+        } else if (a === 'leak') {
+          const c = st.components.find((x) => x.key === key);
+          if (c.leak) inject({ action: 'tank', key, leak: 0 });
+          else { const q = prompt('Portata della perdita (m³/h):', '0.5'); if (q !== null) inject({ action: 'tank', key, leak: +q }); }
+        } else if (a === 'setlevel') {
+          const c = st.components.find((x) => x.key === key);
+          const l = prompt('Livello (%):', String(Math.round(c.level)));
+          if (l === null) return;
+          const t = prompt('Temperatura (°C):', String(Math.round(c.temp)));
+          inject({ action: 'tank', key, level: +l, ...(t !== null && t !== '' ? { temp: +t } : {}) });
         } else if (a === 'spawn') {
           const code = prompt('Barcode della nuova unità (vuoto = dalla sorgente):', '');
           if (code === null) return;
@@ -100,6 +113,15 @@ export async function showSim(page, setTimer) {
       case 'source': return `${c.spawned} generate su ${esc(short(c.on))} · ${c.materials.join(', ')}`;
       case 'sink': return `${c.received} ricevute`;
       case 'stopper': return `${c.pos >= 0.99 ? 'fuori' : c.pos <= 0.01 ? 'dentro' : 'in corsa'}${c.stuck ? ' <span class="chip err">bloccato</span>' : ''}`;
+      case 'tank': return `<span class="lvl"><i style="width:${Math.min(100, c.level)}%"></i></span> <b>${n2(c.level, 1)} %</b> · ${n2(c.volume)} / ${c.vol} m³ · ${n2(c.temp, 1)} °C · ${n2(c.pressure, 3)} bar${c.leak ? ` · <span class="chip err">perdita ${c.leak} m³/h</span>` : ''}${c.spilled > 0 ? ` · <span class="chip warn">troppo pieno ${n2(c.spilled)} m³</span>` : ''}`;
+      case 'supply': return `${c.p} bar · ${c.t} °C`;
+      case 'junction': return `${n2(c.p, 3)} bar`;
+      case 'drain': return '';
+      case 'valve': return `aperta ${n2(c.pos, 0)} % · Kv ${c.kv}${c.stuck ? ' <span class="chip err">bloccata</span>' : ''}`;
+      case 'pump': return `${c.tripped ? '<span class="chip err">scattata</span> ' : ''}${c.dry ? '<span class="chip warn">a secco</span> ' : ''}velocità ${n2(c.speed, 0)} % · ${c.head} m · ${c.qmax} m³/h`;
+      case 'pipe': return `${Math.abs(c.q) > 0.005 ? `<b>${n2(c.q)} m³/h</b>` : '<span class="muted">ferma</span>'}`;
+      case 'heater': return `${c.on ? '<span class="chip warn">acceso</span>' : 'spento'} · ${c.kw} kW${c.failed ? ' <span class="chip err">guasto</span>' : ''}`;
+      case 'motor': return `${n2(c.speed, 0)} / ${c.rpm}${c.failed ? ' <span class="chip err">avaria</span>' : ''}`;
       default: return '';
     }
   }
@@ -110,6 +132,11 @@ export async function showSim(page, setTimer) {
       case 'photocell': return `<select data-a="photocell" ${d}><option value="" ${c.stuck === null ? 'selected' : ''}>normale</option><option value="true" ${c.stuck === true ? 'selected' : ''}>bloccata occupata</option><option value="false" ${c.stuck === false ? 'selected' : ''}>bloccata libera</option></select>`;
       case 'scanner': return `<label class="muted">no-read % <input type="number" data-a="noread_pct" min="0" max="100" style="width:56px" value="${c.noread_pct}" ${d}></label> ${tog('scanner', c.noread, '⚡ Guasto', 'Ripristina')}`;
       case 'diverter': case 'stopper': return tog(c.kind, c.stuck, '⚡ Blocca', 'Sblocca');
+      case 'valve': return tog('valve', c.stuck, '⚡ Blocca', 'Sblocca');
+      case 'pump': return tog('pump', c.tripped, '⚡ Scatto termico', 'Riarma');
+      case 'heater': return tog('heater', c.failed, '⚡ Guasto', 'Ripristina');
+      case 'motor': return tog('motor', c.failed, '⚡ Avaria', 'Ripristina');
+      case 'tank': return `<button class="small" data-a="leak" ${d}>${c.leak ? 'Chiudi perdita' : '⚡ Perdita'}</button> <button class="small" data-a="setlevel" ${d} title="Imposta livello e temperatura (prova)">Livello…</button>`;
       case 'source': return `<input type="number" step="0.1" min="0.05" data-imin style="width:56px" value="${c.interval[0]}" ${d}>–<input type="number" step="0.1" min="0.05" data-imax style="width:56px" value="${c.interval[1]}" ${d}> s <button class="small" data-a="interval" ${d}>OK</button>
         <select data-a="source" ${d}><option value="" ${c.enabled === null ? 'selected' : ''}>automatica</option><option value="true" ${c.enabled === true ? 'selected' : ''}>sempre attiva</option><option value="false" ${c.enabled === false ? 'selected' : ''}>ferma</option></select>
         <button class="small" data-a="spawn" ${d}>+1</button>`;

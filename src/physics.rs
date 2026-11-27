@@ -11,6 +11,8 @@
 //! carico hanno posizione e lunghezza, si accumulano senza sovrapporsi e passano al
 //! componente successivo (nastro, deviatore, pozzo) quando questo può accettarle.
 
+mod fluids;
+
 use crate::app::{AppState, Event};
 use crate::config::{Config, Material, PhysicsCfg, Protocol};
 use crate::tagdb::TagDb;
@@ -91,6 +93,47 @@ pub struct PhysDef {
     pub time_s: Option<f64>,
     pub fb_ext: String,
     pub fb_ret: String,
+    // --- fluidi (vedi physics/fluids.rs)
+    /// Serbatoio: volume (m³), altezza utile (m), quota del fondo (m).
+    pub volume_m3: Option<f64>,
+    pub height_m: Option<f64>,
+    pub elevation_m: Option<f64>,
+    /// Sensori del serbatoio: livello (valore a serbatoio pieno = `level_max`, default 100 = %),
+    /// temperatura (°C), pressione sul fondo (bar).
+    pub level_tag: String,
+    pub level_max: Option<f64>,
+    pub temp_tag: String,
+    pub pressure_tag: String,
+    /// Stato iniziale: livello (% del volume) e temperatura (°C).
+    pub init_level: Option<f64>,
+    pub init_temp: Option<f64>,
+    /// Dispersione termica verso l'ambiente (W/K).
+    pub loss_w_k: Option<f64>,
+    /// Alimentazione: pressione (bar) e temperatura (°C).
+    pub pressure_bar: Option<f64>,
+    pub temp_c: Option<f64>,
+    /// Valvola: Kv (m³/h a 1 bar); con `analog` il tag `position` è l'apertura 0–100 %.
+    pub kv: Option<f64>,
+    pub analog: bool,
+    pub fb_open: String,
+    pub fb_closed: String,
+    pub fb_pos: String,
+    /// Pompa: prevalenza a portata nulla (m) e portata massima (m³/h); retroazione marcia.
+    pub head_m: Option<f64>,
+    pub q_max: Option<f64>,
+    pub fb_run: String,
+    /// Tubazione: da / a (serbatoio, alimentazione, scarico, giunzione), valvole e pompe in serie.
+    pub from: String,
+    pub to: String,
+    pub elements: String,
+    pub flow_tag: String,
+    pub flow_scale: Option<f64>,
+    /// Riscaldatore: potenza (kW), termostato locale (setpoint) con isteresi.
+    pub power_kw: Option<f64>,
+    pub setpoint_tag: String,
+    pub hysteresis: Option<f64>,
+    /// Motore / agitatore: velocità massima (es. giri/min).
+    pub rpm: Option<f64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -281,6 +324,8 @@ struct Model {
     stoppers: Vec<Stopper>,
     mats: Vec<Material>,
     errors: Vec<String>,
+    /// Rete dei fluidi (serbatoi, valvole, pompe, tubazioni…).
+    fl: fluids::Fluids,
 }
 
 fn default_material() -> Material {
@@ -547,6 +592,7 @@ impl Model {
             let n0 = errs.len();
             match d.kind.as_str() {
                 "conveyor" | "diverter" | "sink" => {}
+                k if fluids::KINDS.contains(&k) => {}
                 "photocell" => {
                     let tag = sensor(&k, "segnale", &d.tag, &mut errs);
                     if tag.is_empty() {
@@ -621,6 +667,7 @@ impl Model {
                 other => errs.push(format!("{k}: tipo fisico sconosciuto '{other}'")),
             }
         }
+        m.fl = fluids::Fluids::build(&raw, ph.density, ph.cp, ph.ambient_c, &actuator, &sensor, &mut errs);
         m.photos = photos;
         m.scanners = scanners;
         m.sources = sources;
@@ -659,6 +706,8 @@ struct Sim {
     write_errors: u64,
     last_error: Option<String>,
     log: Vec<(f64, String)>,
+    /// Scritture da fare al prossimo ciclo (es. fattore tempo del PLC virtuale).
+    pending: Vec<(String, Value)>,
 }
 
 impl Sim {
@@ -679,6 +728,7 @@ impl Sim {
             write_errors: 0,
             last_error: None,
             log: vec![],
+            pending: vec![],
         }
     }
 
@@ -713,6 +763,8 @@ impl Sim {
             None => false,
         });
         self.items = items;
+        let mut model = model;
+        model.fl.carry_from(&self.model.fl);
         self.model = model;
         for c in &mut self.model.convs {
             if let Some((v, f)) = speeds.get(&c.key) {
@@ -724,6 +776,7 @@ impl Sim {
 
     fn reset_items(&mut self) {
         self.items.clear();
+        self.model.fl.reset();
         self.t = 0.0;
         self.stats = Stats::default();
         for c in &mut self.model.convs {
@@ -997,6 +1050,10 @@ impl Sim {
         for (tg, v) in fbs {
             self.put(&mut out, &tg, v);
         }
+        // --- fluidi
+        for (tg, v) in self.model.fl.step(dt, read) {
+            self.put(&mut out, &tg, v);
+        }
         out
     }
 
@@ -1029,7 +1086,9 @@ impl Sim {
             let r = |f: f64| (f * 10.0).round() / 10.0;
             views.entry(v).or_default().push(json!([it.id, r(x), r(y), r(a), r(l), r(w), it.color, it.jammed, it.code]));
         }
-        json!({"running": self.running, "paused": self.paused, "t": (self.t * 10.0).round() / 10.0, "views": views})
+        let mut flows: BTreeMap<String, Vec<J>> = BTreeMap::new();
+        self.model.fl.flows(&mut flows);
+        json!({"running": self.running, "paused": self.paused, "t": (self.t * 10.0).round() / 10.0, "views": views, "flows": flows})
     }
 
     fn status(&self) -> J {
@@ -1067,6 +1126,7 @@ impl Sim {
         for s in &m.stoppers {
             comps.push(json!({"key": s.key, "kind": "stopper", "on": conv_key(s.conv), "at": s.at, "pos": s.pos, "stuck": s.stuck}));
         }
+        m.fl.status(&mut comps);
         let items: Vec<J> = self
             .items
             .iter()
@@ -1136,15 +1196,19 @@ impl Physics {
     /// Comandi: start, stop, pause, resume, reset, speed.
     pub fn command(&self, app: &AppState, cmd: &str, arg: &J) -> anyhow::Result<String> {
         self.ensure(app);
+        let ts_tag = app.cfg().project.physics.time_scale_tag.clone();
         let mut g = self.sim.lock().unwrap();
         let s = g.as_mut().unwrap();
         let msg = match cmd {
             "start" => {
-                if !s.model.errors.is_empty() && s.model.convs.is_empty() {
+                if !s.model.errors.is_empty() && s.model.convs.is_empty() && s.model.fl.is_empty() {
                     anyhow::bail!("modello fisico vuoto o non valido: {}", s.model.errors.join("; "));
                 }
                 if s.running {
                     anyhow::bail!("la simulazione è già in corso");
+                }
+                if !ts_tag.is_empty() {
+                    s.pending.push((ts_tag.clone(), Value::Int((s.speed * 100.0).round() as i64)));
                 }
                 s.running = true;
                 s.paused = false;
@@ -1176,6 +1240,9 @@ impl Physics {
                     anyhow::bail!("fattore tempo fuori dai limiti (0,1–20)");
                 }
                 s.speed = f;
+                if !ts_tag.is_empty() {
+                    s.pending.push((ts_tag.clone(), Value::Int((f * 100.0).round() as i64)));
+                }
                 format!("fattore tempo ×{f}")
             }
             _ => anyhow::bail!("comando sconosciuto: {cmd}"),
@@ -1266,7 +1333,10 @@ impl Physics {
                 s.reset_items();
                 "tutte le unità rimosse".into()
             }
-            _ => anyhow::bail!("intervento sconosciuto: {action}"),
+            other => match m.fl.inject(other, key, req) {
+                Some(r) => r?,
+                None => anyhow::bail!("intervento sconosciuto: {action}"),
+            },
         };
         s.note(msg.clone());
         Ok(msg)
@@ -1326,6 +1396,7 @@ pub async fn run(app: Arc<AppState>) {
                 }
                 s.cycle_us = t0.elapsed().as_micros() as u64;
             }
+            writes.append(&mut s.pending);
             if running != was_running {
                 for t in tag_list(&ph.active_tag) {
                     writes.push((t, Value::Bool(running)));

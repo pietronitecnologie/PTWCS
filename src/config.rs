@@ -136,6 +136,26 @@ pub struct PhysicsCfg {
     /// Materiali (unità di carico) generati dalle sorgenti.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub materials: Vec<Material>,
+    /// Fluido di processo: densità (kg/m³) e calore specifico (J/kg·K); temperatura ambiente (°C).
+    #[serde(default = "d_density")]
+    pub density: f64,
+    #[serde(default = "d_cp")]
+    pub cp: f64,
+    #[serde(default = "d_ambient")]
+    pub ambient_c: f64,
+    /// Tag del fattore tempo del PLC virtuale (×100), es. il ponte PLCSIM Advanced: scritto al
+    /// cambio del fattore tempo della simulazione, così PLC e fisica restano sincronizzati.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub time_scale_tag: String,
+}
+fn d_density() -> f64 {
+    1000.0
+}
+fn d_cp() -> f64 {
+    4186.0
+}
+fn d_ambient() -> f64 {
+    20.0
 }
 fn d_step_ms() -> u64 {
     20
@@ -145,7 +165,19 @@ fn d_scale_mm() -> f64 {
 }
 impl Default for PhysicsCfg {
     fn default() -> Self {
-        Self { step_ms: 20, scale_mm: 10.0, autostart: false, drivers: vec![], heartbeat_tag: String::new(), active_tag: String::new(), materials: vec![] }
+        Self {
+            step_ms: 20,
+            scale_mm: 10.0,
+            autostart: false,
+            drivers: vec![],
+            heartbeat_tag: String::new(),
+            active_tag: String::new(),
+            materials: vec![],
+            density: d_density(),
+            cp: d_cp(),
+            ambient_c: d_ambient(),
+            time_scale_tag: String::new(),
+        }
     }
 }
 impl PhysicsCfg {
@@ -1424,6 +1456,9 @@ impl Config {
         }
         if ph.scale_mm <= 0.0 {
             bail!("fisica: la scala (mm per pixel) deve essere positiva");
+        }
+        if ph.density <= 0.0 || ph.cp <= 0.0 {
+            bail!("fisica: densità e calore specifico del fluido devono essere positivi");
         }
         uniq("dispositivo", self.project.devices.iter().map(|d| d.name.as_str()).collect())?;
         let seqs = uniq("sequenza", self.project.sequences.iter().map(|s| s.name.as_str()).collect())?;

@@ -1,0 +1,1143 @@
+{
+  "area": "Processo",
+  "background": "#0b1220",
+  "components": [
+    {
+      "bindings": {},
+      "events": {},
+      "h": 760,
+      "id": "panel",
+      "name": "panel",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 12,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 1560,
+      "x": 20,
+      "y": 50
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 34,
+      "id": "title",
+      "name": "title",
+      "props": {
+        "bold": true,
+        "color": "#e2e8f0",
+        "fontSize": 24,
+        "text": "Impianto di processo – fluidi (layer fisico)"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 760,
+      "x": 30,
+      "y": 12
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 22,
+      "id": "hint",
+      "name": "hint",
+      "props": {
+        "bold": false,
+        "color": "#64748b",
+        "fontSize": 12,
+        "text": "Avvia un batch da Processo → Batch: le fasi comandano valvole, riscaldatori e agitatori; la fisica calcola livelli, temperature e portate"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 760,
+      "x": 800,
+      "y": 20
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 22,
+      "id": "W",
+      "name": "W",
+      "physics": {
+        "kind": "supply",
+        "pressure_bar": 3.0,
+        "temp_c": 15
+      },
+      "props": {
+        "color": "#4ade80",
+        "fontSize": 13,
+        "text": "⇥ Acqua di rete 3 bar"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 120,
+      "x": 40,
+      "y": 125
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_IN",
+      "name": "L_IN",
+      "physics": {
+        "elements": "V_IN",
+        "flow_tag": "Proc.F_IN",
+        "from": "W",
+        "kind": "pipe",
+        "to": "T1"
+      },
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 140,
+      "x": 160,
+      "y": 155
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('Proc.V_IN') ? '#22c55e' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "'V_IN'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 45,
+      "id": "V_IN",
+      "name": "V_IN",
+      "physics": {
+        "cmd": "Proc.V_IN",
+        "kind": "valve",
+        "kv": 10,
+        "time_s": 3
+      },
+      "props": {
+        "symbol": "proc_valve"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 56,
+      "x": 200,
+      "y": 128
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "Proc.F_IN"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vfin",
+      "name": "vfin",
+      "props": {
+        "decimals": 1,
+        "fontSize": 14,
+        "label": "Reintegro",
+        "unit": "m³/h"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 120,
+      "x": 170,
+      "y": 180
+    },
+    {
+      "bindings": {
+        "level": {
+          "kind": "tag",
+          "tag": "Proc.T1.Level"
+        }
+      },
+      "events": {},
+      "h": 230,
+      "id": "T1",
+      "name": "T1",
+      "physics": {
+        "height_m": 2.5,
+        "init_level": 60,
+        "init_temp": 15,
+        "kind": "tank",
+        "level_tag": "Proc.T1.Level",
+        "temp_tag": "Proc.T1.Temp",
+        "volume_m3": 5
+      },
+      "props": {
+        "fill": "#0ea5e9",
+        "label": "T1 acqua 5 m³"
+      },
+      "rotation": 0,
+      "type": "tank",
+      "w": 130,
+      "x": 300,
+      "y": 90
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "Proc.T1.Temp"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vt1t",
+      "name": "vt1t",
+      "props": {
+        "decimals": 1,
+        "fontSize": 14,
+        "label": "Temperatura T1",
+        "unit": "°C"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 300,
+      "y": 362
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_P1",
+      "name": "L_P1",
+      "physics": {
+        "elements": "P1",
+        "flow_tag": "Proc.F_P1",
+        "from": "T1",
+        "kind": "pipe",
+        "to": "J1"
+      },
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 210,
+      "x": 430,
+      "y": 290
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('Proc.P1.Fb') ? '#22c55e' : tag('Proc.P1.Run') ? '#f59e0b' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.impeller.spin": {
+          "kind": "tag",
+          "tag": "Proc.P1.Fb"
+        },
+        "elements.label.text": {
+          "expr": "'P1'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 66,
+      "id": "P1",
+      "name": "P1",
+      "physics": {
+        "fb_run": "Proc.P1.Fb",
+        "head_m": 40,
+        "kind": "pump",
+        "q_max": 12,
+        "run": "Proc.P1.Run"
+      },
+      "props": {
+        "symbol": "proc_pump"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 66,
+      "x": 500,
+      "y": 262
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "Proc.F_P1"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vfp1",
+      "name": "vfp1",
+      "props": {
+        "decimals": 1,
+        "fontSize": 14,
+        "label": "Mandata P1",
+        "unit": "m³/h"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 140,
+      "x": 470,
+      "y": 340
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 20,
+      "id": "J1",
+      "name": "J1",
+      "physics": {
+        "kind": "junction"
+      },
+      "props": {
+        "fill": "#e879f9"
+      },
+      "rotation": 0,
+      "type": "ellipse",
+      "w": 20,
+      "x": 640,
+      "y": 285
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_R1",
+      "name": "L_R1",
+      "physics": {
+        "elements": "R1_FV",
+        "from": "J1",
+        "kind": "pipe",
+        "to": "R1"
+      },
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 160,
+      "x": 660,
+      "y": 285
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('R1.FillValve') ? '#22c55e' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "'R1 carico'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 45,
+      "id": "R1_FV",
+      "name": "R1_FV",
+      "physics": {
+        "cmd": "R1.FillValve",
+        "kind": "valve",
+        "kv": 8,
+        "time_s": 2
+      },
+      "props": {
+        "symbol": "proc_valve"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 56,
+      "x": 712,
+      "y": 262
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_R2",
+      "name": "L_R2",
+      "physics": {
+        "elements": "R2_FV",
+        "from": "J1",
+        "kind": "pipe",
+        "to": "R2"
+      },
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 90,
+      "type": "line",
+      "w": 215,
+      "x": 542.5,
+      "y": 172.5
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_R2_seg1",
+      "name": "L_R2_seg1",
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 530,
+      "x": 650,
+      "y": 65
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_R2_seg2",
+      "name": "L_R2_seg2",
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 90,
+      "type": "line",
+      "w": 70,
+      "x": 1145.0,
+      "y": 100.0
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('R2.FillValve') ? '#22c55e' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "'R2 carico'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 45,
+      "id": "R2_FV",
+      "name": "R2_FV",
+      "physics": {
+        "cmd": "R2.FillValve",
+        "kind": "valve",
+        "kv": 8,
+        "time_s": 2
+      },
+      "props": {
+        "symbol": "proc_valve"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 56,
+      "x": 980,
+      "y": 42
+    },
+    {
+      "bindings": {
+        "level": {
+          "kind": "tag",
+          "tag": "R1.Level"
+        }
+      },
+      "events": {},
+      "h": 170,
+      "id": "R1",
+      "name": "R1",
+      "physics": {
+        "elevation_m": 3.0,
+        "height_m": 1.0,
+        "init_temp": 20,
+        "kind": "tank",
+        "level_tag": "R1.Level",
+        "loss_w_k": 40,
+        "temp_tag": "R1.Temp",
+        "volume_m3": 0.5
+      },
+      "props": {
+        "fill": "#0ea5e9",
+        "label": "Reattore R1 0,5 m³"
+      },
+      "rotation": 0,
+      "type": "tank",
+      "w": 120,
+      "x": 820,
+      "y": 140
+    },
+    {
+      "bindings": {
+        "color": {
+          "expr": "tag('R1.Heater') ? '#f97316' : '#64748b'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "H_R1",
+      "name": "H_R1",
+      "physics": {
+        "cmd": "R1.Heater",
+        "hysteresis": 1.0,
+        "kind": "heater",
+        "on": "R1",
+        "power_kw": 250,
+        "setpoint_tag": "R1.SP_Temp"
+      },
+      "props": {
+        "color": "#f97316",
+        "fontSize": 13,
+        "text": "♨ 250 kW"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 110,
+      "x": 828,
+      "y": 342
+    },
+    {
+      "bindings": {
+        "running": {
+          "expr": "tag('R1.AgitSpeed') > 1",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "M_R1",
+      "name": "M_R1",
+      "physics": {
+        "kind": "motor",
+        "rpm": 200,
+        "run": "R1.Agitator",
+        "sp_max": 200,
+        "speed_fb": "R1.AgitSpeed",
+        "speed_sp": "R1.SP_AgitSpeed",
+        "time_s": 3
+      },
+      "props": {
+        "label": ""
+      },
+      "rotation": 0,
+      "type": "motor",
+      "w": 40,
+      "x": 860,
+      "y": 96
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "R1.Temp"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vR1t",
+      "name": "vR1t",
+      "props": {
+        "decimals": 1,
+        "fontSize": 14,
+        "label": "Temperatura",
+        "unit": "°C"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 960,
+      "y": 150
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "R1.SP_Temp"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vR1sp",
+      "name": "vR1sp",
+      "props": {
+        "decimals": 0,
+        "fontSize": 14,
+        "label": "Setpoint",
+        "unit": "°C"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 960,
+      "y": 200
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "R1.AgitSpeed"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vR1a",
+      "name": "vR1a",
+      "props": {
+        "decimals": 0,
+        "fontSize": 14,
+        "label": "Agitatore",
+        "unit": "rpm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 960,
+      "y": 250
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_D1",
+      "name": "L_D1",
+      "physics": {
+        "elements": "R1_DV",
+        "from": "R1",
+        "kind": "pipe",
+        "to": "T2"
+      },
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 90,
+      "type": "line",
+      "w": 190,
+      "x": 785.0,
+      "y": 460.0
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_D1_seg1",
+      "name": "L_D1_seg1",
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 170,
+      "x": 880,
+      "y": 555
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('R1.DrainValve') ? '#22c55e' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "'R1 scarico'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 45,
+      "id": "R1_DV",
+      "name": "R1_DV",
+      "physics": {
+        "cmd": "R1.DrainValve",
+        "kind": "valve",
+        "kv": 20,
+        "time_s": 2
+      },
+      "props": {
+        "symbol": "proc_valve"
+      },
+      "rotation": 90,
+      "type": "symbol",
+      "w": 56,
+      "x": 852,
+      "y": 430
+    },
+    {
+      "bindings": {
+        "level": {
+          "kind": "tag",
+          "tag": "R2.Level"
+        }
+      },
+      "events": {},
+      "h": 170,
+      "id": "R2",
+      "name": "R2",
+      "physics": {
+        "elevation_m": 3.0,
+        "height_m": 1.0,
+        "init_temp": 20,
+        "kind": "tank",
+        "level_tag": "R2.Level",
+        "loss_w_k": 40,
+        "temp_tag": "R2.Temp",
+        "volume_m3": 0.5
+      },
+      "props": {
+        "fill": "#0ea5e9",
+        "label": "Reattore R2 0,5 m³"
+      },
+      "rotation": 0,
+      "type": "tank",
+      "w": 120,
+      "x": 1120,
+      "y": 140
+    },
+    {
+      "bindings": {
+        "color": {
+          "expr": "tag('R2.Heater') ? '#f97316' : '#64748b'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "H_R2",
+      "name": "H_R2",
+      "physics": {
+        "cmd": "R2.Heater",
+        "hysteresis": 1.0,
+        "kind": "heater",
+        "on": "R2",
+        "power_kw": 250,
+        "setpoint_tag": "R2.SP_Temp"
+      },
+      "props": {
+        "color": "#f97316",
+        "fontSize": 13,
+        "text": "♨ 250 kW"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 110,
+      "x": 1128,
+      "y": 342
+    },
+    {
+      "bindings": {
+        "running": {
+          "expr": "tag('R2.AgitSpeed') > 1",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "M_R2",
+      "name": "M_R2",
+      "physics": {
+        "kind": "motor",
+        "rpm": 200,
+        "run": "R2.Agitator",
+        "sp_max": 200,
+        "speed_fb": "R2.AgitSpeed",
+        "speed_sp": "R2.SP_AgitSpeed",
+        "time_s": 3
+      },
+      "props": {
+        "label": ""
+      },
+      "rotation": 0,
+      "type": "motor",
+      "w": 40,
+      "x": 1160,
+      "y": 96
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "R2.Temp"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vR2t",
+      "name": "vR2t",
+      "props": {
+        "decimals": 1,
+        "fontSize": 14,
+        "label": "Temperatura",
+        "unit": "°C"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 1260,
+      "y": 150
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "R2.SP_Temp"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vR2sp",
+      "name": "vR2sp",
+      "props": {
+        "decimals": 0,
+        "fontSize": 14,
+        "label": "Setpoint",
+        "unit": "°C"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 1260,
+      "y": 200
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "R2.AgitSpeed"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vR2a",
+      "name": "vR2a",
+      "props": {
+        "decimals": 0,
+        "fontSize": 14,
+        "label": "Agitatore",
+        "unit": "rpm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 1260,
+      "y": 250
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_D2",
+      "name": "L_D2",
+      "physics": {
+        "elements": "R2_DV",
+        "from": "R2",
+        "kind": "pipe",
+        "to": "T2"
+      },
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 90,
+      "type": "line",
+      "w": 190,
+      "x": 1085.0,
+      "y": 460.0
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_D2_seg1",
+      "name": "L_D2_seg1",
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 130,
+      "x": 1050,
+      "y": 555
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('R2.DrainValve') ? '#22c55e' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "'R2 scarico'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 45,
+      "id": "R2_DV",
+      "name": "R2_DV",
+      "physics": {
+        "cmd": "R2.DrainValve",
+        "kind": "valve",
+        "kv": 20,
+        "time_s": 2
+      },
+      "props": {
+        "symbol": "proc_valve"
+      },
+      "rotation": 90,
+      "type": "symbol",
+      "w": 56,
+      "x": 1152,
+      "y": 430
+    },
+    {
+      "bindings": {
+        "level": {
+          "kind": "tag",
+          "tag": "Proc.T2.Level"
+        }
+      },
+      "events": {},
+      "h": 220,
+      "id": "T2",
+      "name": "T2",
+      "physics": {
+        "height_m": 2.0,
+        "init_temp": 20,
+        "kind": "tank",
+        "level_tag": "Proc.T2.Level",
+        "temp_tag": "Proc.T2.Temp",
+        "volume_m3": 6
+      },
+      "props": {
+        "fill": "#0ea5e9",
+        "label": "T2 prodotto 6 m³"
+      },
+      "rotation": 0,
+      "type": "tank",
+      "w": 200,
+      "x": 950,
+      "y": 520
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "Proc.T2.Temp"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vt2t",
+      "name": "vt2t",
+      "props": {
+        "decimals": 1,
+        "fontSize": 14,
+        "label": "Temperatura T2",
+        "unit": "°C"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 790,
+      "y": 700
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 10,
+      "id": "L_OUT",
+      "name": "L_OUT",
+      "physics": {
+        "elements": "P2,V_OUT",
+        "flow_tag": "Proc.F_OUT",
+        "from": "T2",
+        "kind": "pipe",
+        "to": "D"
+      },
+      "props": {
+        "stroke": "#475569",
+        "strokeWidth": 8
+      },
+      "rotation": 0,
+      "type": "line",
+      "w": 290,
+      "x": 1150,
+      "y": 710
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('Proc.P2.Fb') ? '#22c55e' : tag('Proc.P2.Run') ? '#f59e0b' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.impeller.spin": {
+          "kind": "tag",
+          "tag": "Proc.P2.Fb"
+        },
+        "elements.label.text": {
+          "expr": "'P2'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 66,
+      "id": "P2",
+      "name": "P2",
+      "physics": {
+        "fb_run": "Proc.P2.Fb",
+        "head_m": 20,
+        "kind": "pump",
+        "q_max": 15,
+        "run": "Proc.P2.Run"
+      },
+      "props": {
+        "symbol": "proc_pump"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 66,
+      "x": 1200,
+      "y": 682
+    },
+    {
+      "bindings": {
+        "elements.body.fill": {
+          "expr": "tag('Proc.V_OUT') ? '#22c55e' : '#64748b'",
+          "kind": "expr"
+        },
+        "elements.label.text": {
+          "expr": "'V_OUT'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 45,
+      "id": "V_OUT",
+      "name": "V_OUT",
+      "physics": {
+        "cmd": "Proc.V_OUT",
+        "kind": "valve",
+        "kv": 15,
+        "time_s": 3
+      },
+      "props": {
+        "symbol": "proc_valve"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 56,
+      "x": 1310,
+      "y": 687
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 22,
+      "id": "D",
+      "name": "D",
+      "physics": {
+        "kind": "drain"
+      },
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 13,
+        "text": "⇤ Carico autobotte"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 130,
+      "x": 1445,
+      "y": 705
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "Proc.F_OUT"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vfout",
+      "name": "vfout",
+      "props": {
+        "decimals": 1,
+        "fontSize": 14,
+        "label": "Carico",
+        "unit": "m³/h"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 1300,
+      "y": 750
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "Proc.Auto"
+        },
+        "text": {
+          "expr": "'Logica di servizio: ' + (tag('Proc.Auto') ? 'AUTO' : 'MANUALE')",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "auto",
+      "name": "auto",
+      "physics": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "Proc.Auto",
+              "value": "toggle"
+            }
+          ]
+        }
+      },
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "text": "Logica di servizio"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 230,
+      "x": 40,
+      "y": 740
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "Proc.SimActive"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "lsim",
+      "name": "lsim",
+      "props": {
+        "colorOn": "#a78bfa",
+        "label": "Simulazione fisica attiva"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 22,
+      "x": 300,
+      "y": 749
+    }
+  ],
+  "height": 820,
+  "title": "Impianto di processo",
+  "width": 1600
+}

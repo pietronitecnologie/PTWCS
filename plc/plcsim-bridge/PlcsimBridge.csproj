@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Ponte PTWCS ↔ PLCSIM Advanced. Richiede Windows con PLCSIM Advanced installato. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>PlcsimBridge</AssemblyName>
+    <RootNamespace>Ptwcs.PlcsimBridge</RootNamespace>
+    <!-- Cartella dell'API: adattare alla versione installata (V4.0, V5.0, V6.0…) -->
+    <PlcsimApiDir Condition="'$(PlcsimApiDir)' == ''">C:\Program Files (x86)\Common Files\Siemens\PLCSIMADV\API\6.0</PlcsimApiDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Siemens.Simatic.Simulation.Runtime.Api.x64">
+      <HintPath>$(PlcsimApiDir)\Siemens.Simatic.Simulation.Runtime.Api.x64.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <None Update="bridge.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -123,6 +123,48 @@ Un impianto grande si divide in pagine per area o linea, e i nastri proseguono d
 - nel disegno il collegamento compare come **↗ vista/id**;
 - nel runtime ogni unità è disegnata sulla vista del nastro su cui si trova.
 
+## Fluidi
+
+Per gli impianti di processo il layer fisico simula anche **serbatoi, tubazioni, valvole, pompe, riscaldatori e agitatori**. Il modello è a parametri concentrati, calcolato a ogni passo.
+
+| Tipo | Cos'è | Campi principali |
+|---|---|---|
+| **Serbatoio** | nodo con volume: livello dal bilancio di massa, temperatura dal bilancio di energia | volume, altezza utile, quota del fondo, sensori di livello, temperatura e pressione sul fondo, stato iniziale, dispersione termica |
+| **Alimentazione** | sorgente a pressione costante (rete acqua, vapore, collettore) | pressione (bar), temperatura |
+| **Scarico** | uscita a pressione atmosferica | — |
+| **Giunzione / collettore** | nodo senza volume dove si incontrano più tubazioni | — |
+| **Valvola** | in serie su una tubazione, on/off o modulante | comando (o apertura %), Kv, tempo di corsa, finecorsa, posizione |
+| **Pompa** | in serie su una tubazione, centrifuga | marcia, setpoint di velocità, prevalenza a portata nulla, portata massima, retroazione di marcia |
+| **Tubazione** | ramo tra due nodi, con valvole e al più una pompa | da, a, elementi in serie, Kv del tubo, sensore di portata |
+| **Riscaldatore** | potenza ceduta al contenuto di un serbatoio | serbatoio, comando, potenza (kW), setpoint e isteresi del termostato locale |
+| **Motore / agitatore** | motore con rampa | marcia, setpoint, velocità massima, rampa, velocità reale |
+
+### Come si calcola
+
+- **Pressioni**:
+  - serbatoio: ρ·g·(quota + livello) sul fondo;
+  - alimentazione: la sua pressione;
+  - scarico: 0 bar;
+  - giunzione: la pressione per cui la somma delle portate è zero.
+- **Portata di una tubazione**: Q = Kv·√(ΔP / densità relativa), in m³/h e bar.
+  - Il Kv equivalente somma in serie il tubo e le valvole: 1/Kv² = 1/Kv_tubo² + Σ 1/(Kv·apertura)².
+  - Una valvola chiusa blocca il ramo.
+- **Pompa**: aggiunge la prevalenza H(Q) = H0·s²·(1 − (Q / (Qmax·s))²), dove s è la velocità.
+  - Ferma, blocca il ramo; non fa passare flusso all'indietro.
+  - Se aspira da un serbatoio vuoto la pompa risulta **a secco**.
+- **Serbatoi**:
+  - il livello segue ingressi, uscite e perdite; oltre il volume il liquido trabocca (troppo pieno);
+  - la temperatura segue la miscelazione degli ingressi, i riscaldatori (sopra il 2 % di livello) e la dispersione verso l'ambiente;
+  - i travasi per gravità si fermano a livelli uguali, come nei vasi comunicanti.
+- **Termostato**: con il setpoint, il riscaldatore resta acceso finché la temperatura è sotto il setpoint meno metà isteresi e si spegne sopra il setpoint più metà isteresi.
+
+Per disegnare i fluidi:
+- le **tubazioni** si disegnano con componenti *Linea*;
+- nel runtime un tubo con portata si **anima** in azzurro, insieme ai suoi tratti di disegno chiamati `id_seg1`, `id_seg2`…;
+- serbatoi e livelli si mostrano con il componente *Serbatoio* legato al tag di livello.
+
+Densità e calore specifico del fluido e temperatura ambiente si impostano nel workspace **⚛ Fisica** (default: acqua a 20 °C).
+
 ## Scala della vista
 
 Le proprietà della vista, con il layer ⚛ Fisica attivo, contengono la **Scala mm/px**. Con 10 mm/px un nastro largo 300 px è lungo 3 m. Senza un valore vale la scala predefinita del progetto.
@@ -198,6 +240,26 @@ Sicurezza:
 
 Lo stesso schema funziona con un **PLC reale in collaudo** (driver S7 verso la CPU): il fattore tempo deve restare ×1.
 
+### Ponte PLCSIM Advanced (I/O diretto)
+
+Con PLCSIM Advanced si può fare a meno del DB `SimIO`: il **ponte** `plc/plcsim-bridge` (programma Windows in C#) scrive direttamente l'immagine di processo della CPU virtuale. Il programma PLC resta identico a quello di produzione.
+
+| Driver `modbus` di PTWCS verso il ponte | CPU virtuale |
+|---|---|
+| `coil:N` | `%I (N/8).(N%8)`: sensori bool scritti dalla fisica |
+| `di:N` | `%Q (N/8).(N%8)`: attuatori bool del PLC |
+| `hr:N` | `%IW(2·N)`: sensori analogici |
+| `ir:N` | `%QW(2·N)`: uscite analogiche |
+| `hr:60000` | fattore tempo × 100 dell'istanza (ScaleFactor) |
+
+Passi:
+1. Avvia il ponte sul PC con PLCSIM Advanced.
+2. Aggiungi in `plant.yaml` un driver `modbus` verso il ponte (porta 5030) e spuntalo tra i **driver simulabili**.
+3. Imposta **Tag fattore tempo PLC** su un tag `hr:60000` scrivibile. Così, cambiando il fattore tempo nella pagina Simulazione, anche la CPU virtuale accelera o rallenta e i tempi del PLC (timer, timeout) restano coerenti con la fisica.
+4. Per lo SCADA (DB, allarmi, diagnostica) continua a usare il driver `s7` verso la CPU virtuale.
+
+Istruzioni di compilazione e uso: `plc/plcsim-bridge/README.md`.
+
 ## Demo
 
 Ci sono due demo: la linea di smistamento (piccola) e l'hub di smistamento pacchi (grande).
@@ -246,3 +308,25 @@ Il PLC `plc_hub` legge la sua configurazione da `config/hub/plc_hub.json`, gener
 | **Risincronizzazione** | le code si azzerano quando la simulazione riparte. Le voci più vecchie di 30 s vengono scartate |
 
 Il sorter separa i colli: il nastro dello scanner richiede 35 cm di distanza tra le unità e le sezioni del sorter sono più veloci dell'immissione.
+
+### Impianto di processo (fluidi)
+
+Si genera con `python3 tools/build_demo_fluids.py`, dopo `build_demo_process.py`. Crea la vista **Impianto di processo**:
+
+```
+acqua di rete ─V_IN─▶ T1 (5 m³) ─P1─▶ collettore ─R1 carico─▶ R1 (0,5 m³, quota 3 m) ─R1 scarico─▶ T2 (6 m³) ─P2─V_OUT─▶ autobotte
+                                              └─R2 carico─▶ R2                     ─R2 scarico─┘
+```
+
+| Parte | Chi la comanda |
+|---|---|
+| Valvole di carico e scarico, riscaldatori, agitatori dei reattori | le **fasi ISA-88** dei batch (Carico, Riscaldo, Agitazione, Scarico) |
+| Reintegro di T1, pompa P1, svuotamento di T2 | lo script a timer `proc_logic`, che fa da PLC di servizio |
+| Livelli, temperature, portate, velocità degli agitatori | il **layer fisico** |
+
+Avviando un batch da **Processo → Batch** con la simulazione attiva:
+1. la pompa P1 parte e il reattore si riempie fino al livello della ricetta;
+2. il riscaldatore da 250 kW porta il contenuto al setpoint e il termostato lo mantiene;
+3. lo scarico svuota il reattore per gravità nel serbatoio prodotto.
+
+Con la simulazione ferma, lo script `sim_reactor` torna a simulare i reattori in modo semplificato.

@@ -111,3 +111,56 @@ async fn conveyors_sensors_diverter_and_protection() {
     assert_eq!(st["stats"]["delivered"], 2);
     assert_eq!(st["stats"]["spawned"], 2);
 }
+
+const FLUID_VIEW: &str = r##"{
+  "title": "F", "width": 600, "height": 400,
+  "components": [
+    { "id": "W", "type": "label", "x": 0, "y": 0, "w": 60, "h": 20, "physics": { "kind": "supply", "pressure_bar": 2.0, "temp_c": 10 } },
+    { "id": "V", "type": "symbol", "x": 80, "y": 0, "w": 40, "h": 40, "physics": { "kind": "valve", "cmd": "V.Open", "kv": 10, "time_s": 0.2, "fb_open": "V.IsOpen" } },
+    { "id": "L", "type": "line", "x": 60, "y": 20, "w": 100, "h": 10,
+      "physics": { "kind": "pipe", "from": "W", "to": "T", "elements": "V", "flow_tag": "F.Flow" } },
+    { "id": "T", "type": "tank", "x": 200, "y": 0, "w": 80, "h": 140,
+      "physics": { "kind": "tank", "volume_m3": 1.0, "height_m": 1.0, "level_tag": "T.Level", "temp_tag": "T.Temp", "init_temp": 30 } },
+    { "id": "H", "type": "label", "x": 200, "y": 150, "w": 60, "h": 20, "physics": { "kind": "heater", "on": "T", "cmd": "H.On", "power_kw": 500 } }
+  ]
+}"##;
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn fluids_fill_heat_with_tags() {
+    let dir = std::env::temp_dir().join(format!("wcs_fluid_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("views")).unwrap();
+    std::fs::write(dir.join("plant.yaml"), "plant: { name: T }\nserver: { database: t.db, web_root: . }\ndrivers: [ { name: SIM, protocol: sim, poll_ms: 20 } ]\n").unwrap();
+    let tags: String = ["V.Open:bool", "V.IsOpen:bool", "F.Flow:f32", "T.Level:f32", "T.Temp:f32", "H.On:bool"]
+        .iter()
+        .map(|m| {
+            let (n, t) = m.split_once(':').unwrap();
+            format!("- {{ name: {n}, driver: SIM, address: {}, type: {t}, writable: true }}\n", n.to_lowercase().replace('.', "_"))
+        })
+        .collect();
+    std::fs::write(dir.join("project.yaml"), format!("tags:\n{tags}")).unwrap();
+    std::fs::write(dir.join("views/f.json"), FLUID_VIEW).unwrap();
+    let path = dir.join("plant.yaml");
+    let a = app::start(Config::load_base(&path).unwrap(), Config::load(&path).unwrap()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let st = a.physics.status(&a);
+    assert!(st["errors"].as_array().unwrap().is_empty(), "{}", st["errors"]);
+    let v = |n: &str| a.db.value(n).as_f64().unwrap_or(-1.0);
+    a.physics.command(&a, "start", &serde_json::Value::Null).unwrap();
+    a.physics.command(&a, "speed", &serde_json::json!({"factor": 10})).unwrap();
+    a.db.write("V.Open", Value::Bool(true)).await.unwrap();
+    assert!(wait(|| a.db.value("V.IsOpen") == Value::Bool(true)).await, "finecorsa aperta");
+    // ~14 m³/h a 2 bar: il serbatoio da 1 m³ si riempie; l'acqua a 10 °C raffredda il contenuto
+    assert!(wait(|| v("F.Flow") > 10.0).await, "portata {}", v("F.Flow"));
+    assert!(wait(|| v("T.Level") > 20.0).await, "livello {}", v("T.Level"));
+    a.db.write("V.Open", Value::Bool(false)).await.unwrap();
+    assert!(wait(|| v("F.Flow") == 0.0).await, "portata nulla a valvola chiusa");
+    let (l, t0) = (v("T.Level"), v("T.Temp"));
+    assert!(t0 < 20.0, "miscelazione con acqua fredda: {t0}");
+    a.db.write("H.On", Value::Bool(true)).await.unwrap();
+    assert!(wait(|| v("T.Temp") > t0 + 3.0).await, "riscaldamento {} → {}", t0, v("T.Temp"));
+    assert!((v("T.Level") - l).abs() < 0.5, "livello stabile a valvola chiusa");
+    // guasto: perdita dal serbatoio
+    a.physics.inject(&a, &serde_json::json!({"action": "tank", "key": "f/T", "leak": 20.0})).unwrap();
+    assert!(wait(|| v("T.Level") < l - 5.0).await, "la perdita fa scendere il livello");
+}

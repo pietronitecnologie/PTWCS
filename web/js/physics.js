@@ -52,6 +52,62 @@ export const KINDS = {
     fields: [['cmd', 'tag', 'Comando fuori (attuatore)'], ['invert', 'bool', 'Comando invertito'], ['time_s', 'num', 'Tempo di corsa (s)', '0,3'],
       ['fb_ext', 'stag', 'Finecorsa fuori (sensore)'], ['fb_ret', 'stag', 'Finecorsa dentro (sensore)'], ['on', 'comp:conveyor', 'Montato su'], ['at_m', 'num', 'Posizione (m)', 'vuoto = dal disegno']],
   },
+  // ---------------------------------------------------------------- fluidi
+  tank: {
+    label: 'Serbatoio', icon: '▯', color: '#38bdf8', fluid: true,
+    help: 'Nodo con volume: livello dal bilancio di massa (ingressi − uscite − perdite, troppo pieno), temperatura dalla miscelazione, dai riscaldatori e dalla dispersione. La pressione sul fondo (quota + livello) muove i travasi per gravità.',
+    fields: [['volume_m3', 'num', 'Volume (m³)', '1'], ['height_m', 'num', 'Altezza utile (m)', '1,5'], ['elevation_m', 'num', 'Quota del fondo (m)', '0'],
+      ['level_tag', 'stag', 'Livello (sensore)'], ['level_max', 'num', 'Valore a serbatoio pieno', '100 (= %)'], ['temp_tag', 'stag', 'Temperatura °C (sensore)'],
+      ['pressure_tag', 'stag', 'Pressione sul fondo bar (sensore)'], ['init_level', 'num', 'Livello iniziale %', '0'], ['init_temp', 'num', 'Temperatura iniziale °C', 'ambiente'],
+      ['loss_w_k', 'num', 'Dispersione termica (W/K)', '30']],
+  },
+  supply: {
+    label: 'Alimentazione', icon: '⇥', color: '#4ade80', fluid: true,
+    help: 'Sorgente a pressione costante (acquedotto, rete vapore, collettore di servizio), con la sua temperatura.',
+    fields: [['pressure_bar', 'num', 'Pressione (bar)', '3'], ['temp_c', 'num', 'Temperatura (°C)', '15']],
+  },
+  drain: {
+    label: 'Scarico', icon: '⇤', color: '#94a3b8', fluid: true,
+    help: 'Uscita a pressione atmosferica (fogna, carico autobotte, impianto a valle).',
+    fields: [],
+  },
+  junction: {
+    label: 'Giunzione / collettore', icon: '⊕', color: '#e879f9', fluid: true,
+    help: 'Nodo senza volume dove si incontrano più tubazioni (es. una pompa che alimenta più utenze): la sua pressione è quella per cui le portate entranti e uscenti si bilanciano.',
+    fields: [],
+  },
+  valve: {
+    label: 'Valvola', icon: '⋈', color: '#fbbf24', fluid: true,
+    help: 'In serie su una tubazione (campo Elementi della tubazione). On/off con un comando bool, o modulante con l\'apertura 0–100 %. Kv = portata in m³/h a 1 bar di caduta, a valvola tutta aperta.',
+    fields: [['cmd', 'tag', 'Comando apertura (attuatore bool)'], ['invert', 'bool', 'Normalmente aperta (comando = chiudi)'], ['analog', 'bool', 'Modulante'],
+      ['position', 'tag', 'Apertura % (attuatore, se modulante)'], ['kv', 'num', 'Kv (m³/h)', '10'], ['time_s', 'num', 'Tempo di corsa (s)', '2'],
+      ['fb_open', 'stag', 'Finecorsa aperta (sensore)'], ['fb_closed', 'stag', 'Finecorsa chiusa (sensore)'], ['fb_pos', 'stag', 'Posizione % (sensore)']],
+  },
+  pump: {
+    label: 'Pompa', icon: '◔', color: '#34d399', fluid: true,
+    help: 'In serie su una tubazione. Curva centrifuga: prevalenza H0 a portata nulla, zero alla portata massima; velocità variabile con il setpoint. Ferma blocca il ramo; segnala la marcia a secco se aspira da un serbatoio vuoto.',
+    fields: [['run', 'tag', 'Marcia (attuatore)'], ['speed_sp', 'tag', 'Setpoint velocità (attuatore)'], ['sp_max', 'num', 'Valore setpoint = 100 %', '100'],
+      ['head_m', 'num', 'Prevalenza a portata nulla (m)', '20'], ['q_max', 'num', 'Portata massima (m³/h)', '10'], ['fb_run', 'stag', 'In marcia (sensore)']],
+  },
+  pipe: {
+    label: 'Tubazione', icon: '═', color: '#60a5fa', fluid: true,
+    help: 'Ramo da un nodo a un altro (serbatoio, alimentazione, scarico, giunzione), con valvole e al più una pompa in serie. Disegnala con un componente Linea: nel runtime il tubo si anima quando c\'è portata.',
+    fields: [['from', 'comp:tank,supply,drain,junction', 'Da'], ['to', 'comp:tank,supply,drain,junction', 'A'],
+      ['elements', 'text', 'Elementi in serie (id valvole/pompa, virgola)'], ['kv', 'num', 'Kv della tubazione (m³/h)', '100'],
+      ['flow_tag', 'stag', 'Portata m³/h (sensore)'], ['flow_scale', 'num', 'Scala portata', '1']],
+  },
+  heater: {
+    label: 'Riscaldatore', icon: '♨', color: '#f97316', fluid: true,
+    help: 'Potenza ceduta al contenuto del serbatoio (non scalda sotto il 2 % di livello). Con il setpoint fa da termostato locale con isteresi.',
+    fields: [['on', 'comp:tank', 'Nel serbatoio'], ['cmd', 'tag', 'Comando (attuatore)'], ['power_kw', 'num', 'Potenza (kW)', '10'],
+      ['setpoint_tag', 'tag', 'Setpoint termostato °C (opzionale)'], ['hysteresis', 'num', 'Isteresi (°C)', '1']],
+  },
+  motor: {
+    label: 'Motore / agitatore', icon: '⟳', color: '#a3e635', fluid: true,
+    help: 'Motore generico (agitatore, ventilatore) con rampa: velocità reale verso il setpoint.',
+    fields: [['run', 'tag', 'Marcia (attuatore)'], ['speed_sp', 'tag', 'Setpoint velocità (attuatore)'], ['sp_max', 'num', 'Valore setpoint = velocità max', '100'],
+      ['rpm', 'num', 'Velocità max (es. giri/min)', '100'], ['time_s', 'num', 'Rampa 0 → max (s)', '2'], ['speed_fb', 'stag', 'Velocità reale (sensore)']],
+  },
 };
 
 /** Asse del componente: inizio, direzione, lunghezza in px. */
@@ -133,6 +189,8 @@ export function physOverlay(view, def = 10) {
     } else if (p.kind === 'sink') {
       const a = axis(c);
       h += `<text x="${a.cx}" y="${a.cy + 6}" fill="${k.color}" font-size="18" text-anchor="middle">⊖</text>`;
+    } else if (k.fluid) {
+      h += fluidMark(c, p, k, byId);
     } else {
       const m = mountOf(c, view, def), a = axis(c);
       if (!m) { h += `<text x="${a.cx}" y="${a.cy}" fill="#ef4444" font-size="12" text-anchor="middle">⚠ nessun nastro</text>`; continue; }
@@ -147,6 +205,31 @@ export function physOverlay(view, def = 10) {
     }
   }
   return h;
+}
+
+/** Annotazione di un componente dei fluidi. */
+function fluidMark(c, p, k, byId) {
+  const x = +c.x || 0, y = +c.y || 0, w = +c.w || 40, hh = +c.h || 40;
+  const tag = (t, yy) => `<text x="${x + w / 2}" y="${yy}" fill="${k.color}" font-size="10" text-anchor="middle">${esc(t)}</text>`;
+  const box = `<rect x="${x - 3}" y="${y - 3}" width="${w + 6}" height="${hh + 6}" fill="none" stroke="${k.color}" stroke-width="1.5" stroke-dasharray="4 3" rx="4"/>`;
+  const center = (id) => { const t = byId[id]; return t ? [(+t.x || 0) + (+t.w || 0) / 2, (+t.y || 0) + (+t.h || 0) / 2] : null; };
+  switch (p.kind) {
+    case 'tank': return box + tag(`${k.icon} ${p.volume_m3 || 1} m³${p.elevation_m ? ` · quota ${p.elevation_m} m` : ''}`, y - 8);
+    case 'pipe': {
+      const a = center(p.from), b = center(p.to);
+      const ax = axis(c);
+      let h = `<line x1="${ax.x0}" y1="${ax.y0}" x2="${ax.x1}" y2="${ax.y1}" stroke="${k.color}" stroke-width="2" stroke-dasharray="2 3"/>`;
+      if (a && b) h += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${k.color}" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#phLink)" opacity=".7"/>`;
+      return h + `<text x="${ax.cx + 6}" y="${ax.cy - 6}" fill="${k.color}" font-size="10">${esc(p.from || '?')} → ${esc(p.to || '?')}${p.elements ? ` · ${esc(p.elements)}` : ''}</text>`;
+    }
+    case 'heater': {
+      const t = center(p.on);
+      return box + tag(`${k.icon} ${p.power_kw || 10} kW`, y - 8) + (t ? `<line x1="${x + w / 2}" y1="${y + hh / 2}" x2="${t[0]}" y2="${t[1]}" stroke="${k.color}" stroke-dasharray="3 3"/>` : '');
+    }
+    case 'pump': return box + tag(`${k.icon} ${p.head_m || 20} m · ${p.q_max || 10} m³/h`, y - 8);
+    case 'valve': return box + tag(`${k.icon} Kv ${p.kv || 10}${p.analog ? ' mod.' : ''}`, y - 8);
+    default: return box + tag(`${k.icon} ${k.label}`, y - 8);
+  }
 }
 
 /** Livello delle unità di carico in movimento sopra una vista (runtime). */
@@ -179,5 +262,18 @@ export class PhysLayer {
     }
     for (const [id, el] of this.els) if (!seen.has(id)) { el.remove(); this.els.delete(id); }
   }
-  clear() { this.set([]); }
+  clear() { this.set([]); this.flows([]); }
+
+  /** Tubazioni con portata: classe "phys-flow" sul componente (tubo animato). */
+  flows(list) {
+    const host = this.g.ownerSVGElement || this.g.parentNode;
+    // il tubo e i suoi tratti di disegno (id_seg1, id_seg2…)
+    const els = new Set();
+    for (const f of list || []) {
+      const id = CSS.escape(String(f[0]));
+      host.querySelectorAll(`g[data-id="${id}"], g[data-id^="${id}_seg"]`).forEach((el) => els.add(el));
+    }
+    for (const el of host.querySelectorAll('g.phys-flow')) if (!els.has(el)) el.classList.remove('phys-flow');
+    for (const el of els) el.classList.add('phys-flow');
+  }
 }

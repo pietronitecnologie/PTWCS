@@ -84,7 +84,7 @@ async function showView(id) {
 /** Fotogrammi della simulazione fisica: unità sulla vista corrente e indicatore in testata. */
 live.on('physics', (d) => {
   setSimBadge(d.running);
-  if (physLayer) physLayer.set(d.running ? d.views?.[physView] || [] : []);
+  if (physLayer) { physLayer.set(d.running ? d.views?.[physView] || [] : []); physLayer.flows(d.running ? d.flows?.[physView] || [] : []); }
 });
 function setSimBadge(on) {
 

@@ -176,6 +176,7 @@ Mentre la simulazione è in corso:
 
 Il pannello mostra:
 - unità generate, uscite, in impianto, letture e mancate letture;
+- per i fluidi: livello, volume, temperatura e pressione dei serbatoi, portate delle tubazioni, aperture delle valvole, velocità di pompe e agitatori, pompe a secco, troppo pieni;
 - lo stato di ogni componente;
 - l'elenco delle unità (barcode, materiale, peso, nastro, posizione, età);
 - gli eventi.
@@ -190,6 +191,10 @@ Il pannello mostra:
 | Deviatore, fermo | **⚡ Blocca**: ignora i comandi |
 | Sorgente | intervallo, **sempre attiva** / **ferma**, **+1** unità con un barcode a scelta |
 | Unità | **Incastra** (si ferma e blocca le successive), **Libera**, **✕** rimuovi |
+| Serbatoio | **⚡ Perdita** con la sua portata; **Livello…** per impostare livello e temperatura (prove) |
+| Valvola | **⚡ Blocca** nella posizione attuale |
+| Pompa | **⚡ Scatto termico**: si ferma e la retroazione di marcia cade; **Riarma** |
+| Riscaldatore, agitatore | **⚡ Guasto** / **⚡ Avaria** |
 
 Ogni comando e intervento finisce nell'audit trail (categoria *simulazione*).
 

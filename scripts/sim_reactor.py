@@ -1,5 +1,8 @@
 """Simulazione demo (script a timer): due reattori batch R1/R2.
 
+Con la simulazione fisica attiva (tag Proc.SimActive) non fa nulla: livelli, temperature
+e agitatori li calcola il layer fisico (vista "Impianto di processo").
+
 Fisica semplificata: la valvola di carico aumenta il livello, quella di scarico
 lo riduce; il riscaldatore porta la temperatura al setpoint, altrimenti si
 raffredda verso l'ambiente; l'agitatore segue la velocità impostata.
@@ -9,6 +12,8 @@ from _sim_util import _approach
 
 def sim_reactor(payload, ctx):
     g, w = ctx.tag, ctx.write
+    if g("Proc.SimActive"):
+        return  # il layer fisico (fluidi) simula i reattori: questo script si fa da parte
     for u in ("R1", "R2"):
         lvl = g(f"{u}.Level") or 0.0
         temp = g(f"{u}.Temp") or 20.0

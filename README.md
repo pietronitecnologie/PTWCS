@@ -54,7 +54,10 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - ricette che schedulano le fasi, con rami paralleli, modello di stato hold/restart/stop/abort e versioni;
   - batch che allocano in esclusiva i dispositivi.
 - **Layer fisico per il collaudo virtuale**:
-  - si aggiunge fisica ai componenti delle viste SCADA (nastri, fotocellule, scanner, deviatori, sorgenti, pozzi, fermi) e si definiscono i materiali;
+  - si aggiunge fisica ai componenti delle viste SCADA e si definiscono i materiali:
+    - logistica: nastri, fotocellule, scanner, deviatori, sorgenti, pozzi, fermi;
+    - processo: serbatoi, valvole, pompe, tubazioni, riscaldatori, agitatori;
+  - ponte PLCSIM Advanced per l'I/O diretto della CPU virtuale;
   - il PLC (PLCSIM Advanced o reale in collaudo) comanda gli attuatori, la simulazione muove le unità e scrive i sensori negli ingressi simulati;
   - SCADA e WCS restano invariati.
 - **Tema chiaro e scuro** per runtime, Designer e manuale.
@@ -492,6 +495,19 @@ PLC (PLCSIM Advanced / reale) ──attuatori──▶ tag ──▶ fisica ─�
 - **⚛ Fisica** (workspace): passo, scala, materiali (dimensioni, masse, mix), heartbeat e "simulazione attiva" per il watchdog nel PLC, verifica del modello.
 - **Driver simulabili**: la simulazione scrive i sensori solo sui driver dichiarati come PLC virtuali o in collaudo (e sui driver interni `sim`).
 
+**Fluidi:**
+- componenti: serbatoi (volume, quota, livello, temperatura, pressione), alimentazioni, scarichi, giunzioni, valvole on/off e modulanti (Kv, corsa, finecorsa), pompe centrifughe (curva, velocità, marcia a secco), tubazioni con elementi in serie, riscaldatori con termostato, motori e agitatori;
+- bilancio di massa ed energia, travasi per gravità, giunzioni risolte sulla pressione;
+- guasti: perdita, valvola bloccata, scatto termico della pompa, riscaldatore guasto.
+
+**Demo processo:** `python3 tools/build_demo_fluids.py`. Collega la fisica dei fluidi ai reattori R1/R2 della demo ISA-88: le fasi dei batch comandano valvole, riscaldatori e agitatori; lo script `proc_logic` fa da PLC di servizio.
+
+**PLCSIM Advanced:** il ponte `plc/plcsim-bridge` (C#, Windows) espone l'immagine di processo della CPU virtuale come server Modbus:
+- `coil` = `%I`, `di` = `%Q`, `hr` = `%IW`, `ir` = `%QW`;
+- `hr:60000` = fattore tempo, sincronizzato con quello della simulazione tramite il **tag fattore tempo PLC**.
+
+Il programma PLC resta quello di produzione.
+
 **Motore (Rust):**
 - cinematica 1D a passo fisso (20 ms): accumulo senza sovrapposizioni, trasferimenti, unità a cavallo;
 - scritture dei sensori solo sui cambi, nell'ordine giusto (barcode prima del contatore);
@@ -620,5 +636,8 @@ EIP_TEST_HOST=127.0.0.1 cargo test --features eip --test eip_integration
 - **Viste incorporate**: i parametri vanno solo dal padre al figlio; i parametri di output (dal figlio al padre) non ci sono ancora.
 - **OPC UA**: manca la cifratura e la lettura avviene a polling, senza subscription.
 - **EtherNet/IP**: una richiesta per tag.
-- **Layer fisico**: modello cinematico 1D per la logistica (nastri, sensori, deviatori). Non ci sono ancora traslo con assi, fluidi (serbatoi, valvole, pompe), marcia indietro dei nastri e vista 3D. Manca il ponte diretto con l'API di PLCSIM Advanced (passa dal driver S7 e dal DB `SimIO`).
+- **Layer fisico**:
+  - logistica 1D e fluidi a parametri concentrati (un solo fluido, senza composizione delle miscele);
+  - non ci sono ancora traslo con assi, marcia indietro dei nastri e vista 3D;
+  - il ponte PLCSIM Advanced (C#) è scritto sull'API pubblica ma non è stato compilato nell'ambiente di sviluppo (serve Windows con PLCSIM).
 - **Driver** e **ridondanza**: i driver si configurano ancora solo in `plant.yaml`; non c'è un'istanza attivo/standby.

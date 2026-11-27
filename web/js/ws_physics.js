@@ -6,7 +6,7 @@ import { tableEditor } from './forms.js';
 import { helpBtn } from './markdown.js';
 import { KINDS } from './physics.js';
 
-const DEF = { step_ms: 20, scale_mm: 10, autostart: false, drivers: [], heartbeat_tag: '', active_tag: '', materials: [] };
+const DEF = { step_ms: 20, scale_mm: 10, autostart: false, drivers: [], heartbeat_tag: '', active_tag: '', materials: [], density: 1000, cp: 4186, ambient_c: 20, time_scale_tag: '' };
 
 export function mount(root) {
   root.innerHTML = `<div class="wsl"><div class="side" id="phSide"></div><div class="main" id="phMain"></div></div>`;
@@ -32,7 +32,14 @@ export function mount(root) {
         <label>Driver simulabili</label><div>${P.drivers.map((d) => `<label class="chip"><input type="checkbox" data-drv="${esc(d.name)}" ${s.drivers.includes(d.name) || d.protocol === 'sim' ? 'checked' : ''} ${d.protocol === 'sim' ? 'disabled title="I driver interni (sim) sono sempre ammessi"' : ''}> ${esc(d.name)} <span class="muted">${esc(d.protocol || '')}</span></label>`).join('')}
           <p class="hint" style="margin:4px 0 0">La simulazione scrive i sensori solo sui driver spuntati: <b>solo PLC virtuali o in collaudo</b> (PLCSIM Advanced), mai un PLC di produzione.</p></div>
         <label>Tag heartbeat</label><input list="phTags" data-f="heartbeat_tag" value="${esc(s.heartbeat_tag)}" placeholder="es. SimIO.Heartbeat (contatore ogni 0,5 s)">
-        <label>Tag simulazione attiva</label><input list="phTags" data-f="active_tag" value="${esc(s.active_tag)}" placeholder="es. SimIO.Active">
+        <label>Tag simulazione attiva</label><input list="phTags" data-f="active_tag" value="${esc(s.active_tag)}" placeholder="es. SimIO.Active (più PLC: tag separati da virgola)">
+        <label>Tag fattore tempo PLC</label><input list="phTags" data-f="time_scale_tag" value="${esc(s.time_scale_tag || '')}" placeholder="ponte PLCSIM Advanced: tag su hr:60000 (×100)">
+      </div></div>
+      <div class="sec"><h3>Fluido di processo ${helpBtn('designer-fisica#fluidi')}</h3>
+      <div class="formgrid">
+        <label>Densità</label><div class="row"><input type="number" step="any" data-f="density" value="${s.density}" style="width:90px"> kg/m³</div>
+        <label>Calore specifico</label><div class="row"><input type="number" step="any" data-f="cp" value="${s.cp}" style="width:90px"> J/(kg·K)</div>
+        <label>Temperatura ambiente</label><div class="row"><input type="number" step="any" data-f="ambient_c" value="${s.ambient_c}" style="width:90px"> °C</div>
       </div></div>
       <div class="sec"><h3>Materiali ${helpBtn('designer-fisica#materiali')}</h3><p class="hint">Unità di carico generate dalle sorgenti. Senza materiali si usa un collo standard 0,4 × 0,3 m.</p><div id="phMat"></div></div>
       <div class="sec"><h3>Verifica del modello ${helpBtn('designer-fisica#verifica-del-modello')}<span class="grow"></span><button class="small" id="phCheck">⟳ Verifica</button></h3>
@@ -82,6 +89,14 @@ export function mount(root) {
     source: () => `su ${c.on.split('/').pop()} · ogni ${c.interval[0]}–${c.interval[1]} s · ${c.materials.join(', ')}`,
     stopper: () => `su ${c.on.split('/').pop()} a ${(+c.at).toFixed(2)} m`,
     sink: () => '',
+    tank: () => `${c.vol} m³ · livello ${c.level} % · ${c.temp} °C`,
+    supply: () => `${c.p} bar · ${c.t} °C`,
+    junction: () => '',
+    valve: () => `Kv ${c.kv} · comando ${c.cmd}`,
+    pump: () => `${c.head} m · ${c.qmax} m³/h`,
+    pipe: () => `${c.q} m³/h`,
+    heater: () => `${c.kw} kW in ${c.tank.split('/').pop()}`,
+    motor: () => `max ${c.rpm}`,
   }[c.kind] || (() => ''))();
 
   drawSide();
