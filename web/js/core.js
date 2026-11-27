@@ -9,7 +9,15 @@ async function req(method, url, body) {
   const text = await r.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-  if (!r.ok) throw new Error((data && data.error) || `${r.status} ${r.statusText}`);
+  if (!r.ok) {
+    // sessione scaduta / login richiesto / cambio password obbligatorio
+    if ((r.status === 401 && data?.login) || (r.status === 403 && data?.must_change)) {
+      window.dispatchEvent(new CustomEvent('ptwcs-auth', { detail: data }));
+    }
+    const e = new Error((data && data.error) || `${r.status} ${r.statusText}`);
+    e.status = r.status;
+    throw e;
+  }
   return data;
 }
 

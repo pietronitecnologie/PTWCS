@@ -192,7 +192,7 @@ export function mount(root, { live }) {
         <label class="row"><input type="checkbox" id="rsEn" ${draft.enabled !== false ? 'checked' : ''}> regole attive</label>
         <span class="grow"></span>
         <button class="small" id="rsReset">Azzera contatori</button><button class="small" id="rsReload">Annulla modifiche</button>
-        ${helpBtn('designer-smistamento#regole-di-smistamento')}<button class="primary" id="rsSave">Salva regole${rulesDirty ? ' ●' : ''}</button></div>
+        ${helpBtn('designer-smistamento#regole-di-smistamento')}<button class="primary" id="rsSave" data-perm="rules.edit">Salva regole${rulesDirty ? ' ●' : ''}</button></div>
       <div class="row" style="align-items:flex-start;gap:16px">
         <div class="grow" style="min-width:0">
           <input id="rsDesc" value="${esc(draft.description || '')}" placeholder="Descrizione dell'insieme di regole" style="width:100%;margin-bottom:10px">

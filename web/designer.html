@@ -21,7 +21,7 @@
     <span class="sep"></span>
     <span id="viewTools" class="row">
       <span id="viewTitle" class="muted">—</span><span id="dirty" class="dirty" hidden>●</span>
-      <button id="btnSave" class="primary" title="Salva vista (Ctrl+S)">Salva</button>
+      <button id="btnSave" class="primary" data-perm="designer.views" title="Salva vista (Ctrl+S)">Salva</button>
       <button id="btnUndo" title="Annulla (Ctrl+Z)">↶</button>
       <button id="btnRedo" title="Ripeti (Ctrl+Y)">↷</button>
       <button id="btnZoomOut" title="Zoom -">−</button><span id="zoomLbl" class="mono">100%</span><button id="btnZoomIn" title="Zoom +">+</button>
@@ -30,8 +30,9 @@
       <label class="row" title="Anteprima: i click eseguono le azioni, come in runtime"><input type="checkbox" id="chkPreview"> Anteprima</label>
     </span>
     <span class="grow"></span>
-    <button id="btnSaveProject" title="Valida, salva e applica a caldo il progetto (tag, UDT, aree, protocollo, classi…)">Salva progetto<span id="projDirty" class="dirty" hidden> ●</span></button>
-    <a href="manual.html#designer" target="_blank" title="Manuale utente (aiuto contestuale: pulsanti ? accanto a sezioni e campi)"><button>📖 Manuale</button></a>
+    <button id="btnSaveProject" data-perm="designer.project" title="Valida, salva e applica a caldo il progetto (tag, UDT, aree, protocollo, classi…)">Salva progetto<span id="projDirty" class="dirty" hidden> ●</span></button>
+    <span id="userChip" data-compact="1"></span>
+    <a href="manual.html#designer" target="_blank" title="Manuale utente (aiuto contestuale: pulsanti ? accanto a sezioni e campi)"><button>📖</button></a>
     <a id="btnRuntime" href="index.html" target="_blank"><button title="Apri il runtime">Runtime ↗</button></a>
   </header>
 
@@ -44,7 +45,7 @@
         <button data-tab="tags">Tag</button>
       </div>
       <div class="tabpane" id="tab-project">
-        <div class="row"><button id="btnNewView" class="grow">+ Nuova vista</button></div>
+        <div class="row"><button id="btnNewView" class="grow" data-perm="designer.views">+ Nuova vista</button></div>
         <ul class="list" id="viewList"></ul>
       </div>
       <div class="tabpane" id="tab-palette" hidden>

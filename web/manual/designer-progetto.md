@@ -1,10 +1,11 @@
 # Designer – Progetto
 
-Il workspace **⚙ Progetto** ha cinque sezioni:
+Il workspace **⚙ Progetto** ha sei sezioni:
 - [Aree](#aree)
 - [Scan class](#scan-class)
 - [Script a timer](#script-a-timer)
 - [Magazzini](#magazzini-automatici)
+- [Sicurezza](#sicurezza): login, ruoli, permessi, utenti
 - [Driver PLC](#driver-plc)
 
 Le modifiche si attivano con **Salva progetto**.
@@ -110,6 +111,90 @@ Una corsia con `Fault` alto oppure `Auto` basso non riceve missioni.
 | **Guadagno minimo (s)** | riduzione minima del tempo di traslazione per una compattazione | 2 |
 
 Vedi [Riorganizzazione](wcs.md#riorganizzazione) per l'algoritmo e gli indicatori.
+
+## Sicurezza
+
+Login, ruoli e permessi. Si configurano in **⚙ Progetto → 🔐 Sicurezza**; per modificarli serve il permesso `users.manage`.
+
+| Cosa | Dove viene salvato | Quando ha effetto |
+|---|---|---|
+| Impostazioni e ruoli | nel progetto (`project.yaml`) | con **Salva progetto** |
+| Utenti e password | nel database del server, mai nel progetto | subito |
+
+### Impostazioni
+
+| Campo | Significato |
+|---|---|
+| **Login e permessi attivi** | se disattivato non c'è login e tutti possono tutto (installazioni di prova). Prima di attivarlo verifica di conoscere la password di un amministratore |
+| **Ruolo senza login** | permessi di chi usa il runtime senza accedere, tipicamente *visualizzatore* per un monitor di reparto. *(nessuno)* = login obbligatorio |
+| **Durata sessione (min)** | dopo questo tempo serve un nuovo login |
+| **Logout per inattività (min)** | la sessione scade se resta inutilizzata; 0 = mai |
+
+**Primo avvio**: se nel database non c'è nessun utente, il server crea `admin` con password `admin` e cambio obbligatorio al primo accesso. In alternativa la password iniziale si imposta con la variabile d'ambiente `PTWCS_ADMIN_PASSWORD`.
+
+### Ruoli e permessi
+
+La tabella ha una colonna per ruolo e una riga per permesso: spunta i permessi di ogni ruolo.
+- Il nome del ruolo si modifica in testa alla colonna, ✕ elimina il ruolo, **+ Ruolo** ne aggiunge uno.
+- **\* tutti i permessi** dà ogni permesso, compresi quelli futuri.
+
+| Permesso | Consente |
+|---|---|
+| `runtime.view` | aprire il runtime e le viste (salvo restrizioni della singola vista) |
+| `tag.write` | scrivere tag: comandi da pulsanti e faceplate, pagina Tag (salvo ruoli del tag) |
+| `alarm.ack` | riconoscere gli allarmi |
+| `script.call` | eseguire script Python dai pulsanti delle viste |
+| `wh.operate` | WCS: missioni, ordini, prelievi, depositi, movimentazioni, blocco celle |
+| `wh.config` | WCS: riorganizzazione automatica e rettifiche dell'anagrafica UdC |
+| `designer` | aprire il Designer in consultazione |
+| `designer.views` | modificare viste, faceplate e simboli |
+| `designer.project` | modificare e salvare il progetto (tag, UDT, aree, protocollo, classi, WMS, magazzini) |
+| `rules.edit` | modificare le regole di smistamento |
+| `scripts.edit` | modificare, testare e ricaricare gli script Python |
+| `users.manage` | gestire utenti, ruoli e impostazioni di sicurezza |
+
+Ruoli predefiniti:
+
+| Ruolo | Uso |
+|---|---|
+| amministratore | tutto (`*`) |
+| progettista | Designer completo e runtime |
+| manutentore | runtime e WCS completi, Designer in sola lettura |
+| operatore | conduzione: comandi, allarmi, missioni WCS |
+| visualizzatore | sola visualizzazione |
+
+Deve sempre esistere almeno un ruolo con `users.manage` (o `*`): il progetto non si salva senza.
+
+### Utenti
+
+| Azione | Note |
+|---|---|
+| **+ Nuovo utente** | nome utente (lettere, numeri, `. _ - @`), nome completo, ruoli, attivo, password (min. 6 caratteri), *cambio al primo accesso* |
+| **Modifica** | nome, ruoli, attivo/disattivato. Un utente disattivato perde subito le sue sessioni |
+| **Password** | imposta una nuova password (con cambio al prossimo accesso) e chiude le sessioni aperte dell'utente |
+| **Elimina** | non puoi eliminare te stesso né l'ultimo amministratore attivo |
+
+**Sessioni attive** elenca chi è collegato in questo momento.
+
+Protezioni:
+- password salvate con hash Argon2;
+- dopo 5 tentativi errati l'utente resta bloccato per un tempo crescente;
+- cookie di sessione `HttpOnly` / `SameSite=Strict`;
+- login, logout, tentativi falliti e modifiche agli utenti finiscono nell'audit, e ogni azione nell'audit riporta l'utente che l'ha fatta.
+
+### Ruoli di viste, tag e comandi
+
+Oltre ai permessi generali si possono restringere i singoli elementi. Nessun ruolo selezionato = nessuna restrizione.
+
+| Dove | Campo | Effetto |
+|---|---|---|
+| Proprietà della **vista** (Designer → Viste) | **Ruoli accesso** | solo questi ruoli vedono la vista nei menu e possono aprirla |
+| Proprietà della **vista** | **Ruoli comando** | solo questi ruoli possono usare pulsanti e comandi della vista; gli altri la vedono in sola lettura |
+| **Azione** di un evento click | **Ruoli** | solo questi ruoli possono eseguire quell'azione (es. *Reset* solo per manutentore) |
+| **Tag** (Tag e UDT → tag di progetto) | **Ruoli scrittura** | solo questi ruoli possono scrivere il tag, da qualsiasi vista, faceplate o pagina |
+| **Membro UDT** / **istanza UDT** | **Ruoli scrittura** | come sopra per i tag generati; il membro ha la precedenza sull'istanza |
+
+Il server verifica sempre permessi, ruoli dei tag e ruoli di comando delle viste: nascondere un pulsante non basta ad aggirarli. I ruoli della singola azione sono un controllo dell'interfaccia; per una protezione completa metti i ruoli sul **tag**.
 
 ## Driver PLC
 

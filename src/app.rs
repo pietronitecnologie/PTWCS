@@ -11,6 +11,11 @@ use crate::sorting::Sorting;
 use crate::store::{DecisionRecord, Store};
 use crate::tagdb::{TagDb, now_ms};
 use crate::value::Value;
+
+tokio::task_local! {
+    /// Utente autenticato della richiesta in corso (per l'audit).
+    pub static AUDIT_USER: String;
+}
 use anyhow::{Result, bail};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -46,6 +51,7 @@ pub struct AppState {
     pub scripts: Arc<ScriptHost>,
     /// Processo Python separato per gli eventi HMI.
     pub hmi_scripts: Arc<ScriptHost>,
+    pub security: crate::security::Security,
     pub store: Store,
     pub alarms: AlarmManager,
     pub board: StatusBoard,
@@ -87,7 +93,13 @@ impl AppState {
 
     pub fn audit(&self, user: &str, action: &str, detail: String) {
         let s = self.store.clone();
-        let (u, a) = (user.to_string(), action.to_string());
+        // utente della richiesta HTTP in corso (se c'è login): "mario (hmi)"
+        let who = AUDIT_USER.try_with(|u| u.clone()).ok().filter(|u| !u.is_empty());
+        let user = match who {
+            Some(w) if w != user => format!("{w} ({user})"),
+            _ => user.to_string(),
+        };
+        let (u, a) = (user, action.to_string());
         tokio::spawn(async move {
             let _ = s.audit(now_ms(), u, a, detail).await;
         });
@@ -286,6 +298,7 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
     }
 
     let store = Store::open(&cfg.resolve(&cfg.server.database))?;
+    let security = crate::security::Security::open(store.clone()).await?;
     let (events, _) = broadcast::channel(1024);
     let views_dir = cfg.resolve(&cfg.server.views_dir);
     let symbols_dir = cfg.resolve(&cfg.server.symbols_dir);
@@ -305,6 +318,7 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
         db,
         scripts,
         hmi_scripts,
+        security,
         store,
         alarms: AlarmManager::default(),
         board: Default::default(),

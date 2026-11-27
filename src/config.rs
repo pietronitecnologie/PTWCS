@@ -95,6 +95,59 @@ pub struct Project {
     /// Magazzini automatici (locazioni, missioni, trasli).
     #[serde(default)]
     pub warehouses: Vec<WarehouseDef>,
+    /// Login, ruoli e permessi.
+    #[serde(default)]
+    pub security: SecurityDef,
+}
+
+/// Sicurezza: i ruoli e i loro permessi sono nel progetto; gli utenti (con le
+/// password) sono nel database del server, mai nel file di progetto.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct SecurityDef {
+    /// Disattivata: nessun login, tutti possono tutto (compatibilità/demo).
+    #[serde(default)]
+    pub enabled: bool,
+    /// Ruolo di chi non ha fatto login (vuoto = login obbligatorio).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub anonymous_role: String,
+    /// Durata massima della sessione (minuti).
+    #[serde(default = "session_min")]
+    pub session_minutes: u32,
+    /// Logout per inattività (minuti, 0 = mai).
+    #[serde(default)]
+    pub idle_logout_minutes: u32,
+    #[serde(default = "default_roles")]
+    pub roles: Vec<RoleDef>,
+}
+fn session_min() -> u32 {
+    720
+}
+impl Default for SecurityDef {
+    fn default() -> Self {
+        Self { enabled: false, anonymous_role: String::new(), session_minutes: session_min(), idle_logout_minutes: 0, roles: default_roles() }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct RoleDef {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    /// Permessi (vedi `security::PERMISSIONS`); "*" = tutti.
+    #[serde(default)]
+    pub permissions: Vec<String>,
+}
+
+/// Ruoli predefiniti.
+pub fn default_roles() -> Vec<RoleDef> {
+    let r = |n: &str, d: &str, p: &[&str]| RoleDef { name: n.into(), description: d.into(), permissions: p.iter().map(|x| x.to_string()).collect() };
+    vec![
+        r("amministratore", "Accesso completo, gestione utenti e sicurezza", &["*"]),
+        r("progettista", "Designer completo (viste, progetto, regole, script)", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "designer.views", "designer.project", "rules.edit", "scripts.edit"]),
+        r("manutentore", "Runtime completo e WCS, Designer in sola lettura", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer"]),
+        r("operatore", "Conduzione impianto: comandi, allarmi, missioni", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate"]),
+        r("visualizzatore", "Sola visualizzazione", &["runtime.view"]),
+    ]
 }
 
 /// Magazzino automatico: geometria, trasli per corsia, baie.
@@ -456,6 +509,9 @@ pub struct TagDef {
     /// Istanza UDT da cui il tag è generato (impostato dall'espansione).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub udt: Option<String>,
+    /// Ruoli autorizzati a scrivere il tag (vuoto = chi ha il permesso `tag.write`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub write_roles: Vec<String>,
 }
 fn is_false(b: &bool) -> bool {
     !*b
@@ -530,6 +586,9 @@ pub struct UdtMember {
     pub alarms: Vec<TagAlarm>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial: Option<Value>,
+    /// Ruoli autorizzati a scrivere il membro (vuoto = quelli dell'istanza).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub write_roles: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -558,6 +617,9 @@ pub struct UdtInstance {
     pub params: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
+    /// Ruoli autorizzati a scrivere i tag dell'istanza (vuoto = chi ha `tag.write`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub write_roles: Vec<String>,
 }
 
 // ------------------------------------------------------------------ protocollo request/reply
@@ -892,6 +954,7 @@ impl UdtType {
                         })
                         .collect(),
                     udt: Some(inst.name.clone()),
+                    write_roles: if m.write_roles.is_empty() { inst.write_roles.clone() } else { m.write_roles.clone() },
                 })
             })
             .collect()
@@ -999,6 +1062,10 @@ impl Config {
         if p.is_absolute() { p.to_path_buf() } else { self.base_dir.join(p) }
     }
 
+    pub fn security(&self) -> SecurityDef {
+        self.project.security.clone()
+    }
+
     pub fn tag(&self, name: &str) -> Option<&TagDef> {
         self.tags.iter().find(|t| t.name == name)
     }
@@ -1030,6 +1097,31 @@ impl Config {
             }
             Ok(s)
         };
+        // sicurezza: ruoli, permessi e riferimenti ai ruoli
+        let sec = &self.project.security;
+        let roles = uniq("ruolo", sec.roles.iter().map(|r| r.name.as_str()).collect())?;
+        for r in &sec.roles {
+            for p in &r.permissions {
+                let known = p == "*" || crate::security::PERMISSIONS.iter().any(|(id, _, _)| id == p || (p.ends_with(".*") && id.starts_with(&p[..p.len() - 1])));
+                if !known {
+                    bail!("ruolo {}: permesso sconosciuto '{p}'", r.name);
+                }
+            }
+        }
+        if !sec.anonymous_role.is_empty() && !roles.contains(&sec.anonymous_role) {
+            bail!("sicurezza: ruolo anonimo '{}' non definito", sec.anonymous_role);
+        }
+        if sec.enabled && !sec.roles.iter().any(|r| r.permissions.iter().any(|p| p == "*" || p == "users.manage")) {
+            bail!("sicurezza: serve almeno un ruolo con il permesso users.manage (o *), altrimenti nessuno potrebbe più gestirla");
+        }
+        for (what, name, wr) in self.project.tags.iter().map(|t| ("tag", t.name.as_str(), &t.write_roles))
+            .chain(self.project.udt_instances.iter().map(|i| ("istanza", i.name.as_str(), &i.write_roles)))
+            .chain(self.project.udt_types.iter().flat_map(|t| t.members.iter().map(move |m| ("membro UDT", m.name.as_str(), &m.write_roles))))
+        {
+            if let Some(r) = wr.iter().find(|r| !roles.contains(*r)) {
+                bail!("{what} {name}: ruolo di scrittura '{r}' non definito");
+            }
+        }
         let drivers = uniq("driver", self.drivers.iter().map(|d| d.name.as_str()).collect())?;
         let areas = uniq("area", self.areas.iter().map(|a| a.name.as_str()).collect())?;
         let scans = uniq("scan class", self.scan_classes.iter().map(|a| a.name.as_str()).collect())?;

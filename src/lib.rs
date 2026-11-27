@@ -6,6 +6,7 @@ pub mod decision;
 pub mod drivers;
 pub mod rules;
 pub mod script;
+pub mod security;
 pub mod sorting;
 pub mod store;
 pub mod tagdb;

@@ -15,14 +15,31 @@ import urllib.request
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8080"
 
 
+COOKIE = {}
+
+
 def call(m, u, b=None):
     r = urllib.request.Request(BASE + u, data=json.dumps(b).encode() if b is not None else None, method=m,
-                               headers={"content-type": "application/json"})
+                               headers={"content-type": "application/json", **COOKIE})
     try:
-        return json.loads(urllib.request.urlopen(r).read() or b"null")
+        with urllib.request.urlopen(r) as resp:
+            if resp.headers.get("Set-Cookie"):
+                COOKIE["Cookie"] = resp.headers["Set-Cookie"].split(";")[0]
+            return json.loads(resp.read() or b"null")
     except urllib.error.HTTPError as e:
         raise SystemExit(f"{m} {u}: {e.code} {e.read().decode()[:600]}")
 
+
+
+def login():
+    """Con la sicurezza attiva serve un utente con permesso designer.project (PTWCS_USER / PTWCS_PASSWORD)."""
+    import os
+    me = call("GET", "/api/auth/me")
+    if me["enabled"] and not me.get("all"):
+        call("POST", "/api/auth/login", {"username": os.environ.get("PTWCS_USER", "admin"), "password": os.environ.get("PTWCS_PASSWORD", "")})
+
+
+login()
 
 def upsert(lst, item, key="name"):
     for i, x in enumerate(lst):

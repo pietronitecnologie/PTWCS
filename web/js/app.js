@@ -2,6 +2,7 @@
 import { api, Live, esc, fmtTs, toast } from './core.js';
 import { ViewRenderer, runActions, createPopup, compileSymbol, invalidateView, whCellDialog, scopeFor, subst } from './render.js';
 import { showMenu, editItems } from './ctxmenu.js';
+import { initAuth, mountUserChip, can, AUTH } from './auth.js';
 import { showWcs } from './wcs.js';
 
 const live = new Live();
@@ -60,7 +61,7 @@ async function showView(id) {
     page.innerHTML = `<div class="card">Vista <b>${esc(id)}</b> non trovata. <a href="designer.html">Creala nel Designer</a>.</div>`;
     return;
   }
-  page.innerHTML = `<div class="viewhost"><svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg></div>`;
+  page.innerHTML = `<div class="viewhost ${AUTH.viewOps[id] === false || !can('tag.write') ? 'nocmd' : ''}"><svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg></div>`;
   renderer = new ViewRenderer(page.querySelector('svg'), live, {
     api, symbols: compiled, onAction: actionHandler(id), params: routeParams,
     onWhCell: (wh, pos) => whCellDialog(wh, pos, { api, toast }),
@@ -271,7 +272,7 @@ async function showAreas(name) {
       const list = live.alarms.filter((al) => inArea(al.area, sel, areas));
       const vs = views.filter((v) => v.area === sel);
       page.innerHTML = `<div class="row" style="margin-bottom:10px"><a href="#/areas" style="color:var(--muted)">← Aree</a><h3 class="grow" style="margin:0 0 0 10px">${esc(sel)}</h3>
-          <button id="ackArea">Riconosci allarmi area</button></div>
+          <button id="ackArea" data-perm="alarm.ack">Riconosci allarmi area</button></div>
         <div class="grid2">${a ? card(a) : ''}${kids(sel).map(card).join('')}
           <div class="card"><h3>Viste dell'area</h3>${vs.map((v) => `<a href="#/view/${esc(v.id)}" style="color:var(--accent);display:block">${esc(v.title)}</a>`).join('') || '<span class="muted">Nessuna vista associata (proprietà "Area" della vista nel Designer)</span>'}</div></div>
         <div class="card"><h3>Allarmi</h3><table><thead><tr><th>Ora</th><th>Gravità</th><th>Area</th><th>Id</th><th>Messaggio</th><th>Stato</th><th></th></tr></thead>
@@ -305,7 +306,7 @@ function alarmRows(list) {
     <td>${fmtTs(a.raised_ts)}</td><td><span class="sev ${a.severity}">${a.severity}</span></td>
     <td>${esc(a.area || '')}</td><td class="mono">${esc(a.id)}</td><td>${esc(a.message)}</td>
     <td>${a.active ? '<b style="color:var(--alarm)">ATTIVO</b>' : 'rientrato ' + fmtTs(a.cleared_ts)}</td>
-    <td>${a.acked ? '✓' : `<button class="small" data-ack="${esc(a.id)}">Riconosci</button>`}</td></tr>`).join('');
+    <td>${a.acked ? '✓' : `<button class="small" data-ack="${esc(a.id)}" data-perm="alarm.ack">Riconosci</button>`}</td></tr>`).join('');
 }
 
 async function showAlarms() {
@@ -317,7 +318,7 @@ async function showAlarms() {
     const h = hist.filter((e) => !f || inArea(e.area, f, areas));
     page.innerHTML = `<div class="card"><div class="row"><h3 class="grow">Allarmi correnti</h3>
       <label class="row muted">Area <select id="areaSel"><option value="">(tutte)</option>${areas.map((a) => `<option ${a.name === f ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
-      <button id="ackAll">Riconosci ${f ? 'area' : 'tutti'}</button></div>
+      <button id="ackAll" data-perm="alarm.ack">Riconosci ${f ? 'area' : 'tutti'}</button></div>
       <table><thead><tr><th>Ora</th><th>Gravità</th><th>Area</th><th>Id</th><th>Messaggio</th><th>Stato</th><th></th></tr></thead>
       <tbody>${alarmRows(cur) || '<tr><td colspan=7 class="muted">Nessun allarme</td></tr>'}</tbody></table></div>
       <div class="card"><h3>Storico eventi</h3><table><thead><tr><th>Ora</th><th>Evento</th><th>Area</th><th>Id</th><th>Messaggio</th><th>Valore</th><th>Utente</th></tr></thead>
@@ -362,7 +363,9 @@ async function showTags() {
   tb.innerHTML = defs.map((t) => `<tr data-tag="${esc(t.name)}"><td class="mono">${esc(t.name)}<div class="muted">${esc(t.description)}</div></td>
     <td>${esc(t.driver)}</td><td class="mono">${esc(t.address)}</td><td>${esc(t.type)}</td>
     <td class="mono v"></td><td class="q"></td><td class="ts muted"></td>
-    <td>${t.writable ? `<button class="small" data-w="${esc(t.name)}">Scrivi</button>` : ''}</td></tr>`).join('');
+    <td>${t.writable ? (t.can_write === false
+      ? `<button class="small noperm" disabled title="Scrittura non consentita al tuo ruolo${t.write_roles?.length ? ' (ruoli: ' + esc(t.write_roles.join(', ')) + ')' : ''}">🔒 Scrivi</button>`
+      : `<button class="small" data-w="${esc(t.name)}">Scrivi</button>`) : ''}</td></tr>`).join('');
   const upd = () => tb.querySelectorAll('tr').forEach((tr) => {
     const s = live.tags.get(tr.dataset.tag);
     if (!s) return;
@@ -483,12 +486,17 @@ live.on('connection', (on) => document.getElementById('conn').classList.toggle('
 setInterval(() => (document.getElementById('clock').textContent = new Date().toLocaleTimeString()), 1000);
 
 async function init() {
-  [info, views, symbols] = await Promise.all([api.get('/api/info'), api.get('/api/views'), api.get('/api/symbols')]);
+  info = await api.get('/api/info');
+  document.title = info.plant.name;
+  await initAuth('runtime.view');
+  mountUserChip(document.getElementById('userChip'));
+  [views, symbols] = await Promise.all([api.get('/api/views'), api.get('/api/symbols')]);
+  AUTH.viewOps = Object.fromEntries(views.map((v) => [v.id, v.can_operate !== false]));
   hasWh = (await api.get('/api/wh').catch(() => [])).length > 0;
   for (const s of symbols) { try { compiled[s.id] = compileSymbol(s.svg); } catch { /* simbolo non valido */ } }
   document.getElementById('plant').textContent = info.plant.name;
   document.title = info.plant.name;
-  if (!info.designer) document.getElementById('designerLink').remove();
+  if (!info.designer || !can('designer')) document.getElementById('designerLink').remove();
   buildNav();
   live.connect();
   refreshAreaBar();

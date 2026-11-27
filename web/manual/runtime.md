@@ -2,6 +2,21 @@
 
 Il runtime è l'interfaccia operatore: si apre con `http://<server>:8080/`.
 
+## Accesso
+
+Se la sicurezza è attiva:
+- **🔐 Accedi** in alto apre il login. Se il progetto lo prevede, senza login il runtime resta visibile in sola lettura;
+- se il login è obbligatorio, la schermata di accesso compare subito;
+- **👤 utente ▾** mostra i ruoli e permette *Cambia password*, *Cambia utente* ed *Esci*;
+- al primo accesso, o dopo un reset della password, può essere richiesto il **cambio password**;
+- a sessione scaduta (durata massima o inattività) ricompare il login.
+
+Cosa vedi dipende dai tuoi ruoli:
+- le viste non consentite non compaiono nei menu;
+- i comandi non consentiti mostrano *Permesso negato* (il cursore 🚫 indica una vista in sola lettura);
+- nella pagina Tag i tag riservati hanno 🔒 *Scrivi* disattivato;
+- nel WCS i pulsanti operativi compaiono solo con il permesso `wh.operate`.
+
 ## Struttura della pagina
 
 | Zona | Contenuto |

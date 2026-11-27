@@ -94,10 +94,219 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/scripts/check", post(script_check))
         .route("/api/scripts/test", post(script_test))
         .route("/api/scripts/call", post(script_call))
+        .route("/api/auth/me", get(auth_me))
+        .route("/api/auth/login", post(auth_login))
+        .route("/api/auth/logout", post(auth_logout))
+        .route("/api/auth/password", post(auth_password))
+        .route("/api/security", get(security_info))
+        .route("/api/users", get(users_list))
+        .route("/api/users/{name}", axum::routing::put(user_put).delete(user_del))
         .route("/ws", get(ws))
         .fallback_service(ServeDir::new(web_root).append_index_html_on_directories(true))
         .layer(DefaultBodyLimit::max(4 * 1024 * 1024))
+        .layer(axum::middleware::from_fn_with_state(app.clone(), auth_layer))
         .with_state(app)
+}
+
+// ---------------------------------------------------------------- sicurezza
+
+const COOKIE: &str = "ptwcs_session";
+type Who = axum::Extension<crate::security::Principal>;
+
+fn session_token(h: &axum::http::HeaderMap) -> Option<String> {
+    if let Some(a) = h.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+        && let Some(t) = a.strip_prefix("Bearer ")
+    {
+        return Some(t.trim().to_string());
+    }
+    h.get_all(header::COOKIE).iter().filter_map(|v| v.to_str().ok()).flat_map(|v| v.split(';')).find_map(|c| {
+        let (k, v) = c.trim().split_once('=')?;
+        (k == COOKIE).then(|| v.to_string())
+    })
+}
+
+/// Permesso richiesto da ogni API (None = libera). Le verifiche di dettaglio
+/// (ruoli della vista, ruoli di scrittura del tag) sono negli handler.
+pub fn required_perm(method: &axum::http::Method, path: &str) -> Option<&'static str> {
+    if path == "/ws" {
+        return Some("runtime.view");
+    }
+    if !path.starts_with("/api/") || path.starts_with("/api/auth/") || path == "/api/info" {
+        return None;
+    }
+    let get = method == axum::http::Method::GET;
+    let area = path.split('/').nth(2).unwrap_or("");
+    Some(match (area, get) {
+        ("security", _) | ("users", _) => "users.manage",
+        ("project", true) => "runtime.view",
+        ("project", false) if path.ends_with("/check") || path.ends_with("/udt_preview") => "designer",
+        ("tags", false) if path == "/api/tags/write" => "tag.write",
+        ("alarms", false) => "alarm.ack",
+        ("views", false) | ("symbols", false) => "designer.views",
+        ("scripts", true) if path == "/api/scripts" => "runtime.view",
+        ("scripts", true) => "designer",
+        ("scripts", false) if path == "/api/scripts/call" => "script.call",
+        ("scripts", false) if path == "/api/scripts/check" => "designer",
+        ("scripts", false) => "scripts.edit",
+        ("rules", true) | ("sorting", true) | ("library", _) | ("drivers", _) => "designer",
+        ("rules", false) if path.ends_with("/test") => "designer",
+        ("rules", false) => "rules.edit",
+        ("wh", false) if path.ends_with("/reorg") || path.contains("/lu/") => "wh.config",
+        ("wh", false) => "wh.operate",
+        (_, true) => "runtime.view",
+        (_, false) => "designer.project",
+    })
+}
+
+async fn auth_layer(State(app): S, mut req: axum::extract::Request, next: axum::middleware::Next) -> Response {
+    let token = session_token(req.headers());
+    let cfg = app.cfg();
+    let p = app.security.principal(token.as_deref(), &cfg.security());
+    let path = req.uri().path().to_string();
+    if let Some(need) = required_perm(req.method(), &path) {
+        if p.must_change {
+            return (StatusCode::FORBIDDEN, Json(json!({"error": "cambio password obbligatorio", "must_change": true}))).into_response();
+        }
+        if !p.can(need) {
+            let anon = p.user.is_none();
+            let desc = crate::security::PERMISSIONS.iter().find(|x| x.0 == need).map(|x| x.2).unwrap_or(need);
+            let msg = if anon { "accesso richiesto: effettua il login".to_string() } else { format!("permesso negato: {desc} ({need})") };
+            return (if anon { StatusCode::UNAUTHORIZED } else { StatusCode::FORBIDDEN }, Json(json!({"error": msg, "permission": need, "login": anon}))).into_response();
+        }
+    }
+    let name = p.name();
+    req.extensions_mut().insert(p);
+    crate::app::AUDIT_USER.scope(name, next.run(req)).await
+}
+
+fn me_json(app: &AppState, p: &crate::security::Principal) -> J {
+    let sec = app.cfg().security();
+    json!({"enabled": sec.enabled, "user": p.user, "full_name": p.full_name, "roles": p.roles, "permissions": p.permissions,
+        "all": p.all, "must_change": p.must_change, "anonymous_role": sec.anonymous_role, "idle_logout_minutes": sec.idle_logout_minutes,
+        "designer_enabled": app.cfg().server.designer})
+}
+
+async fn auth_me(State(app): S, axum::Extension(p): Who) -> Json<J> {
+    Json(me_json(&app, &p))
+}
+
+#[derive(Deserialize)]
+struct LoginReq {
+    username: String,
+    password: String,
+}
+
+fn session_cookie(token: &str, max_age_s: i64) -> String {
+    format!("{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={max_age_s}")
+}
+
+async fn auth_login(State(app): S, Json(r): Json<LoginReq>) -> R<Response> {
+    let sec = app.cfg().security();
+    if !sec.enabled {
+        return Err(bad("sicurezza disattivata: il login non è necessario"));
+    }
+    match app.security.login(&r.username, &r.password, &sec) {
+        Ok((token, p)) => {
+            crate::app::AUDIT_USER.scope(p.name(), async { app.audit("auth", "login", String::new()) }).await;
+            let mut res = Json(me_json(&app, &p)).into_response();
+            res.headers_mut().insert(header::SET_COOKIE, session_cookie(&token, sec.session_minutes as i64 * 60).parse().unwrap());
+            Ok(res)
+        }
+        Err(e) => {
+            app.audit("auth", "login_failed", r.username.chars().take(64).collect());
+            Err(ApiError(StatusCode::UNAUTHORIZED, format!("{e:#}")))
+        }
+    }
+}
+
+async fn auth_logout(State(app): S, headers: axum::http::HeaderMap) -> Response {
+    if let Some(t) = session_token(&headers) {
+        app.audit("auth", "logout", String::new());
+        app.security.logout(&t);
+    }
+    let mut res = Json(json!({"ok": true})).into_response();
+    res.headers_mut().insert(header::SET_COOKIE, session_cookie("", 0).parse().unwrap());
+    res
+}
+
+#[derive(Deserialize)]
+struct PwReq {
+    old: String,
+    new: String,
+}
+
+async fn auth_password(State(app): S, axum::Extension(p): Who, headers: axum::http::HeaderMap, Json(r): Json<PwReq>) -> R<Json<J>> {
+    let user = p.user.clone().ok_or_else(|| ApiError(StatusCode::UNAUTHORIZED, "accesso richiesto".into()))?;
+    app.security.change_password(&user, &r.old, &r.new, session_token(&headers).as_deref())?;
+    app.audit("auth", "change_password", String::new());
+    let sec = app.cfg().security();
+    let p = app.security.principal(session_token(&headers).as_deref(), &sec);
+    Ok(Json(me_json(&app, &p)))
+}
+
+async fn security_info(State(app): S) -> Json<J> {
+    Json(json!({
+        "permissions": crate::security::PERMISSIONS.iter().map(|(id, g, d)| json!({"id": id, "group": g, "description": d})).collect::<Vec<_>>(),
+        "sessions": app.security.sessions(),
+    }))
+}
+
+async fn users_list(State(app): S) -> Json<J> {
+    Json(json!(app.security.users()))
+}
+
+#[derive(Deserialize)]
+struct UserReq {
+    #[serde(default)]
+    full_name: String,
+    #[serde(default)]
+    roles: Vec<String>,
+    #[serde(default = "yes_b")]
+    enabled: bool,
+    #[serde(default)]
+    password: Option<String>,
+    #[serde(default)]
+    must_change: Option<bool>,
+}
+fn yes_b() -> bool {
+    true
+}
+
+async fn user_put(State(app): S, axum::Extension(me): Who, Path(name): Path<String>, Json(r): Json<UserReq>) -> R<Json<J>> {
+    let sec = app.cfg().security();
+    if let Some(bad_role) = r.roles.iter().find(|x| !sec.roles.iter().any(|y| &y.name == *x)) {
+        return Err(bad(format!("ruolo sconosciuto: {bad_role}")));
+    }
+    let admin_roles: Vec<&str> = sec.roles.iter().filter(|x| x.permissions.iter().any(|p| p == "*" || p == "users.manage")).map(|x| x.name.as_str()).collect();
+    let stays_admin = r.enabled && r.roles.iter().any(|x| admin_roles.contains(&x.as_str()));
+    if !stays_admin && sec.enabled && app.security.admins(&sec, Some(&name)) == 0 {
+        return Err(bad("operazione rifiutata: resterebbe nessun amministratore attivo"));
+    }
+    if me.user.as_deref() == Some(name.as_str()) && !stays_admin && sec.enabled {
+        return Err(bad("non puoi togliere a te stesso i permessi di amministrazione"));
+    }
+    let pw = r.password.as_deref().filter(|p| !p.is_empty());
+    app.security.upsert_user(&name, r.full_name, r.roles.clone(), r.enabled, pw, r.must_change)?;
+    app.audit("admin", "user_save", format!("{name}: ruoli {:?}{}{}", r.roles, if r.enabled { "" } else { ", disattivato" }, if pw.is_some() { ", password impostata" } else { "" }));
+    Ok(Json(json!(app.security.users())))
+}
+
+async fn user_del(State(app): S, axum::Extension(me): Who, Path(name): Path<String>) -> R<Json<J>> {
+    let sec = app.cfg().security();
+    if me.user.as_deref() == Some(name.as_str()) {
+        return Err(bad("non puoi eliminare il tuo utente"));
+    }
+    if sec.enabled && app.security.admins(&sec, Some(&name)) == 0 {
+        return Err(bad("operazione rifiutata: resterebbe nessun amministratore attivo"));
+    }
+    app.security.delete_user(&name)?;
+    app.audit("admin", "user_delete", name);
+    Ok(Json(json!(app.security.users())))
+}
+
+/// Ruoli di una vista: `roles` (chi la apre) e `operate_roles` (chi esegue i comandi).
+fn view_roles(v: &J, key: &str) -> Vec<String> {
+    v.get(key).and_then(J::as_array).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default()
 }
 
 fn require_designer(app: &AppState) -> R<()> {
@@ -129,8 +338,9 @@ async fn info(State(app): S) -> Json<J> {
     }))
 }
 
-async fn tags(State(app): S) -> Json<J> {
+async fn tags(State(app): S, axum::Extension(me): Who) -> Json<J> {
     let snap = app.db.snapshot();
+    let can_write = me.can("tag.write");
     let cfg = app.cfg();
     let editable: std::collections::HashSet<&str> = cfg.project.tags.iter().map(|t| t.name.as_str()).collect();
     let list: Vec<J> = app
@@ -145,6 +355,7 @@ async fn tags(State(app): S) -> Json<J> {
             j["quality"] = json!(st.map(|s| s.quality));
             j["ts"] = json!(st.map(|s| s.ts));
             j["editable"] = json!(editable.contains(t.name.as_str()));
+            j["can_write"] = json!(t.writable && can_write && me.in_roles(&t.write_roles));
             j
         })
         .collect();
@@ -627,9 +838,42 @@ struct WriteReq {
     value: J,
     #[serde(default)]
     user: Option<String>,
+    /// vista da cui parte il comando (verifica dei ruoli di comando della vista)
+    #[serde(default)]
+    view: Option<String>,
 }
 
-async fn write_tag(State(app): S, Json(r): Json<WriteReq>) -> R<Json<J>> {
+/// Ruoli di comando di una vista (vuoto = nessuna restrizione).
+fn operate_roles_of(app: &AppState, view: &str) -> Vec<String> {
+    if safe_id(view).is_err() {
+        return vec![];
+    }
+    view_file(app, view)
+        .and_then(|(p, _)| std::fs::read_to_string(p).ok())
+        .and_then(|s| serde_json::from_str::<J>(&s).ok())
+        .map(|v| view_roles(&v, "operate_roles"))
+        .unwrap_or_default()
+}
+
+/// Verifica i ruoli di scrittura del tag e di comando della vista.
+fn check_write(app: &AppState, me: &crate::security::Principal, tag: &str, view: Option<&str>) -> R<()> {
+    let cfg = app.cfg();
+    if let Some(t) = cfg.tag(tag)
+        && !me.in_roles(&t.write_roles)
+    {
+        return Err(ApiError(StatusCode::FORBIDDEN, format!("permesso negato: il tag {tag} è scrivibile solo dai ruoli {}", t.write_roles.join(", "))));
+    }
+    if let Some(v) = view {
+        let r = operate_roles_of(app, v);
+        if !me.in_roles(&r) {
+            return Err(ApiError(StatusCode::FORBIDDEN, format!("permesso negato: i comandi della vista {v} sono riservati ai ruoli {}", r.join(", "))));
+        }
+    }
+    Ok(())
+}
+
+async fn write_tag(State(app): S, axum::Extension(me): Who, Json(r): Json<WriteReq>) -> R<Json<J>> {
+    check_write(&app, &me, &r.tag, r.view.as_deref())?;
     let user = r.user.unwrap_or_else(|| "hmi".into());
     app.db.write(&r.tag, json_to_value(&r.value)).await?;
     app.audit(&user, "write", format!("{}={}", r.tag, r.value));
@@ -651,7 +895,8 @@ struct AckReq {
 }
 
 async fn ack(State(app): S, Json(r): Json<AckReq>) -> Json<J> {
-    let n = app.alarms.ack(&app, r.id.as_deref(), r.area.as_deref(), r.user.as_deref().unwrap_or("hmi"));
+    let who = crate::app::AUDIT_USER.try_with(|u| u.clone()).ok().filter(|u| !u.is_empty());
+    let n = app.alarms.ack(&app, r.id.as_deref(), r.area.as_deref(), who.as_deref().or(r.user.as_deref()).unwrap_or("hmi"));
     Json(json!({"acked": n}))
 }
 
@@ -708,7 +953,8 @@ fn json_files(dir: &std::path::Path, ext: &str) -> Vec<(String, std::path::PathB
 
 /// Viste del progetto + faceplate della libreria standard (`library: true`);
 /// una vista di progetto con lo stesso id di un faceplate standard lo personalizza (`overrides: true`).
-async fn list_views(State(app): S) -> R<Json<J>> {
+async fn list_views(State(app): S, axum::Extension(me): Who) -> R<Json<J>> {
+    let designer = me.can("designer");
     let mut out = vec![];
     let mut seen = std::collections::HashSet::new();
     let lib = json_files(&app.library_dir.join("faceplates"), "json");
@@ -718,7 +964,13 @@ async fn list_views(State(app): S) -> R<Json<J>> {
                 continue;
             }
             let v: J = std::fs::read_to_string(&p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(J::Null);
+            let (roles, op_roles) = (view_roles(&v, "roles"), view_roles(&v, "operate_roles"));
+            // le viste non accessibili non compaiono (salvo nel Designer)
+            if !designer && !me.in_roles(&roles) {
+                continue;
+            }
             out.push(json!({"id": id, "title": v.get("title").cloned().unwrap_or(json!(id)),
+                            "roles": roles, "operate_roles": op_roles, "can_operate": me.in_roles(&op_roles),
                             "home": v.get("home").cloned().unwrap_or(json!(false)),
                             "area": v.get("area").cloned().unwrap_or(J::Null),
                             "faceplate": v.get("faceplate").cloned().unwrap_or(json!(from_lib)),
@@ -732,10 +984,16 @@ async fn list_views(State(app): S) -> R<Json<J>> {
     Ok(Json(J::Array(out)))
 }
 
-async fn get_view(State(app): S, Path(id): Path<String>) -> R<Response> {
+async fn get_view(State(app): S, axum::Extension(me): Who, Path(id): Path<String>) -> R<Response> {
     safe_id(&id)?;
     let (p, _) = view_file(&app, &id).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("vista {id} non trovata")))?;
     let s = std::fs::read_to_string(&p).map_err(|_| ApiError(StatusCode::NOT_FOUND, format!("vista {id} non trovata")))?;
+    if !me.can("designer") {
+        let v: J = serde_json::from_str(&s).unwrap_or(J::Null);
+        if !me.in_roles(&view_roles(&v, "roles")) {
+            return Err(ApiError(StatusCode::FORBIDDEN, format!("permesso negato: la vista {id} è riservata ai ruoli {}", view_roles(&v, "roles").join(", "))));
+        }
+    }
     Ok(([(header::CONTENT_TYPE, "application/json")], s).into_response())
 }
 
@@ -1243,8 +1501,15 @@ struct CallReq {
 }
 
 /// Esegue una funzione Python su evento HMI (es. click su pulsante).
-async fn script_call(State(app): S, Json(r): Json<CallReq>) -> R<Json<J>> {
-    let user = r.user.unwrap_or_else(|| "hmi".into());
+async fn script_call(State(app): S, axum::Extension(me): Who, Json(r): Json<CallReq>) -> R<Json<J>> {
+    // source = "vista/componente": ruoli di comando della vista
+    if let Some(v) = r.source.split('/').next().filter(|v| !v.is_empty()) {
+        let roles = operate_roles_of(&app, v);
+        if !me.in_roles(&roles) {
+            return Err(ApiError(StatusCode::FORBIDDEN, format!("permesso negato: i comandi della vista {v} sono riservati ai ruoli {}", roles.join(", "))));
+        }
+    }
+    let user = me.user.clone().or(r.user).unwrap_or_else(|| "hmi".into());
     let ctx = json!({"tags": tags_ctx(&app), "point": r.source, "user": user});
     let rep = app.hmi_scripts.call(&r.func, r.payload, ctx, Duration::from_secs(5)).await?;
     let errors = apply_script_writes(&app, &rep.writes, &format!("hmi:{}", r.source)).await;

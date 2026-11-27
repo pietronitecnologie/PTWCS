@@ -780,6 +780,9 @@ export async function runActions(comp, evName, { live, api, navigate, toast, vie
   if (!ev) return;
   if (ev.confirm && !confirm(subst(ev.confirm, scope))) return;
   for (const a of ev.actions || []) {
+    // permessi (il server ricontrolla: ruoli del tag, ruoli di comando della vista)
+    const deny = window.PTWCS_AUTH?.denyAction?.(a, viewId);
+    if (deny) { toast(deny, 'error'); return; }
     try {
       if (a.kind === 'write') {
         const tag = subst(a.tag, scope);
@@ -790,7 +793,7 @@ export async function runActions(comp, evName, { live, api, navigate, toast, vie
           if (s === null) return;
           value = s;
         } else if (typeof value === 'string') value = subst(value, scope);
-        await api.post('/api/tags/write', { tag, value });
+        await api.post('/api/tags/write', { tag, value, view: viewId || undefined });
       } else if (a.kind === 'script') {
         let payload = {};
         try { payload = a.payload ? JSON.parse(subst(a.payload, scope)) : {}; } catch { toast('Payload JSON non valido', 'error'); return; }

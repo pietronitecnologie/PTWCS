@@ -9,6 +9,7 @@ import { whCellDialog } from './render.js';
 import { kvEditor, makeSplitter } from './forms.js';
 import { showMenu, installDefaultMenu } from './ctxmenu.js';
 import { helpBtn, openHelp } from './markdown.js';
+import { initAuth, mountUserChip } from './auth.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
@@ -594,6 +595,7 @@ function renderEvents(c) {
       h += `<div class="prow"><label>Vista</label><select data-af="view">${S.views.map((v) => `<option value="${esc(v.id)}" ${v.id === a.view ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
         <div class="prow"><label>Parametri</label><input data-af="params" class="mono" value="${esc(JSON.stringify(a.params || {}))}" placeholder='{"aisle": "2"}'></div>`;
     }
+    h += `<div class="prow"><label title="Ruoli che possono eseguire questa azione (vuoto = tutti quelli con il permesso)">Ruoli</label>${roleChecks('arole', a.roles || [])}</div>`;
     h += `</div>`;
   });
   return h;
@@ -651,10 +653,23 @@ function wireProps(c) {
         if (a.kind === 'popup') { a.view = S.views.find((v) => v.faceplate)?.id || S.views[0]?.id; a.params = c.custom?.device !== undefined ? { device: '{device}' } : {}; }
       }
     }, { props: el.dataset.af === 'kind' })));
+    box.querySelectorAll('[data-arole]').forEach((el) => (el.onchange = () => mutate(() => {
+      const a = ev().actions[i];
+      const r = checkedRoles(box, 'arole');
+      if (r.length) a.roles = r; else delete a.roles;
+    }, { props: false })));
     box.querySelector('[data-adel]').onclick = () => mutate(() => ev().actions.splice(i, 1));
     box.querySelector('[data-amove]').onclick = () => i > 0 && mutate(() => { const a = ev().actions; [a[i - 1], a[i]] = [a[i], a[i - 1]]; });
   });
 }
+
+// ruoli (sicurezza) come caselle
+const roleNames = () => (P.data?.security?.roles || []).map((r) => r.name);
+function roleChecks(attr, sel = []) {
+  const names = roleNames();
+  return `<div class="rolechips">${names.map((r) => `<label class="chip"><input type="checkbox" data-${attr}="${esc(r)}" ${sel.includes(r) ? 'checked' : ''}> ${esc(r)}</label>`).join('') || '<span class="muted">nessun ruolo definito</span>'}</div>`;
+}
+const checkedRoles = (root, attr) => [...root.querySelectorAll(`[data-${attr}]`)].filter((x) => x.checked).map((x) => x.getAttribute(`data-${attr}`));
 
 function renderViewProps() {
   const v = S.view;
@@ -667,6 +682,10 @@ function renderViewProps() {
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Area</label><select data-v="area"><option value=""></option>${(P.data?.areas || []).map((a) => `<option ${a.name === v.area ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Faceplate/popup</label><input type="checkbox" data-v="faceplate" ${v.faceplate ? 'checked' : ''} title="Nascosta dal menu del runtime, aperta come popup"></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Nel menu</label><input type="checkbox" data-v="menu" ${v.menu !== false ? 'checked' : ''} title="Mostra la vista nel menu del runtime (togli per sotto-pagine raggiunte via navigazione con parametri)"></div>
+    <h4>Sicurezza ${helpBtn('designer-progetto#ruoli-di-viste-tag-e-comandi', 'Sicurezza della vista')}</h4>
+    <p class="hint">Nessun ruolo selezionato = nessuna restrizione.</p>
+    <div class="prow" style="grid-template-columns:100px 1fr"><label title="Chi vede la vista nel menu e può aprirla">Ruoli accesso</label>${roleChecks('vrole', v.roles || [])}</div>
+    <div class="prow" style="grid-template-columns:100px 1fr"><label title="Chi può usare pulsanti e comandi della vista">Ruoli comando</label>${roleChecks('vop', v.operate_roles || [])}</div>
     <h4>Parametri della vista</h4><p class="hint">Ricevuti da popup o viste incorporate. Usali come <code>{nome}</code> nei binding (es. <code>{device}.Run</code>). Il valore qui è il default per il Designer.</p>
     <div id="vparams"></div>
     <h4>Componenti (${v.components.length})</h4>
@@ -680,6 +699,12 @@ function renderViewProps() {
     $('#viewTitle').textContent = `${v.title}  (${S.viewId})`;
     if (k === 'width' || k === 'height' || k === 'background') { renderer.load(v); gridRect.setAttribute('width', v.width); gridRect.setAttribute('height', v.height); applyZoom(); }
   })));
+  for (const [attr, key] of [['vrole', 'roles'], ['vop', 'operate_roles']]) {
+    props.querySelectorAll(`[data-${attr}]`).forEach((el) => (el.onchange = () => mutate(() => {
+      const r = checkedRoles(props, attr);
+      if (r.length) v[key] = r; else delete v[key];
+    }, { props: false })));
+  }
   kvEditor(props.querySelector('#vparams'), (v.params ||= {}), { onChange: () => { markDirty(); renderer.load(v); }, keyLabel: 'Parametro', valLabel: 'Default', valList: 'instNames' });
   props.querySelector('[data-vc]').oninput = (e) => { const t = props.querySelector('[data-v="background"]'); t.value = e.target.value; t.onchange(); };
   props.querySelectorAll('[data-pick]').forEach((li) => (li.onclick = () => { S.sel = [li.dataset.pick]; drawOverlay(); renderProps(); }));
@@ -1067,8 +1092,10 @@ live.on('project', () => { loadTags(); invalidateView(); });
 async function init() {
   const info = await api.get('/api/info');
   if (!info.designer) { document.body.innerHTML = '<div class="card" style="margin:40px">Designer disabilitato (server.designer: false).</div>'; return; }
-  S.scripts = info.scripts;
   document.title = `Designer – ${info.plant.name}`;
+  await initAuth('designer');
+  mountUserChip($('#userChip'));
+  S.scripts = info.scripts;
   await Promise.all([loadViews(), loadSymbols(), loadTags(), loadProject()]);
   live.connect();
   refreshAll();

@@ -4,6 +4,7 @@ import { api, esc, fmtTs, toast } from './core.js';
 import { modal } from './forms.js';
 import { whCellDialog, whInvalidate } from './render.js';
 import { helpBtn, slug } from './markdown.js';
+import { can } from './auth.js';
 
 const TABS = [['missions', '📋 Missioni'], ['orders', '🧾 Ordini'], ['stock', '📦 Giacenze'], ['reorg', '♻ Riorganizzazione'], ['cranes', '🏗 Trasli / KPI'], ['strategy', '🎯 Strategia']];
 const KIND = { in: ['⬇', 'Deposito'], out: ['⬆', 'Prelievo'], move: ['⇄', 'Movimentazione'] };
@@ -43,7 +44,7 @@ export async function showWcs(page, whName, params, setTimer) {
   const tab = TABS.some(([k]) => k === params.tab) ? params.tab : 'missions';
   const W = encodeURIComponent(wh);
   const go = (t, extra = {}) => (location.hash = `#/wcs/${W}?${new URLSearchParams({ tab: t, ...extra })}`);
-  page.innerHTML = `<div class="wcs">
+  page.innerHTML = `<div class="wcs ${can('wh.operate') ? '' : 'ro'}">
     <div class="wcs-head card">
       <div class="row" style="flex-wrap:wrap;gap:12px">
         <select id="wcsWh">${list.map((w) => `<option ${w.name === wh ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}</select>
@@ -198,10 +199,10 @@ export async function showWcs(page, whName, params, setTimer) {
     const s = await api.get(`/api/wh/${W}/summary`);
     body.innerHTML = `<div class="card"><div class="row" style="flex-wrap:wrap">
         <h3 class="grow" style="margin:0">Riorganizzazione (defrag) del magazzino</h3>
-        <label class="row"><input type="checkbox" id="rAuto"> Automatica nei tempi morti</label>
+        <label class="row"><input type="checkbox" id="rAuto" data-perm="wh.config"> Automatica nei tempi morti</label>
         <select id="rAisle"><option value="0">Tutte le corsie</option>${s.aisles.map((a, i) => `<option value="${i + 1}">Corsia ${esc(a.name)}</option>`).join('')}</select>
         <label class="row">Mosse max <input type="number" id="rMax" value="100" min="1" max="2000" style="width:80px"></label>
-        <button id="rSim">▶ Simula piano</button><label class="row">Esegui <input type="number" id="rRun" value="10" min="1" max="500" style="width:64px"></label><button class="primary" id="rGo">Crea movimentazioni</button></div>
+        <button id="rSim">▶ Simula piano</button><label class="row">Esegui <input type="number" id="rRun" value="10" min="1" max="500" style="width:64px"></label><button class="primary" id="rGo" data-perm="wh.config">Crea movimentazioni</button></div>
       <p class="hint" id="rCfg"></p><div id="rRes"></div></div>
       <div class="card"><div class="row"><h3 class="grow" style="margin:0">Mappa ABC</h3>
         <select id="mA">${s.aisles.map((a, i) => `<option value="${i + 1}">Corsia ${esc(a.name)}</option>`).join('')}</select>

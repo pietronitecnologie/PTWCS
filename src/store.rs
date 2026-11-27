@@ -66,7 +66,9 @@ impl Store {
              CREATE TABLE IF NOT EXISTS wh_lus(wh TEXT, lu TEXT, data TEXT, PRIMARY KEY(wh, lu));
              CREATE TABLE IF NOT EXISTS wh_orders(wh TEXT, id INTEGER, state TEXT, data TEXT, ts INTEGER, PRIMARY KEY(wh, id));
              CREATE TABLE IF NOT EXISTS wh_picks(wh TEXT, sku TEXT, ts INTEGER);
-             CREATE INDEX IF NOT EXISTS ix_wh_picks ON wh_picks(wh, ts);",
+             CREATE INDEX IF NOT EXISTS ix_wh_picks ON wh_picks(wh, ts);
+             CREATE TABLE IF NOT EXISTS sec_users(k TEXT PRIMARY KEY, data TEXT);
+             CREATE TABLE IF NOT EXISTS sec_sessions(k TEXT PRIMARY KEY, data TEXT);",
         )?;
         let _ = conn.execute("ALTER TABLE decisions ADD COLUMN rule TEXT", []);
         let _ = conn.execute("ALTER TABLE alarm_events ADD COLUMN area TEXT", []);
@@ -296,6 +298,24 @@ impl Store {
             st.query_map(params![wh, since], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()
         })
         .await
+    }
+
+    /// Tabelle chiave/valore della sicurezza (`sec_users`, `sec_sessions`).
+    pub async fn sec_load(&self, table: &'static str) -> Result<Vec<(String, String)>> {
+        self.run(move |c| {
+            let mut st = c.prepare(&format!("SELECT k, data FROM {table}"))?;
+            st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()
+        })
+        .await
+    }
+
+    pub async fn sec_put(&self, table: &'static str, key: String, data: Option<String>) -> Result<()> {
+        self.run(move |c| match data {
+            Some(d) => c.execute(&format!("INSERT OR REPLACE INTO {table} VALUES(?1,?2)"), params![key, d]),
+            None => c.execute(&format!("DELETE FROM {table} WHERE k=?1"), params![key]),
+        })
+        .await?;
+        Ok(())
     }
 
     pub async fn wh_max_mission(&self, wh: String) -> Result<u32> {

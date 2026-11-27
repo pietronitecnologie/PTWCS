@@ -202,3 +202,17 @@ body.manual { display: flex; flex-direction: column; height: 100%; }
 .help-drawer .hd-open { color: #60a5fa; font-size: 13px; }
 .help-drawer .hd-body { flex: 1; overflow: auto; padding: 6px 18px 40px; font-size: 13.5px; }
 .help-drawer .hd-body h1 { font-size: 20px; } .help-drawer .hd-body h2 { font-size: 17px; margin-top: 8px; } .help-drawer .hd-body h3 { font-size: 15px; }
+
+/* login e permessi */
+.auth-overlay { position: fixed; inset: 0; z-index: 3000; background: radial-gradient(circle at 50% 30%, #13213d, #050a14 70%); display: flex; align-items: center; justify-content: center; }
+.auth-box { width: min(380px, 92vw); background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 26px 28px; box-shadow: 0 30px 80px #000c; text-align: center; }
+.auth-box h2 { margin: 6px 0 4px; font-size: 20px; }
+.auth-box .auth-logo { font-size: 34px; }
+.auth-box form { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.auth-box input { padding: 9px 11px; font-size: 15px; }
+.auth-box button.primary { padding: 9px; font-size: 15px; }
+.auth-box .err { color: #fca5a5; min-height: 18px; font-size: 13px; }
+.userchip { display: inline-flex; gap: 6px; align-items: center; }
+.noperm { opacity: .45; cursor: not-allowed !important; }
+.nocmd g.clickable { cursor: not-allowed; }
+.wcs.ro [data-ma], .wcs.ro [data-oa], .wcs.ro #bIn, .wcs.ro #bOut, .wcs.ro #bMove, .wcs.ro #bNew { display: none; }

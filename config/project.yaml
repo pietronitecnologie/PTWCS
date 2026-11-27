@@ -1291,6 +1291,10 @@ tags:
   unit: g×10
   initial: 3000
   area: Servizi
+  write_roles:
+  - manutentore
+  - progettista
+  - amministratore
 - name: WCS.Out3Enabled
   driver: WCS_INTERNO
   address: out3_enabled
@@ -1299,6 +1303,10 @@ tags:
   description: Uscita 3 abilitata
   initial: true
   area: Servizi
+  write_roles:
+  - manutentore
+  - progettista
+  - amministratore
 - name: MP.MaxWeight
   driver: WCS_INTERNO
   address: mp_maxw
@@ -1308,6 +1316,10 @@ tags:
   unit: kg
   initial: 1200
   area: MagPallet
+  write_roles:
+  - manutentore
+  - progettista
+  - amministratore
 - name: MP.MaxHeight
   driver: WCS_INTERNO
   address: mp_maxh
@@ -1317,6 +1329,10 @@ tags:
   unit: mm
   initial: 1800
   area: MagPallet
+  write_roles:
+  - manutentore
+  - progettista
+  - amministratore
 - name: MPDIST.Occupied
   driver: WCS_INTERNO
   address: mp_dist_occ
@@ -1346,6 +1362,10 @@ tags:
   writable: true
   description: Simula guasto traslo C2
   area: Servizi
+  write_roles:
+  - manutentore
+  - progettista
+  - amministratore
 - name: PD1.In
   driver: WCS_INTERNO
   address: pd1_in
@@ -1517,3 +1537,49 @@ warehouses:
     idle_s: 20.0
     max_per_hour: 40
     min_gain_s: 2.0
+security:
+  enabled: true
+  anonymous_role: visualizzatore
+  session_minutes: 720
+  idle_logout_minutes: 0
+  roles:
+  - name: amministratore
+    description: Accesso completo, gestione utenti e sicurezza
+    permissions:
+    - '*'
+  - name: progettista
+    description: Designer completo (viste, progetto, regole, script)
+    permissions:
+    - runtime.view
+    - tag.write
+    - alarm.ack
+    - script.call
+    - wh.operate
+    - wh.config
+    - designer
+    - designer.views
+    - designer.project
+    - rules.edit
+    - scripts.edit
+  - name: manutentore
+    description: Runtime completo e WCS, Designer in sola lettura
+    permissions:
+    - runtime.view
+    - tag.write
+    - alarm.ack
+    - script.call
+    - wh.operate
+    - wh.config
+    - designer
+  - name: operatore
+    description: 'Conduzione impianto: comandi, allarmi, missioni'
+    permissions:
+    - runtime.view
+    - tag.write
+    - alarm.ack
+    - script.call
+    - wh.operate
+  - name: visualizzatore
+    description: Sola visualizzazione
+    permissions:
+    - runtime.view

@@ -63,7 +63,7 @@ export function mount(root, { live, toast }) {
 
   function drawSide() {
     const st = data.status?.decisions || {};
-    side.innerHTML = `<div class="row" style="margin-bottom:8px"><button class="primary grow" id="scNew">+ Nuovo script</button><button id="scReload" title="Ricarica tutti gli script nei processi Python">⟳</button></div>
+    side.innerHTML = `<div class="row" style="margin-bottom:8px"><button class="primary grow" id="scNew" data-perm="scripts.edit">+ Nuovo script</button><button id="scReload" data-perm="scripts.edit" title="Ricarica tutti gli script nei processi Python">⟳</button></div>
       <input id="scFilter" placeholder="Cerca script…" style="width:100%;margin-bottom:6px">
       <div class="hint" style="margin:0 0 6px">${esc(data.dir || '')} · ${st.running ? '<span style="color:var(--ok)">● in esecuzione</span>' : '<span style="color:var(--alarm)">● fermo</span>'}</div>
       <div id="scList"></div>
@@ -118,7 +118,7 @@ export function mount(root, { live, toast }) {
         <button id="scSnip" title="Inserisci uno snippet">✂ Snippet</button>
         <button id="scHelp" title="API del contesto ctx">ⓒ ctx</button>${helpBtn('designer-script#editor', 'Editor script')}
         <button id="scRevert" title="Annulla le modifiche non salvate">↺</button>
-        <button class="primary" id="scSave" title="Controlla, salva e ricarica (Ctrl+S)">Salva</button>
+        <button class="primary" id="scSave" data-perm="scripts.edit" title="Controlla, salva e ricarica (Ctrl+S)">Salva</button>
       </div>
       <div class="sc-body">
         <div class="sc-edwrap"><div id="scEd" class="sc-ed"></div><div class="sc-issues" id="scIssues"></div><div class="sc-keys muted">Ctrl+Spazio suggerimenti · Tab indenta · Ctrl+/ commenta · Ctrl+D duplica riga · Ctrl+S salva · Ctrl+Invio test</div></div>
@@ -203,7 +203,7 @@ export function mount(root, { live, toast }) {
     box.innerHTML = `<h4>Test ${helpBtn('designer-script#test')} <span class="muted" style="text-transform:none;letter-spacing:0">interprete isolato, scritture non applicate</span></h4>
       <label class="hint">Payload / req (JSON)</label><textarea id="tPayload" class="code sm" spellcheck="false">${esc(saved.payload ?? defaultPayload())}</textarea>
       <label class="hint">Tag simulati (JSON, sovrascrivono i valori live)</label><textarea id="tTags" class="code sm" spellcheck="false" placeholder='{"Line.EStop": false}'>${esc(saved.tags ?? '')}</textarea>
-      <div class="row" style="margin:6px 0"><button class="primary grow" id="tRun" title="Ctrl+Invio">▶ Esegui test</button><button id="tLive" title="Inserisci i valori live dei tag usati nello script">⇩ Tag usati</button></div>
+      <div class="row" style="margin:6px 0"><button class="primary grow" id="tRun" data-perm="scripts.edit" title="Ctrl+Invio">▶ Esegui test</button><button id="tLive" title="Inserisci i valori live dei tag usati nello script">⇩ Tag usati</button></div>
       <div id="tOut"></div>`;
     box.querySelector('#tRun').onclick = runTest;
     box.querySelector('#tLive').onclick = () => {

@@ -40,6 +40,10 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - **riorganizzazione (defrag)** automatica nei tempi morti, con simulazione del piano e indici di frammentazione;
   - **KPI dei trasli**: utilizzo, disponibilità, missioni/h, ciclo medio, cicli doppi.
 - **Libreria standard** (`stdlib/`, parte dello SCADA e indipendente dal progetto): 74 simboli in 3 menu (Intralogistica, Macchine, Processo), 28 UDT standard per famiglia e **un faceplate per ogni simbolo**.
+- **Login, ruoli e permessi** configurabili dal Designer:
+  - 12 permessi per runtime, WCS, Designer e amministrazione;
+  - ruoli per vista (accesso e comandi), per tag e UDT (scrittura) e per singola azione;
+  - utenti con password Argon2, sessioni, blocco dopo tentativi errati, audit con l'utente.
 - **Menu tasto destro** al posto di quello del browser, ovunque:
   - Designer: modifica delle viste (copia, incolla, elimina, ordine, allineamento…), editor degli script, campi e tabelle (taglia/copia/incolla), aggiorna sezione, vai a workspace, salva, guida del riquadro;
   - runtime: navigazione tra viste e aree;
@@ -345,6 +349,48 @@ scripts/_linea.py          modulo condiviso: costanti, funzioni, stato comune (f
 
 API: `GET /api/scripts/files`, `GET|PUT|DELETE /api/scripts/file/{nome}`, `POST /api/scripts/check`, `POST /api/scripts/test`.
 
+## Login e permessi
+
+Si attivano in **Designer → ⚙ Progetto → 🔐 Sicurezza**. Dettagli nel [manuale](web/manual/designer-progetto.md#sicurezza).
+
+- **Ruoli e permessi** stanno nel progetto, in una matrice ruoli × permessi:
+
+  | Gruppo | Permessi |
+  |---|---|
+  | Runtime | `runtime.view`, `tag.write`, `alarm.ack`, `script.call` |
+  | WCS | `wh.operate`, `wh.config` |
+  | Designer | `designer`, `designer.views`, `designer.project`, `rules.edit`, `scripts.edit` |
+  | Amministrazione | `users.manage` |
+
+  Ruoli predefiniti: amministratore, progettista, manutentore, operatore, visualizzatore.
+- **Utenti** stanno nel database del server (password Argon2, mai nel progetto).
+- **Primo avvio**: se non esistono utenti il server crea `admin`/`admin` con cambio obbligatorio, oppure usa la password della variabile `PTWCS_ADMIN_PASSWORD`.
+- **Restrizioni per elemento**:
+  - vista: *Ruoli accesso* e *Ruoli comando*;
+  - tag, membro UDT, istanza: *Ruoli scrittura*;
+  - singola azione di un pulsante: *Ruoli*.
+- **Ruolo senza login**, es. *visualizzatore*, per monitor di reparto in sola lettura.
+- **Controlli sul server**:
+  - un middleware assegna a ogni API il permesso necessario;
+  - gli handler verificano i ruoli della vista e del tag;
+  - le sessioni usano un cookie `HttpOnly`/`SameSite=Strict` (o `Authorization: Bearer`) e scadono per durata o per inattività;
+  - dopo 5 tentativi errati l'utente viene bloccato per un tempo crescente;
+  - l'audit riporta l'utente di ogni azione.
+- **Interfaccia**:
+  - schermata di login e menu utente (cambia password, cambia utente, esci);
+  - viste non consentite nascoste;
+  - comandi negati con un messaggio;
+  - pulsanti disattivati se manca il permesso.
+
+**Demo**:
+- `python3 tools/setup_demo_security.py` attiva la sicurezza e crea `operatore`, `manutentore` e `progettista` (password = nome utente + `123`);
+- i setpoint `WCS.MaxWeight`, `MP.MaxWeight` e simili sono riservati alla manutenzione;
+- senza login il runtime è in sola lettura (ruolo *visualizzatore*).
+
+Gli script `tools/build_demo_*.py` usano le credenziali `PTWCS_USER`/`PTWCS_PASSWORD` quando la sicurezza è attiva.
+
+API: `GET /api/auth/me`, `POST /api/auth/login|logout|password`, `GET /api/security`, `GET /api/users`, `PUT|DELETE /api/users/{utente}`.
+
 ## Manuale utente
 
 Il manuale è in Markdown in [`web/manual/`](web/manual/index.md) e si legge anche dallo SCADA:
@@ -432,7 +478,7 @@ EIP_TEST_HOST=127.0.0.1 cargo test --features eip --test eip_integration
 
 ## Limiti noti e prossimi passi
 
-- **Autenticazione e ruoli assenti**: chiunque raggiunga la porta può scrivere tag e modificare il progetto. In produzione imposta `server.designer: false` e metti il servizio su una rete isolata o dietro un reverse proxy con login. Il prossimo passo è aggiungere utenti e ruoli.
+- **Sicurezza di rete**: il server parla HTTP. Per accessi fuori dalla rete d'impianto mettilo dietro un reverse proxy HTTPS. Il login protegge le azioni, non cifra il traffico.
 - **Viste incorporate**: i parametri vanno solo dal padre al figlio; i parametri di output (dal figlio al padre) non ci sono ancora.
 - **OPC UA**: manca la cifratura e la lettura avviene a polling, senza subscription.
 - **EtherNet/IP**: una richiesta per tag.
