@@ -53,6 +53,10 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - sequenze SFC (fasi) con parametri propri;
   - ricette che schedulano le fasi, con rami paralleli, modello di stato hold/restart/stop/abort e versioni;
   - batch che allocano in esclusiva i dispositivi.
+- **Layer fisico per il collaudo virtuale**:
+  - si aggiunge fisica ai componenti delle viste SCADA (nastri, fotocellule, scanner, deviatori, sorgenti, pozzi, fermi) e si definiscono i materiali;
+  - il PLC (PLCSIM Advanced o reale in collaudo) comanda gli attuatori, la simulazione muove le unità e scrive i sensori negli ingressi simulati;
+  - SCADA e WCS restano invariati.
 - **Tema chiaro e scuro** per runtime, Designer e manuale.
 - **Menu tasto destro** al posto di quello del browser, ovunque:
   - Designer: modifica delle viste (copia, incolla, elimina, ordine, allineamento…), editor degli script, campi e tabelle (taglia/copia/incolla), aggiorna sezione, vai a workspace, salva, guida del riquadro;
@@ -370,6 +374,7 @@ Si attivano in **Designer → ⚙ Progetto → 🔐 Sicurezza**. Dettagli nel [m
   | Runtime | `runtime.view`, `tag.write`, `alarm.ack`, `script.call` |
   | WCS | `wh.operate`, `wh.config` |
   | Processo | `seq.operate`, `batch.operate`, `recipe.edit` |
+  | Simulazione | `sim.operate` |
   | Designer | `designer`, `designer.views`, `designer.project`, `rules.edit`, `scripts.edit` |
   | Amministrazione | `users.manage`, `audit.view` |
 
@@ -456,6 +461,56 @@ API:
 - `POST /api/inst/{chiave}/{hold|restart|stop|abort|reset|confirm|next|goto}`;
 - `GET /api/recipes` e `GET|PUT|DELETE /api/recipes/{nome}`.
 
+## Layer fisico: collaudo virtuale
+
+Il layout disegnato per lo SCADA diventa il modello fisico dell'impianto.
+
+```
+PLC (PLCSIM Advanced / reale) ──attuatori──▶ tag ──▶ fisica ──sensori──▶ tag ──▶ ingressi simulati del PLC
+                └──▶ tag ◀── SCADA / WCS invariati
+```
+
+**Designer:**
+- **Viste → ⚛ Fisica**: su ogni componente si sceglie il tipo fisico e si collegano i tag. Si vedono assi, collegamenti e posizioni dei sensori, ed è possibile il collegamento automatico dei nastri.
+
+  | Tipo | Proprietà |
+  |---|---|
+  | **Nastro** | lunghezza (dal disegno e dalla scala mm/px della vista), velocità, accelerazione, decelerazione, setpoint e velocità reale, successivo |
+  | **Fotocellula** | presenza, anche con l'unità a cavallo tra due nastri |
+  | **Scanner** | barcode, peso, contatore letture, mancate letture % |
+  | **Deviatore** | uscite per valore di posizione, tempo di commutazione |
+  | **Sorgente** | intervallo, mix di materiali, barcode da elenco o modello `{n:6}` |
+  | **Pozzo** | con contatore |
+  | **Fermo / attuatore** | tempo di corsa, finecorsa; fuori blocca le unità |
+
+- **⚛ Fisica** (workspace): passo, scala, materiali (dimensioni, masse, mix), heartbeat e "simulazione attiva" per il watchdog nel PLC, verifica del modello.
+- **Driver simulabili**: la simulazione scrive i sensori solo sui driver dichiarati come PLC virtuali o in collaudo (e sui driver interni `sim`).
+
+**Motore (Rust):**
+- cinematica 1D a passo fisso (20 ms): accumulo senza sovrapposizioni, trasferimenti, unità a cavallo;
+- scritture dei sensori solo sui cambi, nell'ordine giusto (barcode prima del contatore);
+- fattore tempo da ×0,1 a ×20.
+
+**Runtime:**
+- le unità si muovono sulle viste e l'intestazione mostra **⚛ SIMULAZIONE**;
+- la pagina **Simulazione** (`sim.operate`) ha avvio e arresto, pausa, fattore tempo, stato dei componenti ed elenco delle unità;
+- guasti: avaria motore, fotocellula bloccata, scanner guasto, deviatore o fermo bloccati, unità incastrata o rimossa, sorgente forzata;
+- ogni comando va nell'audit.
+
+**PLC:** `plc/tia/SimIO.scl` per S7-1500 / PLCSIM Advanced. Contiene il DB `SimIO` scritto da PTWCS, l'immagine `In` e `FB_SimIO`, che sceglie tra ingressi reali e simulati con abilitazione e watchdog.
+
+**Demo:** `python3 tools/build_demo_physics.py`. Ridisegna la linea di smistamento con il layer fisico e i tag `SimIO.*`. Con la simulazione attiva, `plc_sim` esegue la logica vera sugli ingressi simulati:
+- richiesta al WCS a ogni lettura;
+- inseguimento FIFO dei colli;
+- deviatore all'arrivo del collo;
+- conteggi alle fotocellule;
+- rilevamento degli inceppamenti.
+
+API:
+- `GET /api/physics` (stato, modello, errori, unità);
+- `POST /api/physics/{start|stop|pause|resume|reset|speed}`;
+- `POST /api/physics/inject {action, key|item, …}`.
+
 ## Tema chiaro e scuro
 
 Pulsante ☀/🌙 nell'intestazione di runtime, Designer e manuale (anche dal tasto destro). La scelta è salvata nel browser; al primo accesso segue il tema del sistema operativo.
@@ -501,6 +556,7 @@ cargo test
 Comprende anche:
 - un test end-to-end del decision engine (UDT telegramma, handshake a flag, regole e classi);
 - la validazione della config demo;
+- i test del layer fisico (trasporto, accumulo, unità a cavallo, scanner, deviatore, pozzo, guasti, heartbeat, protezione dei driver non simulabili);
 - i test del magazzino con un PLC del traslo simulato: protocollo missioni, doppia UdC, zone ABC, ordini FIFO, priorità e sospensione, riorganizzazione con missioni di tipo 3, KPI.
 
 I driver si provano contro server di protocollo reali. Installa i server:
@@ -551,4 +607,5 @@ EIP_TEST_HOST=127.0.0.1 cargo test --features eip --test eip_integration
 - **Viste incorporate**: i parametri vanno solo dal padre al figlio; i parametri di output (dal figlio al padre) non ci sono ancora.
 - **OPC UA**: manca la cifratura e la lettura avviene a polling, senza subscription.
 - **EtherNet/IP**: una richiesta per tag.
+- **Layer fisico**: modello cinematico 1D per la logistica (nastri, sensori, deviatori). Non ci sono ancora traslo con assi, fluidi (serbatoi, valvole, pompe), marcia indietro dei nastri e vista 3D. Manca il ponte diretto con l'API di PLCSIM Advanced (passa dal driver S7 e dal DB `SimIO`).
 - **Driver** e **ridondanza**: i driver si configurano ancora solo in `plant.yaml`; non c'è un'istanza attivo/standby.

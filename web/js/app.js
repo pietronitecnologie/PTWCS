@@ -6,11 +6,13 @@ import { initAuth, mountUserChip, can, AUTH } from './auth.js';
 import { mountThemeButton, themeMenuItem } from './theme.js';
 import { showWcs } from './wcs.js';
 import { showProcess, showAudit } from './process.js';
+import { showSim } from './sim.js';
+import { PhysLayer } from './physics.js';
 
 const live = new Live();
 const page = document.getElementById('page');
 let info = null, views = [], symbols = [], current = null, renderer = null, refresh = null;
-let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '', routeParams = {}, timers = [], hasWh = false, hasProc = false;
+let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '', routeParams = {}, timers = [], hasWh = false, hasProc = false, hasPhys = false, physLayer = null, physView = '';
 const setTimer = (fn, ms) => timers.push(setInterval(() => fn().catch?.(() => {}), ms));
 
 // ------------------------------------------------------------ routing
@@ -21,6 +23,7 @@ function route() {
   popups.forEach((p) => p.win.remove());
   popups = [];
   renderer = null;
+  physLayer = null;
   const [hpath, hquery] = location.hash.split('?');
   const [, kind, arg] = hpath.split('/');
   routeParams = Object.fromEntries(new URLSearchParams(hquery || ''));
@@ -34,6 +37,7 @@ function route() {
   if (kind === 'trend') return showTrend();
   if (kind === 'diag') return showDiag();
   if (kind === 'process') return showProcess(page, routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
+  if (kind === 'sim') return showSim(page, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   if (kind === 'audit') return showAudit(page, routeParams, live).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   if (kind === 'wcs') return showWcs(page, arg ? decodeURIComponent(arg) : '', routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   const home = views.find((v) => v.home) || views[0];
@@ -44,7 +48,7 @@ function buildNav() {
   const n = live.alarms.filter((a) => !a.acked).length;
   document.getElementById('nav').innerHTML =
     views.filter((v) => !v.faceplate && v.menu !== false && !v.area).map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
-    (hasWh ? '<a href="#/wcs">WCS</a>' : '') + (hasProc ? '<a href="#/process">Processo</a>' : '') + `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
+    (hasWh ? '<a href="#/wcs">WCS</a>' : '') + (hasProc ? '<a href="#/process">Processo</a>' : '') + (hasPhys ? '<a href="#/sim">Simulazione</a>' : '') + `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
      <a href="#/decisions">Decisioni</a><a href="#/tags">Tag</a><a href="#/trend">Trend</a><a href="#/diag">Diagnostica</a>${can('audit.view') ? '<a href="#/audit">Audit</a>' : ''}`;
   markNav();
 }
@@ -53,7 +57,8 @@ function markNav() {
   document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === location.hash.split('?')[0]
     || (location.hash.startsWith('#/areas') && a.getAttribute('href') === '#/areas')
     || (location.hash.startsWith('#/wcs') && a.getAttribute('href') === '#/wcs')
-    || (location.hash.startsWith('#/process') && a.getAttribute('href') === '#/process')));
+    || (location.hash.startsWith('#/process') && a.getAttribute('href') === '#/process')
+    || (location.hash.startsWith('#/sim') && a.getAttribute('href') === '#/sim')));
 }
 
 // ------------------------------------------------------------ viste
@@ -72,6 +77,19 @@ async function showView(id) {
     onWhCell: (wh, pos) => whCellDialog(wh, pos, { api, toast }),
   });
   renderer.load(current);
+  // unità di carico della simulazione fisica sopra la vista
+  if (current.components.some((c) => c.physics?.kind)) { physLayer = new PhysLayer(page.querySelector('svg')); physView = id; }
+}
+
+/** Fotogrammi della simulazione fisica: unità sulla vista corrente e indicatore in testata. */
+live.on('physics', (d) => {
+  setSimBadge(d.running);
+  if (physLayer) physLayer.set(d.running ? d.views?.[physView] || [] : []);
+});
+function setSimBadge(on) {
+
+  const b = document.getElementById('simBadge');
+  if (b) b.hidden = !on;
 }
 
 /** Gestore azioni per una vista (o un popup): passa lo scope del componente. */
@@ -158,6 +176,7 @@ function runtimeMenu(e) {
       { label: 'Panoramica aree', icon: '🗺', action: () => (location.hash = '#/areas') },
       { label: 'Allarmi', icon: '🔔', action: () => { areaFilter = ''; location.hash = '#/alarms'; } },
       hasWh ? { label: 'WCS magazzini', icon: '🏬', action: () => (location.hash = '#/wcs') } : null,
+      hasPhys ? { label: 'Simulazione fisica', icon: '⚛', action: () => (location.hash = '#/sim') } : null,
       hasProc ? { label: 'Batch', icon: '🧾', action: () => (location.hash = '#/process?tab=batch') } : null,
       hasProc ? { label: 'Fasi', icon: '🔁', action: () => (location.hash = '#/process?tab=phases') } : null,
       hasProc ? { label: 'Ricette', icon: '🧪', action: () => (location.hash = '#/process?tab=recipes') } : null,
@@ -506,6 +525,10 @@ async function init() {
   hasWh = (await api.get('/api/wh').catch(() => [])).length > 0;
   const pr = await api.get('/api/proc').catch(() => null);
   hasProc = !!pr && pr.sequences.length + pr.devices.length > 0;
+  const ph = await api.get('/api/physics').catch(() => null);
+  hasPhys = !!ph && (ph.components.length > 0 || ph.running);
+  setSimBadge(ph?.running);
+  document.getElementById('simBadge').onclick = () => (location.hash = '#/sim');
   for (const s of symbols) { try { compiled[s.id] = compileSymbol(s.svg); } catch { /* simbolo non valido */ } }
   document.getElementById('plant').textContent = info.plant.name;
   document.title = info.plant.name;

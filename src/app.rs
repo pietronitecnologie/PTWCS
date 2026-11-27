@@ -24,7 +24,8 @@ pub fn audit_category(source: &str, action: &str) -> &'static str {
     match (source, action) {
         ("auth", _) | ("admin", _) => "sicurezza",
         (_, a) if a.starts_with("recipe") => "ricette",
-        (_, a) if a.starts_with("seq") => "sequenze",
+        (_, a) if a.starts_with("seq") || a.starts_with("batch") => "sequenze",
+        (_, a) if a.starts_with("sim_") => "simulazione",
         (_, a) if a.starts_with("wh_") => "wcs",
         (_, "ack") => "allarmi",
         ("designer", _) => "configurazione",
@@ -51,6 +52,8 @@ pub enum Event {
     Project,
     /// Nuova riga di audit (inviata solo a chi ha `audit.view`).
     Audit { rec: crate::store::AuditRec },
+    /// Fotogramma della simulazione fisica (unità in movimento sulle viste).
+    Physics(serde_json::Value),
 }
 
 struct Task {
@@ -72,6 +75,7 @@ pub struct AppState {
     pub security: crate::security::Security,
     pub recipes: crate::recipes::Recipes,
     pub sequencer: crate::sequences::Sequencer,
+    pub physics: crate::physics::Physics,
     pub store: Store,
     pub alarms: AlarmManager,
     pub board: StatusBoard,
@@ -317,6 +321,7 @@ impl AppState {
         tokio::spawn(async move { me.sync_warehouses(&whs).await });
         self.sorting.configure(&cand.sort_classes, cand.wms.clone());
         *self.cfg.write().unwrap() = Arc::new(cand);
+        self.physics.invalidate();
         let _ = self.events.send(Event::Project);
         Ok(())
     }
@@ -361,6 +366,7 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
         security,
         recipes,
         sequencer: Default::default(),
+        physics: Default::default(),
         store,
         alarms: AlarmManager::default(),
         board: Default::default(),
@@ -385,6 +391,7 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
     app.sync_warehouses(&cfg.warehouses).await;
     tokio::spawn(alarms::run(app.clone()));
     tokio::spawn(crate::sequences::run(app.clone()));
+    tokio::spawn(crate::physics::run(app.clone()));
     tokio::spawn(historian(app.clone()));
     tokio::spawn(housekeeping(app.clone()));
     tokio::spawn(crate::sorting::sync_task(sorting));

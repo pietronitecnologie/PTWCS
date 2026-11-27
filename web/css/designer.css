@@ -214,3 +214,10 @@ table.permtbl tr.pg td { background: var(--panel2); font-weight: 700; color: #cb
 .phase-params .chip { display: inline-flex; align-items: center; gap: 4px; }
 .pr-state { border-left: 3px solid var(--warn); padding: 4px 8px; margin: 6px 0; }
 .act-row { flex-wrap: wrap; }
+
+/* ---------------------------------------------------------------- layer fisico */
+details.phys { margin: 8px 0; border: 1px solid #22d3ee55; border-radius: 6px; padding: 4px 8px 6px; background: #22d3ee0d; }
+details.phys > summary { cursor: pointer; font-weight: 600; padding: 3px 0; }
+details.phys .badge { font-size: 11px; padding: 1px 6px; border-radius: 8px; }
+.err-box { border: 1px solid var(--alarm, #ef4444); border-radius: 6px; padding: 6px 10px; background: #ef44440f; }
+.err-box ul { margin: 4px 0 0 16px; padding: 0; }

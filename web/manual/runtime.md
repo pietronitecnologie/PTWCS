@@ -159,6 +159,40 @@ I batch conclusi: ricetta e versione, lotto, dispositivi, esito, durata, utente.
 
 Batch e fasi in corso vengono salvati di continuo. Dopo un riavvio del server tornano **in hold**, con le stesse allocazioni dei dispositivi: l'operatore verifica l'impianto e dà **Restart**.
 
+## Simulazione fisica
+
+Menu **Simulazione** (o tasto destro → **Simulazione fisica**). Compare quando le viste hanno componenti con proprietà fisiche; vedi [Designer – Fisica](designer-fisica.md).
+
+Mentre la simulazione è in corso:
+- l'intestazione mostra **⚛ SIMULAZIONE**;
+- sulle viste le **unità di carico** si muovono sopra il layout. Passando il mouse su un'unità si vedono barcode e numero.
+
+| Comando (permesso `sim.operate`) | Effetto |
+|---|---|
+| **▶ Avvia** / **■ Ferma** | avvia o ferma la fisica. All'arresto il tag *simulazione attiva* torna falso e il PLC torna agli ingressi reali |
+| **❚❚ Pausa** / **▶ Riprendi** | congela le unità e i sensori |
+| **⌫ Svuota** | rimuove tutte le unità e azzera il tempo |
+| **Fattore tempo** | accelera o rallenta la simulazione: solo con PLC virtuali che lo seguono; con un PLC reale resta ×1 |
+
+Il pannello mostra:
+- unità generate, uscite, in impianto, letture e mancate letture;
+- lo stato di ogni componente;
+- l'elenco delle unità (barcode, materiale, peso, nastro, posizione, età);
+- gli eventi.
+
+### Guasti e interventi
+
+| Componente | Intervento |
+|---|---|
+| Nastro | **⚡ Avaria motore**: il nastro non parte anche con la marcia comandata |
+| Fotocellula | **bloccata occupata** / **bloccata libera** (fotocellula sporca o guasta) |
+| Scanner | **⚡ Guasto** (nessuna lettura) o percentuale di mancate letture |
+| Deviatore, fermo | **⚡ Blocca**: ignora i comandi |
+| Sorgente | intervallo, **sempre attiva** / **ferma**, **+1** unità con un barcode a scelta |
+| Unità | **Incastra** (si ferma e blocca le successive), **Libera**, **✕** rimuovi |
+
+Ogni comando e intervento finisce nell'audit trail (categoria *simulazione*).
+
 ## Audit trail
 
 Menu **Audit** (permesso `audit.view`): il registro di chi ha fatto cosa, quando e da dove.
@@ -167,7 +201,7 @@ Menu **Audit** (permesso `audit.view`): il registro di chi ha fatto cosa, quando
 |---|---|
 | **Data e ora** | al millisecondo |
 | **Utente** | utente autenticato e origine (hmi, designer, ricette, sequenza, auth…) |
-| **Categoria** | 🖱 comandi, ⚙ configurazione, 🔐 sicurezza, 🔔 allarmi, 🧪 ricette, 🔁 sequenze e batch, 🏬 wcs |
+| **Categoria** | 🖱 comandi, ⚙ configurazione, 🔐 sicurezza, 🔔 allarmi, 🧪 ricette, 🔁 sequenze e batch, ⚛ simulazione, 🏬 wcs |
 | **Azione** | es. Scrittura tag, Riconoscimento allarmi, Progetto salvato, Ricetta caricata, Avvio sequenza, Accesso fallito |
 | **Oggetto** | tag, ricetta, sequenza, vista… |
 | **Valore precedente / nuovo** | per le scritture: valore prima e dopo; per ricette e batch: versione, stato, dispositivi e parametri |

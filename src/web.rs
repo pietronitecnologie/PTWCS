@@ -83,6 +83,9 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/alarms/history", get(alarm_history))
         .route("/api/decisions", get(decisions))
         .route("/api/trend", get(trend))
+        .route("/api/physics", get(physics_status))
+        .route("/api/physics/inject", post(physics_inject))
+        .route("/api/physics/{cmd}", post(physics_cmd))
         .route("/api/views", get(list_views))
         .route("/api/views/{id}", get(get_view).put(put_view).delete(del_view))
         .route("/api/symbols", get(list_symbols))
@@ -151,6 +154,7 @@ pub fn required_perm(method: &axum::http::Method, path: &str) -> Option<&'static
         ("phase", false) => "seq.operate",
         ("batches", false) => "batch.operate",
         ("inst", false) => "runtime.view",
+        ("physics", false) => "sim.operate",
         ("project", true) => "runtime.view",
         ("project", false) if path.ends_with("/check") || path.ends_with("/udt_preview") => "designer",
         ("tags", false) if path == "/api/tags/write" => "tag.write",
@@ -1289,9 +1293,30 @@ async fn put_view(State(app): S, Path(id): Path<String>, Json(view): Json<J>) ->
     let tmp = p.with_extension("json.tmp");
     std::fs::write(&tmp, serde_json::to_string_pretty(&view).unwrap())?;
     std::fs::rename(tmp, p)?;
+    app.physics.invalidate();
     let overrides = lib_view_exists(&app, &id);
     app.audit("designer", "save_view", if overrides { format!("{id} (personalizzazione del faceplate standard)") } else { id.clone() });
     Ok(Json(json!({"ok": true, "warnings": warnings, "overrides": overrides})))
+}
+
+// ------------------------------------------------------------------ layer fisico (simulazione)
+
+async fn physics_status(State(app): S) -> Json<J> {
+    Json(app.physics.status(&app))
+}
+
+async fn physics_cmd(State(app): S, Path(cmd): Path<String>, body: axum::body::Bytes) -> R<Json<J>> {
+    let arg: J = serde_json::from_slice(&body).unwrap_or(J::Null);
+    let msg = app.physics.command(&app, &cmd, &arg).map_err(|e| bad(format!("{e:#}")))?;
+    app.audit_ext("simulazione", &format!("sim_{cmd}"), "fisica", None, None, msg.clone());
+    Ok(Json(json!({"ok": true, "message": msg})))
+}
+
+async fn physics_inject(State(app): S, Json(req): Json<J>) -> R<Json<J>> {
+    let msg = app.physics.inject(&app, &req).map_err(|e| bad(format!("{e:#}")))?;
+    let target = req.get("key").and_then(J::as_str).map(str::to_string).or_else(|| req.get("item").map(|i| format!("unità {i}"))).unwrap_or_default();
+    app.audit_ext("simulazione", "sim_fault", &target, None, None, msg.clone());
+    Ok(Json(json!({"ok": true, "message": msg})))
 }
 
 async fn del_view(State(app): S, Path(id): Path<String>) -> R<Json<J>> {
@@ -1307,6 +1332,7 @@ async fn del_view(State(app): S, Path(id): Path<String>) -> R<Json<J>> {
         });
     }
     std::fs::remove_file(p)?;
+    app.physics.invalidate();
     app.audit("designer", "delete_view", if lib { format!("{id}: ripristinato il faceplate standard") } else { id });
     Ok(Json(json!({"ok": true, "restored": lib})))
 }

@@ -12,6 +12,18 @@
 //!   ir 0..3    contatori uscita 1/2/3/scarto   ir 4 timeout risposta WCS
 //!   ir 5       velocità CV1 [m/min*10]   ir 6 corrente motore [A*10]   ir 7 temperatura [°C*10]
 //!
+//!
+//! Ingressi simulati (layer fisico di PTWCS, come il DB "SimIO" su S7-1500/PLCSIM Advanced):
+//!   coil 99   SimIO.Active (la simulazione gira)   hr 99  SimIO.Heartbeat (watchdog 2 s)
+//!   coil 100  fotocellula scanner   coil 101 fotocellula prima del deviatore
+//!   coil 102..104 fotocellule fine uscita 1..3   coil 105 fotocellula fine scarto
+//!   hr 100    contatore letture scanner   hr 101..110 barcode letto (20 char)
+//!   hr 111    peso [g/10]   hr 112 velocità reale CV1 [m/min×10]
+//! Con la simulazione attiva il PLC esegue la logica vera sugli ingressi simulati:
+//! richiesta al WCS a ogni lettura, inseguimento dei colli (FIFO), comando del deviatore
+//! all'arrivo del collo, conteggio sulle fotocellule di uscita, rilevamento inceppamenti.
+//! Senza simulazione (o se il watchdog scade) torna alla simulazione interna semplificata.
+//!
 //! Uso: plc_sim [bind]   (default 0.0.0.0:5020)
 
 use rand::RngExt;
@@ -95,16 +107,133 @@ fn put_string(hr: &mut [u16], start: usize, s: &str, chars: usize) {
     }
 }
 
+/// Stato della logica "vera" del PLC con gli ingressi dal layer fisico.
+#[derive(Default)]
+struct Logic {
+    /// Colli letti in attesa del deviatore: (ReqID, destinazione risposta dal WCS).
+    fifo: std::collections::VecDeque<(u16, Option<u16>)>,
+    last_scan: Option<u16>,
+    edges: [bool; 6],
+    hb: u16,
+    hb_at: Option<Instant>,
+    occupied_since: [Option<Instant>; 2],
+}
+
+const PE_SC: usize = 100;
+const PE_DV: usize = 101;
+
+/// Un ciclo della logica con gli ingressi simulati. Restituisce false se la
+/// simulazione non è (più) attiva: il chiamante usa la simulazione interna.
+fn logic_cycle(m: &mut Mem, lg: &mut Logic, now: Instant, req_id: &mut u16) -> bool {
+    if !m.coils[99] {
+        lg.hb_at = None;
+        return false;
+    }
+    if lg.hb_at.is_none() || m.hr[99] != lg.hb {
+        lg.hb = m.hr[99];
+        lg.hb_at = Some(now);
+    }
+    if lg.hb_at.is_some_and(|t| now - t > Duration::from_secs(2)) {
+        if lg.hb_at.is_some_and(|t| now - t < Duration::from_millis(2100)) {
+            println!("[plc] watchdog simulazione scaduto: ingressi reali");
+        }
+        return false;
+    }
+    let rise = |m: &Mem, lg: &mut Logic, k: usize| {
+        let v = m.coils[100 + k];
+        let r = v && !lg.edges[k];
+        lg.edges[k] = v;
+        r
+    };
+    // reset guasti
+    if m.coils[30] {
+        m.coils[30] = false;
+        for i in 0..3 {
+            m.di[i] = false;
+        }
+        lg.occupied_since = [None, None];
+    }
+    // ingressi → immagine di processo
+    m.di[3] = m.coils[PE_SC];
+    m.ir[5] = m.hr[112];
+    m.ir[6] = if m.coils[0] { 52 } else { 0 };
+    // lettura scanner → richiesta al WCS (dati prima, ReqID per ultimo)
+    let scan = m.hr[100];
+    if lg.last_scan.is_none() {
+        lg.last_scan = Some(scan);
+    }
+    if lg.last_scan != Some(scan) {
+        lg.last_scan = Some(scan);
+        *req_id = req_id.checked_add(1).filter(|r| *r < 32768).unwrap_or(1);
+        m.hr[1] = m.hr[111];
+        for i in 0..10 {
+            m.hr[2 + i] = m.hr[101 + i];
+        }
+        m.hr[0] = *req_id;
+        lg.fifo.push_back((*req_id, None));
+    }
+    // risposta del WCS
+    let resp = m.hr[12];
+    if let Some(e) = lg.fifo.iter_mut().find(|e| e.0 == resp && e.1.is_none()) {
+        e.1 = Some(m.hr[13]);
+    }
+    // collo davanti al deviatore: comanda l'uscita (senza risposta → scarto)
+    rise(m, lg, 0);
+    if rise(m, lg, 1) {
+        let dest = match lg.fifo.pop_front() {
+            Some((_, Some(d @ 1..=3))) => d,
+            Some((id, None)) => {
+                m.ir[4] = m.ir[4].wrapping_add(1);
+                println!("[plc] collo {id} al deviatore senza risposta WCS: scarto");
+                99
+            }
+            _ => 99,
+        };
+        m.hr[20] = dest;
+    }
+    // conteggi alle fotocellule di fine uscita
+    for k in 0..4 {
+        if rise(m, lg, 2 + k) {
+            m.ir[k] = m.ir[k].wrapping_add(1);
+        }
+    }
+    // inceppamento: fotocellula occupata a lungo con il nastro in marcia
+    for (j, (pe, cv)) in [(PE_SC, 1usize), (PE_DV, 2usize)].into_iter().enumerate() {
+        if m.coils[pe] && m.coils[cv] {
+            let t = *lg.occupied_since[j].get_or_insert(now);
+            if now - t > Duration::from_secs(6) && !m.di[cv] {
+                m.di[cv] = true;
+                println!("[plc] inceppamento su CV{}: guasto", cv + 1);
+            }
+        } else {
+            lg.occupied_since[j] = None;
+        }
+    }
+    for i in 0..3 {
+        if m.di[i] {
+            m.coils[i] = false;
+        }
+    }
+    true
+}
+
 fn simulate(plc: Plc) {
     let mut rng = rand::rng();
+    let mut logic = Logic::default();
     let mut next_pkg = Instant::now() + Duration::from_secs(2);
     let mut pending: Option<(u16, Instant)> = None;
     let mut req_id: u16 = 0;
     let mut temp = 250.0f64;
     loop {
-        std::thread::sleep(Duration::from_millis(50));
+        std::thread::sleep(Duration::from_millis(20));
         let mut m = plc.0.lock().unwrap();
         let now = Instant::now();
+        if logic_cycle(&mut m, &mut logic, now, &mut req_id) {
+            pending = None;
+            continue;
+        }
+        logic.fifo.clear();
+        logic.last_scan = None;
 
         // reset guasti / iniezione guasto
         if m.coils[30] {
@@ -118,7 +247,7 @@ fn simulate(plc: Plc) {
             m.coils[31] = false;
             m.di[1] = true;
         }
-        if rng.random_bool(0.0002) {
+        if rng.random_bool(0.00008) {
             m.di[2] = true; // guasto casuale CV3
         }
         // un nastro in guasto si ferma
@@ -131,11 +260,11 @@ fn simulate(plc: Plc) {
 
         // analogici
         let target_speed = if m.coils[0] { 600.0 } else { 0.0 };
-        let speed = m.ir[5] as f64 + (target_speed - m.ir[5] as f64) * 0.1;
+        let speed = m.ir[5] as f64 + (target_speed - m.ir[5] as f64) * 0.04;
         m.ir[5] = speed.round() as u16;
         m.ir[6] = if m.coils[0] { (52.0 + rng.random_range(-3.0..3.0)) as u16 } else { 0 };
         let target_temp = if m.coils[0] { 400.0 } else { 250.0 };
-        temp += (target_temp - temp) * 0.003 + rng.random_range(-0.5..0.5);
+        temp += (target_temp - temp) * 0.0012 + rng.random_range(-0.2..0.2);
         temp = temp.clamp(200.0, 650.0);
         m.ir[7] = temp as u16;
 

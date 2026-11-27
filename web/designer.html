@@ -18,6 +18,7 @@
       <button data-ws="sort">🔀 Smistamento</button>
       <button data-ws="project">⚙ Progetto</button>
       <button data-ws="process">⚗ Processo</button>
+      <button data-ws="physics">⚛ Fisica</button>
       <button data-ws="scripts">🐍 Script</button>
     </nav>
     <span class="sep"></span>
@@ -30,6 +31,7 @@
       <button id="btnFit" title="Adatta">⤢</button>
       <label class="row" title="Griglia e aggancio"><input type="checkbox" id="chkSnap" checked> Griglia</label>
       <label class="row" title="Anteprima: i click eseguono le azioni, come in runtime"><input type="checkbox" id="chkPreview"> Anteprima</label>
+      <label class="row" title="Layer fisico: mostra nastri, collegamenti e sensori della simulazione e le loro proprietà"><input type="checkbox" id="chkPhys"> ⚛ Fisica</label>
     </span>
     <span class="grow"></span>
     <button id="btnSaveProject" data-perm="designer.project" title="Valida, salva e applica a caldo il progetto (tag, UDT, aree, protocollo, classi…)">Salva progetto<span id="projDirty" class="dirty" hidden> ●</span></button>
@@ -84,6 +86,7 @@
   <div class="ws" id="ws-project" hidden></div>
   <div class="ws" id="ws-scripts" hidden></div>
   <div class="ws" id="ws-process" hidden></div>
+  <div class="ws" id="ws-physics" hidden></div>
 </div>
 <datalist id="tagNames"></datalist>
 <datalist id="instNames"></datalist>

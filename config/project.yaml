@@ -1540,6 +1540,92 @@ tags:
   unit: rpm
   initial: 120
   area: Processo
+- name: SimIO.Active
+  driver: PLC_LINEA
+  address: coil:99
+  type: bool
+  writable: true
+  description: Simulazione attiva (il PLC usa gli ingressi simulati)
+  area: Servizi
+- name: SimIO.Heartbeat
+  driver: PLC_LINEA
+  address: hr:99
+  type: u16
+  writable: true
+  description: Watchdog della simulazione
+  area: Servizi
+- name: SimIO.PE_SC
+  driver: PLC_LINEA
+  address: coil:100
+  type: bool
+  writable: true
+  description: 'Ingresso simulato: fotocellula scanner'
+  area: Servizi
+- name: SimIO.PE_DV
+  driver: PLC_LINEA
+  address: coil:101
+  type: bool
+  writable: true
+  description: 'Ingresso simulato: fotocellula prima del deviatore'
+  area: Servizi
+- name: SimIO.PE_OUT1
+  driver: PLC_LINEA
+  address: coil:102
+  type: bool
+  writable: true
+  description: 'Ingresso simulato: fotocellula fine uscita 1'
+  area: Servizi
+- name: SimIO.PE_OUT2
+  driver: PLC_LINEA
+  address: coil:103
+  type: bool
+  writable: true
+  description: 'Ingresso simulato: fotocellula fine uscita 2'
+  area: Servizi
+- name: SimIO.PE_OUT3
+  driver: PLC_LINEA
+  address: coil:104
+  type: bool
+  writable: true
+  description: 'Ingresso simulato: fotocellula fine uscita 3'
+  area: Servizi
+- name: SimIO.PE_REJ
+  driver: PLC_LINEA
+  address: coil:105
+  type: bool
+  writable: true
+  description: 'Ingresso simulato: fotocellula fine scarto'
+  area: Servizi
+- name: SimIO.ScanCount
+  driver: PLC_LINEA
+  address: hr:100
+  type: u16
+  writable: true
+  description: 'Ingresso simulato: contatore letture scanner'
+  area: Servizi
+- name: SimIO.ScanCode
+  driver: PLC_LINEA
+  address: hr:101
+  type: string
+  writable: true
+  description: 'Ingresso simulato: barcode letto'
+  area: Servizi
+- name: SimIO.ScanWeight
+  driver: PLC_LINEA
+  address: hr:111
+  type: u16
+  writable: true
+  description: 'Ingresso simulato: peso'
+  unit: g×10
+  area: Servizi
+- name: SimIO.CV1_Speed
+  driver: PLC_LINEA
+  address: hr:112
+  type: u16
+  writable: true
+  description: 'Ingresso simulato: velocità reale CV1'
+  unit: m/min×10
+  area: Servizi
 decision_points:
 - name: SC1
   description: Scanner barcode – scelta uscita del collo
@@ -1706,6 +1792,7 @@ security:
     - seq.operate
     - batch.operate
     - recipe.edit
+    - sim.operate
     - audit.view
   - name: manutentore
     description: Runtime completo e WCS, Designer in sola lettura
@@ -1720,6 +1807,7 @@ security:
     - seq.operate
     - batch.operate
     - recipe.edit
+    - sim.operate
     - audit.view
   - name: operatore
     description: 'Conduzione impianto: comandi, allarmi, missioni'
@@ -1925,3 +2013,35 @@ sequences:
   - kind: write
     tag: '{unit}.DrainValve'
     value: false
+physics:
+  step_ms: 20
+  scale_mm: 10.0
+  drivers:
+  - PLC_LINEA
+  heartbeat_tag: SimIO.Heartbeat
+  active_tag: SimIO.Active
+  materials:
+  - name: Collo
+    length_m: 0.4
+    width_m: 0.3
+    mass_min: 1.0
+    mass_max: 18.0
+    color: '#c8915a'
+    share: 3.0
+    description: Cartone standard
+  - name: Pacco
+    length_m: 0.6
+    width_m: 0.4
+    mass_min: 8.0
+    mass_max: 34.0
+    color: '#a16207'
+    share: 1.0
+    description: Cartone grande
+  - name: Busta
+    length_m: 0.3
+    width_m: 0.25
+    mass_min: 0.1
+    mass_max: 2.0
+    color: '#e5e7eb'
+    share: 1.0
+    description: Busta imbottita

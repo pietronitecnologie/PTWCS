@@ -317,3 +317,18 @@ body.manual { display: flex; flex-direction: column; height: 100%; }
 .proc .formgrid > label { color: var(--muted); font-size: 13px; }
 .proc table.edit td { padding: 3px 4px; } .proc table.edit input, .proc table.edit select { font-size: 12.5px; padding: 3px 5px; }
 .proc .ph-inst { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 6px; }
+
+/* ---------------------------------------------------------------- simulazione fisica */
+.simbadge { background: #7c3aed; color: #fff; border: 0; border-radius: 6px; padding: 2px 8px; font-size: 12px; white-space: nowrap; font-weight: 700; letter-spacing: .5px; cursor: pointer; animation: simpulse 2s ease-in-out infinite; }
+@keyframes simpulse { 50% { opacity: .65; } }
+.sim .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.sim .kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.sim .kpi b { font-size: 22px; }
+.sim h4 { margin: 12px 0 4px; }
+.sim td.r, .sim th.r { text-align: right; }
+.sim td { vertical-align: middle; }
+.sim tr.bad td { background: color-mix(in srgb, var(--alarm) 14%, transparent); }
+.sim .nowrap { white-space: nowrap; }
+.sim .smlog { max-height: 220px; overflow: auto; font-size: 12px; }
+.sim .smlog div { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+@media (max-width: 700px) { .sim .grid2 { grid-template-columns: 1fr; } }

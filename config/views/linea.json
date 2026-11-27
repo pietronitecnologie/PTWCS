@@ -1,4 +1,5 @@
 {
+  "area": "Linea",
   "background": "#0b1220",
   "components": [
     {
@@ -14,14 +15,14 @@
       },
       "rotation": 0,
       "type": "label",
-      "w": 600,
+      "w": 700,
       "x": 30,
       "y": 18
     },
     {
       "bindings": {},
       "events": {},
-      "h": 420,
+      "h": 470,
       "id": "panel",
       "name": "panel",
       "props": {
@@ -33,7 +34,49 @@
       "type": "rect",
       "w": 1240,
       "x": 20,
-      "y": 80
+      "y": 70
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "simhint",
+      "name": "simhint",
+      "props": {
+        "color": "#64748b",
+        "fontSize": 13,
+        "text": "Layer fisico: Designer → ⚛ Fisica · runtime → Simulazione"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 480,
+      "x": 760,
+      "y": 24
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 22,
+      "id": "SRC",
+      "name": "SRC",
+      "physics": {
+        "barcodes": "IT-MI-000123,IT-RM-004512,IT-TO-778899,DE-BE-112233,FR-PA-556677,IT-NA-990011,ES-MD-445566,IT-BO-123456,IT-FI-654321,XX-HEAVY-01",
+        "interval_max": 4.0,
+        "interval_min": 1.8,
+        "kind": "source",
+        "materials": "Collo,Pacco,Busta",
+        "on": "CV1"
+      },
+      "props": {
+        "color": "#94a3b8",
+        "fontSize": 13,
+        "text": "⊕ Ingresso colli"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 120,
+      "x": 50,
+      "y": 238
     },
     {
       "bindings": {
@@ -58,17 +101,27 @@
           "confirm": "Commutare marcia CV1?"
         }
       },
-      "h": 44,
+      "h": 40,
       "id": "CV1",
       "name": "CV1",
+      "physics": {
+        "accel": 0.8,
+        "decel": 1.6,
+        "fb_scale": 600,
+        "kind": "conveyor",
+        "next": "CV2",
+        "run": "CV1.Run",
+        "speed": 0.8,
+        "speed_fb": "SimIO.CV1_Speed"
+      },
       "props": {
         "label": "CV1 carico"
       },
       "rotation": 0,
       "type": "conveyor",
       "w": 300,
-      "x": 60,
-      "y": 260
+      "x": 50,
+      "y": 280
     },
     {
       "bindings": {
@@ -92,17 +145,95 @@
           ]
         }
       },
-      "h": 44,
+      "h": 40,
       "id": "CV2",
       "name": "CV2",
+      "physics": {
+        "accel": 0.8,
+        "decel": 1.6,
+        "kind": "conveyor",
+        "next": "CV3",
+        "run": "CV2.Run",
+        "speed": 0.8
+      },
       "props": {
         "label": "CV2 scanner"
       },
       "rotation": 0,
       "type": "conveyor",
       "w": 300,
-      "x": 380,
-      "y": 260
+      "x": 360,
+      "y": 280
+    },
+    {
+      "bindings": {
+        "elements.beam.visible": {
+          "kind": "tag",
+          "tag": "SC1.PhotoEye"
+        },
+        "elements.led.fill": {
+          "expr": "tag('SC1.Result') === 0 ? '#22c55e' : '#ef4444'",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 108,
+      "id": "SC1",
+      "name": "SC1",
+      "physics": {
+        "at_m": 1.5,
+        "code_tag": "SimIO.ScanCode",
+        "count_tag": "SimIO.ScanCount",
+        "kind": "scanner",
+        "noread_pct": 3,
+        "on": "CV2",
+        "weight_scale": 100,
+        "weight_tag": "SimIO.ScanWeight"
+      },
+      "props": {
+        "symbol": "scanner"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 90,
+      "x": 465,
+      "y": 150
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "SimIO.PE_SC",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 26,
+      "id": "PE_SC",
+      "name": "PE_SC",
+      "physics": {
+        "at_m": 1.5,
+        "kind": "photocell",
+        "on": "CV2",
+        "tag": "SimIO.PE_SC"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 90,
+      "type": "symbol",
+      "w": 26,
+      "x": 497,
+      "y": 287
     },
     {
       "bindings": {
@@ -126,82 +257,61 @@
           ]
         }
       },
-      "h": 44,
+      "h": 40,
       "id": "CV3",
       "name": "CV3",
+      "physics": {
+        "accel": 0.8,
+        "decel": 1.6,
+        "kind": "conveyor",
+        "next": "DV1",
+        "run": "CV3.Run",
+        "speed": 0.8
+      },
       "props": {
         "label": "CV3 smistamento"
       },
       "rotation": 0,
       "type": "conveyor",
       "w": 220,
-      "x": 700,
-      "y": 260
+      "x": 670,
+      "y": 280
     },
     {
       "bindings": {
-        "elements.beam.visible": {
+        "elements.beam.stroke": {
           "kind": "tag",
-          "tag": "SC1.PhotoEye"
-        },
-        "elements.led.fill": {
-          "expr": "tag('SC1.Result') === 0 ? '#22c55e' : '#ef4444'",
-          "kind": "expr"
+          "tag": "SimIO.PE_DV",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
         }
       },
       "events": {},
-      "h": 108,
-      "id": "SC1",
-      "name": "SC1",
-      "props": {
-        "symbol": "scanner"
+      "h": 26,
+      "id": "PE_DV",
+      "name": "PE_DV",
+      "physics": {
+        "at_m": 1.1,
+        "kind": "photocell",
+        "on": "CV3",
+        "tag": "SimIO.PE_DV"
       },
-      "rotation": 0,
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 90,
       "type": "symbol",
-      "w": 90,
-      "x": 480,
-      "y": 130
-    },
-    {
-      "bindings": {
-        "value": {
-          "kind": "tag",
-          "tag": "SC1.Barcode"
-        }
-      },
-      "events": {},
-      "h": 34,
-      "id": "barcode",
-      "name": "barcode",
-      "props": {
-        "fontSize": 16,
-        "label": "Barcode"
-      },
-      "rotation": 0,
-      "type": "value",
-      "w": 200,
-      "x": 590,
-      "y": 140
-    },
-    {
-      "bindings": {
-        "value": {
-          "expr": "(tag('SC1.Weight')/100).toFixed(2) + ' kg'",
-          "kind": "expr"
-        }
-      },
-      "events": {},
-      "h": 34,
-      "id": "weight",
-      "name": "weight",
-      "props": {
-        "label": "Peso"
-      },
-      "rotation": 0,
-      "type": "value",
-      "w": 200,
-      "x": 590,
-      "y": 200
+      "w": 26,
+      "x": 767,
+      "y": 287
     },
     {
       "bindings": {
@@ -228,7 +338,7 @@
             "rules": [
               {
                 "in": "1",
-                "out": "-50"
+                "out": "-40"
               },
               {
                 "in": "2",
@@ -236,49 +346,115 @@
               },
               {
                 "in": "3",
-                "out": "50"
+                "out": "40"
               },
               {
                 "in": "99",
-                "out": "180"
+                "out": "80"
               }
             ]
           }
         }
       },
       "events": {},
-      "h": 120,
+      "h": 110,
       "id": "DV1",
       "name": "DV1",
+      "physics": {
+        "kind": "diverter",
+        "outputs": [
+          {
+            "next": "OUT1",
+            "value": "1"
+          },
+          {
+            "next": "OUT2",
+            "value": "2"
+          },
+          {
+            "next": "OUT3",
+            "value": "3"
+          },
+          {
+            "next": "REJ",
+            "value": "99"
+          }
+        ],
+        "position": "DV1.Position",
+        "switch_s": 0.4
+      },
       "props": {
         "symbol": "diverter"
       },
       "rotation": 0,
       "type": "symbol",
-      "w": 120,
-      "x": 940,
-      "y": 222
+      "w": 110,
+      "x": 880,
+      "y": 245
     },
     {
       "bindings": {
-        "flow": {
-          "expr": "tag('DV1.Position') === 1",
-          "kind": "expr"
+        "running": {
+          "kind": "tag",
+          "tag": "CV3.Run"
         }
       },
       "events": {},
-      "h": 6,
-      "id": "out1",
-      "name": "out1",
-      "props": {
-        "stroke": "#475569",
-        "strokeWidth": 10
+      "h": 36,
+      "id": "OUT1",
+      "name": "OUT1",
+      "physics": {
+        "accel": 0.8,
+        "decel": 1.6,
+        "kind": "conveyor",
+        "run": "CV3.Run",
+        "sink": true,
+        "speed": 0.8
       },
-      "rotation": 0,
-      "type": "line",
-      "w": 140,
-      "x": 1070,
-      "y": 140
+      "props": {
+        "label": "Uscita 1"
+      },
+      "rotation": -40,
+      "type": "conveyor",
+      "w": 200,
+      "x": 984.6,
+      "y": 217.7
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "SimIO.PE_OUT1",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 24,
+      "id": "PE_OUT1",
+      "name": "PE_OUT1",
+      "physics": {
+        "at_m": 1.88,
+        "kind": "photocell",
+        "on": "OUT1",
+        "tag": "SimIO.PE_OUT1"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 50,
+      "type": "symbol",
+      "w": 24,
+      "x": 1140.0,
+      "y": 167.2
     },
     {
       "bindings": {
@@ -289,38 +465,81 @@
       },
       "events": {},
       "h": 32,
-      "id": "cnt1",
-      "name": "cnt1",
+      "id": "cnt_OUT1",
+      "name": "cnt_OUT1",
       "props": {
-        "fontSize": 17,
+        "fontSize": 16,
         "label": "Uscita 1"
       },
       "rotation": 0,
       "type": "value",
-      "w": 110,
-      "x": 1090,
-      "y": 100
+      "w": 100,
+      "x": 1165,
+      "y": 92
     },
     {
       "bindings": {
-        "flow": {
-          "expr": "tag('DV1.Position') === 2",
-          "kind": "expr"
+        "running": {
+          "kind": "tag",
+          "tag": "CV3.Run"
         }
       },
       "events": {},
-      "h": 6,
-      "id": "out2",
-      "name": "out2",
+      "h": 36,
+      "id": "OUT2",
+      "name": "OUT2",
+      "physics": {
+        "accel": 0.8,
+        "decel": 1.6,
+        "kind": "conveyor",
+        "run": "CV3.Run",
+        "sink": true,
+        "speed": 0.8
+      },
       "props": {
-        "stroke": "#475569",
-        "strokeWidth": 10
+        "label": "Uscita 2"
       },
       "rotation": 0,
-      "type": "line",
-      "w": 140,
-      "x": 1070,
-      "y": 290
+      "type": "conveyor",
+      "w": 200,
+      "x": 1008.0,
+      "y": 282.0
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "SimIO.PE_OUT2",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 24,
+      "id": "PE_OUT2",
+      "name": "PE_OUT2",
+      "physics": {
+        "at_m": 1.88,
+        "kind": "photocell",
+        "on": "OUT2",
+        "tag": "SimIO.PE_OUT2"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 90,
+      "type": "symbol",
+      "w": 24,
+      "x": 1184.0,
+      "y": 288.0
     },
     {
       "bindings": {
@@ -331,38 +550,81 @@
       },
       "events": {},
       "h": 32,
-      "id": "cnt2",
-      "name": "cnt2",
+      "id": "cnt_OUT2",
+      "name": "cnt_OUT2",
       "props": {
-        "fontSize": 17,
+        "fontSize": 16,
         "label": "Uscita 2"
       },
       "rotation": 0,
       "type": "value",
-      "w": 110,
-      "x": 1090,
-      "y": 250
+      "w": 100,
+      "x": 1165,
+      "y": 326
     },
     {
       "bindings": {
-        "flow": {
-          "expr": "tag('DV1.Position') === 3",
-          "kind": "expr"
+        "running": {
+          "kind": "tag",
+          "tag": "CV3.Run"
         }
       },
       "events": {},
-      "h": 6,
-      "id": "out3",
-      "name": "out3",
-      "props": {
-        "stroke": "#475569",
-        "strokeWidth": 10
+      "h": 36,
+      "id": "OUT3",
+      "name": "OUT3",
+      "physics": {
+        "accel": 0.8,
+        "decel": 1.6,
+        "kind": "conveyor",
+        "run": "CV3.Run",
+        "sink": true,
+        "speed": 0.8
       },
-      "rotation": 0,
-      "type": "line",
-      "w": 140,
-      "x": 1070,
-      "y": 440
+      "props": {
+        "label": "Uscita 3"
+      },
+      "rotation": 40,
+      "type": "conveyor",
+      "w": 200,
+      "x": 984.6,
+      "y": 346.3
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "SimIO.PE_OUT3",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 24,
+      "id": "PE_OUT3",
+      "name": "PE_OUT3",
+      "physics": {
+        "at_m": 1.88,
+        "kind": "photocell",
+        "on": "OUT3",
+        "tag": "SimIO.PE_OUT3"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 130,
+      "type": "symbol",
+      "w": 24,
+      "x": 1140.0,
+      "y": 408.8
     },
     {
       "bindings": {
@@ -373,17 +635,81 @@
       },
       "events": {},
       "h": 32,
-      "id": "cnt3",
-      "name": "cnt3",
+      "id": "cnt_OUT3",
+      "name": "cnt_OUT3",
       "props": {
-        "fontSize": 17,
+        "fontSize": 16,
         "label": "Uscita 3"
       },
       "rotation": 0,
       "type": "value",
-      "w": 110,
-      "x": 1090,
-      "y": 400
+      "w": 100,
+      "x": 1165,
+      "y": 470
+    },
+    {
+      "bindings": {
+        "running": {
+          "kind": "tag",
+          "tag": "CV3.Run"
+        }
+      },
+      "events": {},
+      "h": 36,
+      "id": "REJ",
+      "name": "REJ",
+      "physics": {
+        "accel": 0.8,
+        "decel": 1.6,
+        "kind": "conveyor",
+        "run": "CV3.Run",
+        "sink": true,
+        "speed": 0.8
+      },
+      "props": {
+        "label": "Scarto"
+      },
+      "rotation": 80,
+      "type": "conveyor",
+      "w": 140,
+      "x": 950.2,
+      "y": 350.9
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "SimIO.PE_REJ",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 24,
+      "id": "PE_REJ",
+      "name": "PE_REJ",
+      "physics": {
+        "at_m": 1.28,
+        "kind": "photocell",
+        "on": "REJ",
+        "tag": "SimIO.PE_REJ"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 170,
+      "type": "symbol",
+      "w": 24,
+      "x": 1018.2,
+      "y": 414.1
     },
     {
       "bindings": {
@@ -394,41 +720,59 @@
       },
       "events": {},
       "h": 32,
-      "id": "rej",
-      "name": "rej",
+      "id": "cnt_REJ",
+      "name": "cnt_REJ",
       "props": {
         "color": "#fca5a5",
-        "fontSize": 17,
+        "fontSize": 16,
         "label": "Scarto"
       },
       "rotation": 0,
       "type": "value",
-      "w": 110,
-      "x": 960,
-      "y": 400
+      "w": 100,
+      "x": 920,
+      "y": 450
     },
     {
       "bindings": {
-        "visible": {
-          "expr": "!tag('WCS.Out3Enabled')",
+        "value": {
+          "kind": "tag",
+          "tag": "SC1.Barcode"
+        }
+      },
+      "events": {},
+      "h": 34,
+      "id": "barcode",
+      "name": "barcode",
+      "props": {
+        "fontSize": 16,
+        "label": "Barcode"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 220,
+      "x": 580,
+      "y": 150
+    },
+    {
+      "bindings": {
+        "value": {
+          "expr": "(tag('SC1.Weight')/100).toFixed(2) + ' kg'",
           "kind": "expr"
         }
       },
       "events": {},
-      "h": 24,
-      "id": "out3dis",
-      "name": "out3dis",
+      "h": 34,
+      "id": "weight",
+      "name": "weight",
       "props": {
-        "bold": true,
-        "color": "#f59e0b",
-        "fontSize": 12,
-        "text": "USCITA 3 DISABILITATA"
+        "label": "Peso"
       },
       "rotation": 0,
-      "type": "label",
-      "w": 180,
-      "x": 1080,
-      "y": 470
+      "type": "value",
+      "w": 220,
+      "x": 580,
+      "y": 200
     },
     {
       "bindings": {
@@ -451,8 +795,8 @@
       "rotation": 0,
       "type": "motor",
       "w": 56,
-      "x": 80,
-      "y": 340
+      "x": 70,
+      "y": 380
     },
     {
       "bindings": {
@@ -475,8 +819,8 @@
       "rotation": 0,
       "type": "bar",
       "w": 200,
-      "x": 160,
-      "y": 350
+      "x": 150,
+      "y": 390
     },
     {
       "bindings": {
@@ -501,25 +845,11 @@
       "rotation": 0,
       "type": "value",
       "w": 200,
-      "x": 160,
-      "y": 380
+      "x": 150,
+      "y": 418
     },
     {
       "bindings": {
-        "color": {
-          "kind": "tag",
-          "tag": "CV1.Temp",
-          "transform": {
-            "default": "#e2e8f0",
-            "kind": "map",
-            "rules": [
-              {
-                "in": ">450",
-                "out": "#f59e0b"
-              }
-            ]
-          }
-        },
         "value": {
           "kind": "tag",
           "tag": "CV1.Temp",
@@ -542,8 +872,8 @@
       "rotation": 0,
       "type": "value",
       "w": 200,
-      "x": 160,
-      "y": 440
+      "x": 150,
+      "y": 460
     },
     {
       "bindings": {
@@ -563,8 +893,8 @@
       "rotation": 0,
       "type": "lamp",
       "w": 22,
-      "x": 420,
-      "y": 350
+      "x": 400,
+      "y": 390
     },
     {
       "bindings": {
@@ -584,8 +914,8 @@
       "rotation": 0,
       "type": "lamp",
       "w": 22,
-      "x": 420,
-      "y": 380
+      "x": 400,
+      "y": 420
     },
     {
       "bindings": {
@@ -605,8 +935,8 @@
       "rotation": 0,
       "type": "lamp",
       "w": 22,
-      "x": 420,
-      "y": 410
+      "x": 400,
+      "y": 450
     },
     {
       "bindings": {
@@ -626,8 +956,8 @@
       "rotation": 0,
       "type": "lamp",
       "w": 22,
-      "x": 420,
-      "y": 440
+      "x": 590,
+      "y": 390
     },
     {
       "bindings": {
@@ -647,8 +977,29 @@
       "rotation": 0,
       "type": "lamp",
       "w": 22,
-      "x": 600,
-      "y": 350
+      "x": 590,
+      "y": 420
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "SimIO.Active"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "l6",
+      "name": "l6",
+      "props": {
+        "colorOn": "#a78bfa",
+        "label": "Simulazione attiva"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 22,
+      "x": 590,
+      "y": 450
     },
     {
       "bindings": {},
@@ -673,7 +1024,7 @@
       "type": "button",
       "w": 150,
       "x": 30,
-      "y": 530
+      "y": 560
     },
     {
       "bindings": {},
@@ -699,7 +1050,7 @@
       "type": "button",
       "w": 150,
       "x": 195,
-      "y": 530
+      "y": 560
     },
     {
       "bindings": {},
@@ -724,7 +1075,7 @@
       "type": "button",
       "w": 150,
       "x": 360,
-      "y": 530
+      "y": 560
     },
     {
       "bindings": {
@@ -773,7 +1124,7 @@
       "type": "button",
       "w": 190,
       "x": 525,
-      "y": 530
+      "y": 560
     },
     {
       "bindings": {
@@ -808,7 +1159,7 @@
       "type": "button",
       "w": 190,
       "x": 730,
-      "y": 530
+      "y": 560
     },
     {
       "bindings": {},
@@ -833,7 +1184,7 @@
       "type": "button",
       "w": 150,
       "x": 935,
-      "y": 530
+      "y": 560
     },
     {
       "bindings": {},
@@ -859,29 +1210,31 @@
       "type": "button",
       "w": 150,
       "x": 1100,
-      "y": 530
+      "y": 560
     },
     {
       "bindings": {},
       "events": {},
-      "h": 24,
+      "h": 22,
       "id": "hint",
       "name": "hint",
       "props": {
         "color": "#64748b",
         "fontSize": 13,
-        "text": "Click sui nastri per marcia/arresto · i pulsanti chiamano funzioni Python in scripts/rules.py"
+        "text": "Click sui nastri per marcia/arresto · con la simulazione fisica attiva i colli si muovono sul layout e il PLC lavora sugli ingressi simulati"
       },
       "rotation": 0,
       "type": "label",
-      "w": 1200,
+      "w": 1220,
       "x": 30,
-      "y": 600
+      "y": 620
     }
   ],
-  "height": 640,
+  "height": 650,
   "home": true,
+  "physics": {
+    "scale_mm": 10
+  },
   "title": "Linea",
-  "width": 1280,
-  "area": "Linea"
+  "width": 1280
 }

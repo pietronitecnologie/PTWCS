@@ -30,6 +30,7 @@ pub const PERMISSIONS: &[(&str, &str, &str)] = &[
     ("seq.operate", "Processo", "Fasi (sequenze) in manuale: avvio, hold, restart, stop, abort, reset, avanzamento"),
     ("batch.operate", "Processo", "Batch: avviare una ricetta (allocando i dispositivi) e comandarla"),
     ("recipe.edit", "Processo", "Ricette: creare, modificare ed eliminare le procedure"),
+    ("sim.operate", "Simulazione", "Layer fisico: avviare e fermare la simulazione, fattore tempo, guasti e interventi sulle unità"),
     ("audit.view", "Amministrazione", "Consultare ed esportare l'audit trail"),
     ("designer", "Designer", "Aprire il Designer (consultazione)"),
     ("designer.views", "Designer", "Modificare viste, faceplate e simboli"),

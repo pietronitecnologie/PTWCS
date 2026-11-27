@@ -105,6 +105,90 @@ pub struct Project {
     /// Le ricette (procedure che schedulano le fasi) sono nel database.
     #[serde(default)]
     pub sequences: Vec<SequenceDef>,
+    /// Layer fisico (simulazione di componenti e materiali, collaudo virtuale).
+    #[serde(default, skip_serializing_if = "PhysicsCfg::is_default")]
+    pub physics: PhysicsCfg,
+}
+
+/// Impostazioni del layer fisico. Le proprietà dei componenti stanno nelle viste
+/// (`physics` su ogni componente); qui ci sono i materiali e le regole generali.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct PhysicsCfg {
+    /// Passo di simulazione (ms).
+    #[serde(default = "d_step_ms")]
+    pub step_ms: u64,
+    /// Scala predefinita delle viste: millimetri per pixel.
+    #[serde(default = "d_scale_mm")]
+    pub scale_mm: f64,
+    /// Avvia la simulazione all'avvio del server.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub autostart: bool,
+    /// Driver (PLC virtuali, es. PLCSIM Advanced) su cui la simulazione può scrivere i
+    /// sensori. I driver `sim` sono sempre ammessi; gli altri sono protetti.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub drivers: Vec<String>,
+    /// Tag contatore incrementato ogni 0,5 s mentre la simulazione gira (watchdog nel PLC).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub heartbeat_tag: String,
+    /// Tag bool: true mentre la simulazione gira (il PLC usa gli ingressi simulati).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub active_tag: String,
+    /// Materiali (unità di carico) generati dalle sorgenti.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub materials: Vec<Material>,
+}
+fn d_step_ms() -> u64 {
+    20
+}
+fn d_scale_mm() -> f64 {
+    10.0
+}
+impl Default for PhysicsCfg {
+    fn default() -> Self {
+        Self { step_ms: 20, scale_mm: 10.0, autostart: false, drivers: vec![], heartbeat_tag: String::new(), active_tag: String::new(), materials: vec![] }
+    }
+}
+impl PhysicsCfg {
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// Materiale: unità di carico (collo, pacco, pallet…).
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct Material {
+    pub name: String,
+    /// Lunghezza nel senso di marcia (m).
+    #[serde(default = "d_mat_len")]
+    pub length_m: f64,
+    #[serde(default = "d_mat_wid")]
+    pub width_m: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height_m: Option<f64>,
+    /// Massa minima e massima (kg): ogni unità ha una massa casuale nell'intervallo.
+    #[serde(default = "d_mass_min")]
+    pub mass_min: f64,
+    #[serde(default = "d_mass_max")]
+    pub mass_max: f64,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub color: String,
+    /// Peso relativo nel mix delle sorgenti (default 1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub share: Option<f64>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+}
+fn d_mat_len() -> f64 {
+    0.4
+}
+fn d_mat_wid() -> f64 {
+    0.3
+}
+fn d_mass_min() -> f64 {
+    1.0
+}
+fn d_mass_max() -> f64 {
+    20.0
 }
 
 /// Dispositivo (unità ISA-88): una ricetta in esecuzione lo alloca in esclusiva.
@@ -348,7 +432,7 @@ pub fn default_roles() -> Vec<RoleDef> {
     let r = |n: &str, d: &str, p: &[&str]| RoleDef { name: n.into(), description: d.into(), permissions: p.iter().map(|x| x.to_string()).collect() };
     vec![
         r("amministratore", "Accesso completo, gestione utenti e sicurezza", &["*"]),
-        r("progettista", "Designer completo (viste, progetto, regole, script)", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "designer.views", "designer.project", "rules.edit", "scripts.edit", "seq.operate", "batch.operate", "recipe.edit", "audit.view"]),
+        r("progettista", "Designer completo (viste, progetto, regole, script)", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "designer.views", "designer.project", "rules.edit", "scripts.edit", "seq.operate", "batch.operate", "recipe.edit", "sim.operate", "audit.view"]),
         r("manutentore", "Runtime completo e WCS, Designer in sola lettura", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "seq.operate", "batch.operate", "recipe.edit", "audit.view"]),
         r("operatore", "Conduzione impianto: comandi, allarmi, missioni, fasi e batch", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "seq.operate", "batch.operate"]),
         r("visualizzatore", "Sola visualizzazione", &["runtime.view"]),
@@ -1328,6 +1412,19 @@ impl Config {
             }
         }
         // dispositivi e sequenze
+        let ph = &self.project.physics;
+        uniq("materiale", ph.materials.iter().map(|m| m.name.as_str()).collect())?;
+        for m in &ph.materials {
+            if m.length_m <= 0.0 || m.width_m <= 0.0 || m.mass_min < 0.0 || m.mass_max < m.mass_min {
+                bail!("materiale {}: dimensioni e masse devono essere positive (min ≤ max)", m.name);
+            }
+        }
+        if !(5..=1000).contains(&ph.step_ms) {
+            bail!("fisica: passo di simulazione fuori dai limiti (5–1000 ms)");
+        }
+        if ph.scale_mm <= 0.0 {
+            bail!("fisica: la scala (mm per pixel) deve essere positiva");
+        }
         uniq("dispositivo", self.project.devices.iter().map(|d| d.name.as_str()).collect())?;
         let seqs = uniq("sequenza", self.project.sequences.iter().map(|s| s.name.as_str()).collect())?;
         for sq in &self.project.sequences {

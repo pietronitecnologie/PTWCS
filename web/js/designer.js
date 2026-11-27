@@ -11,6 +11,7 @@ import { showMenu, installDefaultMenu } from './ctxmenu.js';
 import { helpBtn, openHelp } from './markdown.js';
 import { initAuth, mountUserChip } from './auth.js';
 import { mountThemeButton, themeMenuItem } from './theme.js';
+import { KINDS, physOverlay } from './physics.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
@@ -18,7 +19,7 @@ const live = new Live();
 
 const S = {
   views: [], viewId: null, view: null, dirty: false,
-  sel: [], zoom: 1, snap: true, grid: 10, preview: false,
+  sel: [], zoom: 1, snap: true, grid: 10, preview: false, phys: localStorage.getItem('designer.phys') === '1',
   undo: [], redo: [], clip: null,
   tags: [], symbols: [], scripts: { functions: [] },
   lib: {}, symRoot: 'Intralogistica',
@@ -235,6 +236,7 @@ const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 function drawOverlay() {
   overlay.innerHTML = '';
   if (!S.view) return;
+  if (S.phys) overlay.innerHTML = physOverlay(S.view, P.data?.physics?.scale_mm || 10);
   const hs = 7 / S.zoom;
   for (const c of selected()) {
     const g = document.createElementNS(NS, 'g');
@@ -522,6 +524,7 @@ function renderProps() {
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Nome</label><input data-name value="${esc(c.name || '')}"></div>
     <div class="xy">${['x', 'y', 'w', 'h'].map((k) => `<label>${k.toUpperCase()}<input type="number" data-geo="${k}" value="${Math.round(c[k])}"></label>`).join('')}</div>
     <div class="prow" style="grid-template-columns:100px 1fr;margin-top:5px"><label>Rotazione°</label><input type="number" data-geo="rotation" value="${c.rotation || 0}"></div>
+    ${physSection(c)}
     ${customSection(c)}
     <h4>Proprietà ${helpBtn('designer#binding', 'Binding')}</h4>`;
   for (const [k, t, l, o] of def.schema) h += propRow(c, k, l, t, o);
@@ -547,6 +550,94 @@ function renderProps() {
   wireProps(c);
 }
 const openEls = new Set();
+
+/** Collega i nastri senza successivo al nastro/deviatore/pozzo che inizia vicino alla loro fine. */
+function autoLink() {
+  const comps = S.view.components.filter((c) => c.physics?.kind);
+  const ax = (c) => { const r = (+c.rotation || 0) * Math.PI / 180, l = c.props?.direction === 'left' ? -1 : 1; const ux = Math.cos(r) * l, uy = Math.sin(r) * l;
+    const cx = c.x + c.w / 2, cy = c.y + c.h / 2; return { s: [cx - ux * c.w / 2, cy - uy * c.w / 2], e: [cx + ux * c.w / 2, cy + uy * c.w / 2], c: [cx, cy] }; };
+  let n = 0;
+  mutate(() => {
+    for (const c of comps.filter((x) => x.physics.kind === 'conveyor' && !x.physics.next && !x.physics.sink)) {
+      const e = ax(c).e;
+      let best = null;
+      for (const t of comps.filter((x) => x !== c && ['conveyor', 'diverter', 'sink'].includes(x.physics.kind))) {
+        const a = ax(t), p = t.physics.kind === 'conveyor' ? a.s : a.c;
+        const d = Math.hypot(p[0] - e[0], p[1] - e[1]);
+        const lim = t.physics.kind === 'conveyor' ? 60 : Math.max(t.w, t.h) / 2 + 40;
+        if (d <= lim && (!best || d < best.d)) best = { d, t };
+      }
+      if (best) { c.physics.next = best.t.id; n++; }
+    }
+  });
+  toast(n ? `${n} collegamenti creati` : 'Nessun collegamento da creare (nastri già collegati o lontani)');
+}
+
+/** Sezione "Fisica": tipo di componente fisico e sue proprietà (tag attuatori/sensori, dinamica). */
+function physSection(c) {
+  const p = c.physics || {};
+  const k = KINDS[p.kind];
+  let h = `<details class="phys" data-physsec ${S.phys || p.kind ? 'open' : ''}><summary>⚛ Fisica ${p.kind ? `<span class="badge" style="background:${k?.color || '#64748b'};color:#0f172a">${esc(k?.label || p.kind)}</span>` : '<span class="muted">nessuna</span>'} ${helpBtn('designer-fisica#componenti-fisici')}</summary>
+    <div class="prow" style="grid-template-columns:100px 1fr"><label>Tipo</label><select data-pk><option value="">(nessuno: solo grafica)</option>
+      ${Object.entries(KINDS).map(([id, x]) => `<option value="${id}" ${id === p.kind ? 'selected' : ''}>${x.icon} ${esc(x.label)}</option>`).join('')}</select></div>`;
+  if (!k) return h + '</details>';
+  h += `<p class="hint">${esc(k.help)}</p>`;
+  for (const [key, type, label, ph] of k.fields) {
+    const v = p[key];
+    let inp;
+    if (type === 'tag' || type === 'stag') {
+      inp = `<input list="tagNames" data-pf="${key}" value="${esc(v || '')}" placeholder="${type === 'stag' ? 'scritto dalla simulazione' : 'letto dal PLC'}">`;
+    } else if (type === 'num') {
+      inp = `<input type="number" step="any" data-pf="${key}" data-num value="${v ?? ''}" placeholder="${esc(ph || '')}">`;
+    } else if (type === 'bool') {
+      inp = `<input type="checkbox" data-pf="${key}" data-bool ${v ? 'checked' : ''}>`;
+    } else if (type.startsWith('comp:')) {
+      const kinds = type.slice(5).split(',');
+      const opts = S.view.components.filter((x) => x.id !== c.id && kinds.includes(x.physics?.kind));
+      inp = `<select data-pf="${key}"><option value="">${key === 'on' ? '(il più vicino nel disegno)' : ''}</option>${opts.map((x) => `<option value="${esc(x.id)}" ${x.id === v ? 'selected' : ''}>${KINDS[x.physics.kind].icon} ${esc(x.name || x.id)}</option>`).join('')}
+        ${v && !opts.some((x) => x.id === v) ? `<option selected value="${esc(v)}">⚠ ${esc(v)}</option>` : ''}</select>`;
+    } else if (type === 'outputs') {
+      const outs = p.outputs || [];
+      const targets = S.view.components.filter((x) => x.id !== c.id && ['conveyor', 'sink'].includes(x.physics?.kind));
+      h += `<div class="prow" style="grid-template-columns:130px 1fr"><label>${esc(label)}</label><div>${outs.map((o, i) => `<div class="row" data-po="${i}" style="gap:4px;margin-bottom:3px">
+          <input data-ov value="${esc(o.value)}" placeholder="valore" style="width:64px" title="Valore del tag posizione"><span>→</span>
+          <select data-on><option value=""></option>${targets.map((x) => `<option value="${esc(x.id)}" ${x.id === o.next ? 'selected' : ''}>${esc(x.name || x.id)}</option>`).join('')}</select>
+          <button class="small danger" data-odel>✕</button></div>`).join('')}<button class="small" data-oadd>+ Uscita</button></div></div>`;
+      continue;
+    } else inp = `<input data-pf="${key}" value="${esc(v || '')}" placeholder="${esc(ph || '')}">`;
+    h += `<div class="prow" style="grid-template-columns:130px 1fr"><label title="${esc(label)}${type === 'stag' ? ' – sensore: tag scritto dalla simulazione (ingresso simulato del PLC)' : type === 'tag' ? ' – attuatore: tag comandato dal PLC' : ''}">${type === 'stag' ? '◀ ' : type === 'tag' ? '▶ ' : ''}${esc(label)}</label>${inp}</div>`;
+  }
+  return h + '<p class="hint">▶ attuatore (comandato dal PLC) · ◀ sensore (scritto dalla simulazione)</p></details>';
+}
+
+function wirePhys(c) {
+  const sec = props.querySelector('[data-physsec]');
+  if (!sec) return;
+  sec.querySelector('[data-pk]').onchange = (e) => mutate(() => {
+    const kind = e.target.value;
+    if (!kind) { delete c.physics; return; }
+    const keep = c.physics?.kind === kind ? c.physics : {};
+    c.physics = { ...keep, kind };
+    // proposte dai binding esistenti (es. nastro animato da CV1.Run → marcia = CV1.Run)
+    if (kind === 'conveyor' && !c.physics.run && c.bindings?.running?.tag) c.physics.run = c.bindings.running.tag;
+    if (kind === 'diverter' && !c.physics.outputs) c.physics.outputs = [];
+  });
+  sec.querySelectorAll('[data-pf]').forEach((el) => (el.onchange = () => mutate(() => {
+    const k = el.dataset.pf;
+    let v = el.dataset.bool !== undefined ? el.checked : el.value.trim();
+    if (el.dataset.num !== undefined) v = v === '' ? undefined : +v;
+    if (v === '' || v === undefined || v === false || Number.isNaN(v)) delete c.physics[k]; else c.physics[k] = v;
+  }, { props: el.tagName === 'SELECT' })));
+  const outs = () => (c.physics.outputs ||= []);
+  sec.querySelector('[data-oadd]')?.addEventListener('click', () => mutate(() => outs().push({ value: String(outs().length + 1), next: '' })));
+  sec.querySelectorAll('[data-po]').forEach((row) => {
+    const i = +row.dataset.po;
+    row.querySelector('[data-ov]').onchange = (e) => mutate(() => (outs()[i].value = e.target.value.trim()), { props: false });
+    row.querySelector('[data-on]').onchange = (e) => mutate(() => (outs()[i].next = e.target.value), { props: false });
+    row.querySelector('[data-odel]').onclick = () => mutate(() => outs().splice(i, 1));
+  });
+  sec.ontoggle = () => { if (sec.open && !S.phys) $('#chkPhys').click(); };
+}
 
 /** Proprietà personalizzate (custom): parametri passati ai binding {nome}, a viste incorporate e popup. */
 function customSection(c) {
@@ -609,6 +700,7 @@ function parseScalar(type, el) {
 }
 
 function wireProps(c) {
+  wirePhys(c);
   props.querySelector('[data-addcustom]').onclick = () => {
     const k = prompt('Nome della proprietà personalizzata (es. device):', c.custom?.device === undefined ? 'device' : '');
     if (!k || !/^[A-Za-z_]\w*$/.test(k)) return;
@@ -683,6 +775,9 @@ function renderViewProps() {
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Area</label><select data-v="area"><option value=""></option>${(P.data?.areas || []).map((a) => `<option ${a.name === v.area ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Faceplate/popup</label><input type="checkbox" data-v="faceplate" ${v.faceplate ? 'checked' : ''} title="Nascosta dal menu del runtime, aperta come popup"></div>
     <div class="prow" style="grid-template-columns:100px 1fr"><label>Nel menu</label><input type="checkbox" data-v="menu" ${v.menu !== false ? 'checked' : ''} title="Mostra la vista nel menu del runtime (togli per sotto-pagine raggiunte via navigazione con parametri)"></div>
+    ${S.phys ? `<h4>⚛ Fisica ${helpBtn('designer-fisica#scala-della-vista')}</h4>
+    <div class="prow" style="grid-template-columns:100px 1fr"><label title="Millimetri reali per pixel del disegno">Scala mm/px</label><input type="number" step="any" min="0.1" data-vscale value="${v.physics?.scale_mm ?? ''}" placeholder="${P.data?.physics?.scale_mm || 10} (progetto)"></div>
+    <p class="hint">Con 10 mm/px un nastro largo 300 px è lungo 3 m. Ogni nastro può avere anche una lunghezza esplicita.</p>` : ''}
     <h4>Sicurezza ${helpBtn('designer-progetto#ruoli-di-viste-tag-e-comandi', 'Sicurezza della vista')}</h4>
     <p class="hint">Nessun ruolo selezionato = nessuna restrizione.</p>
     <div class="prow" style="grid-template-columns:100px 1fr"><label title="Chi vede la vista nel menu e può aprirla">Ruoli accesso</label>${roleChecks('vrole', v.roles || [])}</div>
@@ -707,6 +802,10 @@ function renderViewProps() {
     }, { props: false })));
   }
   kvEditor(props.querySelector('#vparams'), (v.params ||= {}), { onChange: () => { markDirty(); renderer.load(v); }, keyLabel: 'Parametro', valLabel: 'Default', valList: 'instNames' });
+  props.querySelector('[data-vscale]')?.addEventListener('change', (e) => mutate(() => {
+    const x = +e.target.value;
+    if (x > 0) (v.physics ||= {}).scale_mm = x; else if (v.physics) { delete v.physics.scale_mm; if (!Object.keys(v.physics).length) delete v.physics; }
+  }));
   props.querySelector('[data-vc]').oninput = (e) => { const t = props.querySelector('[data-v="background"]'); t.value = e.target.value; t.onchange(); };
   props.querySelectorAll('[data-pick]').forEach((li) => (li.onclick = () => { S.sel = [li.dataset.pick]; drawOverlay(); renderProps(); }));
 }
@@ -866,6 +965,8 @@ function stageMenu(e) {
     { sep: true },
     { label: 'Griglia e aggancio', checked: S.snap, action: () => { $('#chkSnap').click(); } },
     { label: 'Anteprima (click attivi)', icon: '▶', action: () => { $('#chkPreview').click(); } },
+    { label: 'Layer fisico', icon: '⚛', checked: S.phys, action: () => { $('#chkPhys').click(); } },
+    S.phys ? { label: 'Collega automaticamente i nastri', icon: '⛓', action: autoLink } : null,
     { label: 'Adatta alla finestra', icon: '⤢', action: () => { fit(); drawOverlay(); } },
     { label: 'Zoom 100%', icon: '1:1', action: () => { S.zoom = 1; applyZoom(); drawOverlay(); } },
     { sep: true },
@@ -989,6 +1090,8 @@ $('#btnZoomIn').onclick = () => { S.zoom = Math.min(4, S.zoom * 1.25); applyZoom
 $('#btnZoomOut').onclick = () => { S.zoom = Math.max(0.1, S.zoom / 1.25); applyZoom(); drawOverlay(); };
 $('#btnFit').onclick = () => { fit(); drawOverlay(); };
 $('#chkSnap').onchange = (e) => { S.snap = e.target.checked; gridRect.style.display = S.snap ? '' : 'none'; };
+$('#chkPhys').checked = S.phys;
+$('#chkPhys').onchange = (e) => { S.phys = e.target.checked; localStorage.setItem('designer.phys', S.phys ? '1' : '0'); drawOverlay(); renderProps(); };
 $('#chkPreview').onchange = (e) => { S.preview = e.target.checked; S.sel = []; drawOverlay(); renderProps(); stage.style.cursor = S.preview ? 'pointer' : ''; };
 $('#center').addEventListener('wheel', (e) => {
   if (!e.ctrlKey || !S.view) return;
@@ -1020,7 +1123,7 @@ async function showWorkspace(ws) {
   $('#viewTools').style.display = ws === 'views' ? '' : 'none';
   localStorage.setItem('designer.ws', ws);
   if (ws === 'views') { renderProps(); return; }
-  const mod = { tags: './ws_tags.js', sort: './ws_sort.js', project: './ws_project.js', scripts: './ws_scripts.js', process: './ws_process.js' }[ws];
+  const mod = { tags: './ws_tags.js', sort: './ws_sort.js', project: './ws_project.js', scripts: './ws_scripts.js', process: './ws_process.js', physics: './ws_physics.js' }[ws];
   if (!wsLoaded[ws]) {
     wsLoaded[ws] = (await import(mod)).mount($(`#ws-${ws}`), { live, S, toast });
     // separatore del pannello laterale del workspace
@@ -1039,7 +1142,7 @@ document.querySelectorAll('.wstabs [data-ws]').forEach((b) => (b.onclick = () =>
 
 // ---------------------------------------------------------------- menu tasto destro predefinito (tutte le sezioni)
 const WS_LIST = [['views', '🖼 Viste', 'designer'], ['tags', '🏷 Tag e UDT', 'designer-tag'], ['sort', '🔀 Smistamento', 'designer-smistamento'],
-  ['project', '⚙ Progetto', 'designer-progetto'], ['process', '⚗ Processo', 'designer-processo'], ['scripts', '🐍 Script', 'designer-script']];
+  ['project', '⚙ Progetto', 'designer-progetto'], ['process', '⚗ Processo', 'designer-processo'], ['physics', '⚛ Fisica', 'designer-fisica'], ['scripts', '🐍 Script', 'designer-script']];
 const curWs = () => localStorage.getItem('designer.ws') || 'views';
 async function refreshSection() {
   const ws = curWs();

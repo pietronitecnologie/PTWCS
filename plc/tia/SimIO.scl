@@ -1,0 +1,107 @@
+// =====================================================================================
+// PTWCS – Layer fisico: ingressi simulati per S7-1500 / PLCSIM Advanced (TIA Portal)
+//
+// Idea: il programma PLC non legge direttamente gli ingressi %I ma l'immagine "In"
+// prodotta da questo blocco. Con la simulazione attiva (PTWCS scrive SimIO.Active e
+// incrementa SimIO.Heartbeat ogni 0,5 s) "In" prende i valori dal DB SimIO, scritti
+// dal layer fisico di PTWCS; altrimenti, o se il watchdog scade, prende gli ingressi
+// reali. Il resto del programma è identico in collaudo virtuale e in produzione.
+//
+// Uso:
+//  1. Importare questo file (Origini esterne → Genera blocchi dall'origine).
+//  2. DB "SimIO": accesso ottimizzato DISATTIVATO (PTWCS lo legge/scrive con indirizzi
+//     assoluti DBX/DBW/DBB via S7). CPU: "Consenti accesso PUT/GET" attivo.
+//  3. Adattare i campi di "SimIO_Inputs" agli ingressi della macchina (stesso ordine
+//     in "SimIO".Sim e nella chiamata a FB_SimIO con gli ingressi reali).
+//  4. Chiamare FB_SimIO all'inizio di OB1 e usare "In".* al posto di %I nel programma.
+//  5. In PTWCS: tag sul driver S7 del PLC (indirizzi qui sotto), Designer → ⚛ Fisica →
+//     driver simulabili = driver del PLCSIM, heartbeat = SimIO.Heartbeat, attivo = SimIO.Active.
+//
+// Sicurezza: su un PLC di produzione lasciare SimEnable = FALSE (costante o parametro di
+// messa in servizio): gli ingressi simulati vengono ignorati anche se qualcuno scrive il DB.
+//
+// Indirizzi (DB non ottimizzato, con la struttura d'esempio):
+//   SimIO.Active      DBX0.0      SimIO.Heartbeat  DBW2
+//   Sim.PE_SC         DBX4.0      Sim.PE_DV        DBX4.1
+//   Sim.PE_OUT1..3    DBX4.2..4   Sim.PE_REJ       DBX4.5
+//   Sim.ScanCount     DBW6        Sim.ScanCode     DBB8  (String[20] S7: 2 byte di testa + 20)
+//   Sim.ScanWeight    DBW30       Sim.CV1_Speed    DBW32
+// =====================================================================================
+
+TYPE "SimIO_Inputs"
+VERSION : 0.1
+   STRUCT
+      PE_SC : Bool;        // fotocellula scanner
+      PE_DV : Bool;        // fotocellula prima del deviatore
+      PE_OUT1 : Bool;      // fotocellule di fine uscita
+      PE_OUT2 : Bool;
+      PE_OUT3 : Bool;
+      PE_REJ : Bool;
+      ScanCount : Int;     // contatore letture scanner (cambia a ogni lettura)
+      ScanCode : String[20];
+      ScanWeight : Int;    // peso [g/10]
+      CV1_Speed : Int;     // velocità reale CV1 [m/min×10]
+   END_STRUCT;
+END_TYPE
+
+DATA_BLOCK "SimIO"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT
+      Active : Bool;       // scritto da PTWCS: simulazione in corso
+      Heartbeat : Int;     // incrementato da PTWCS ogni 0,5 s
+      Sim : "SimIO_Inputs";  // ingressi scritti dal layer fisico
+   END_STRUCT;
+BEGIN
+END_DATA_BLOCK
+
+DATA_BLOCK "In"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT
+      Sim : Bool;          // TRUE = il programma sta usando gli ingressi simulati
+      V : "SimIO_Inputs";  // immagine degli ingressi usata dal programma
+   END_STRUCT;
+BEGIN
+END_DATA_BLOCK
+
+FUNCTION_BLOCK "FB_SimIO"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT
+      SimEnable : Bool;          // abilitazione della simulazione (FALSE in produzione)
+      Real : "SimIO_Inputs";     // ingressi reali (%I e periferia) nello stesso formato
+      WatchdogMs : Time := T#2S; // heartbeat fermo oltre questo tempo → ingressi reali
+   END_VAR
+   VAR_OUTPUT
+      SimActive : Bool;
+      WatchdogExpired : Bool;
+   END_VAR
+   VAR
+      lastHb : Int;
+      tonWd : TON_TIME;
+   END_VAR
+
+BEGIN
+	// watchdog: il contatore deve cambiare almeno ogni WatchdogMs
+	#tonWd(IN := "SimIO".Active AND ("SimIO".Heartbeat = #lastHb), PT := #WatchdogMs);
+	#lastHb := "SimIO".Heartbeat;
+	#WatchdogExpired := #tonWd.Q;
+	#SimActive := #SimEnable AND "SimIO".Active AND NOT #tonWd.Q;
+
+	IF #SimActive THEN
+	    "In".V := "SimIO".Sim;
+	ELSE
+	    "In".V := #Real;
+	END_IF;
+	"In".Sim := #SimActive;
+END_FUNCTION_BLOCK
+
+// Esempio di chiamata in OB1 (ingressi reali d'esempio):
+//
+//   "FB_SimIO_DB"(SimEnable := "Config".SimEnable,
+//                 Real := "RealInputs");   // DB/struttura riempita da %I e periferia
+//
+//   // poi nel programma:  IF "In".V.PE_DV AND NOT #pePrev THEN ... END_IF;
