@@ -98,49 +98,66 @@ Stato dei driver PLC (connessione, tempi di ciclo, letture, scritture, errori), 
 ### WCS
 Gestione dei magazzini automatici: vedi [WCS magazzini automatici](wcs.md).
 
-## Sequenze
+## Processo: batch e fasi
 
-Menu **Processo**: una scheda per ogni sequenza con stato, passo corrente, tempo nel passo e avanzamento.
+Menu **Processo** (modello ISA-88, vedi [Designer – Processo](designer-processo.md)). Ha cinque schede.
 
-| Stato | Significato |
-|---|---|
-| inattiva | mai avviata o dopo un reset |
-| in esecuzione | sta eseguendo i passi |
-| in pausa | le transizioni e i timeout sono sospesi |
-| completata | ha raggiunto la FINE |
-| arrestata | fermata dall'operatore (azioni di arresto eseguite) |
-| in errore | timeout o azione fallita: c'è l'allarme `SEQ.<nome>` |
+### Batch
 
-Comandi (permesso `seq.operate`):
+Ogni batch attivo ha una scheda con:
+- ricetta e versione, lotto;
+- dispositivi allocati;
+- passi attivi con il tempo (più passi se ci sono rami paralleli);
+- stato e comandi.
+
+**▶ Nuovo batch** (permesso `batch.operate`):
+1. scegli la ricetta;
+2. scrivi il lotto;
+3. scegli un dispositivo per ogni alias richiesto: quelli allocati ad altri batch o con fasi manuali in corso non sono selezionabili;
+4. imposta i parametri, entro i limiti.
+
+Il dettaglio del batch selezionato mostra:
+- il **diagramma** della procedura, con i passi attivi in verde e le durate di quelli eseguiti;
+- le **fasi** avviate, con stato, passo corrente e parametri ricevuti;
+- lo storico dei passi.
 
 | Comando | Effetto |
 |---|---|
-| **▶ Avvia** | chiede i parametri di avvio (es. la **ricetta**) e, facoltativamente, il passo da cui partire |
-| **❚❚ Pausa / ▶ Riprendi** | sospende e riprende; il tempo in pausa non conta per timeout e `@elapsed` |
-| **✓ Conferma** | compare nei passi che attendono la conferma dell'operatore (es. controllo qualità) |
-| **⏭ Avanti** | forza il passo successivo senza attendere la transizione |
-| **↪** (sul diagramma) | salta a un passo qualsiasi |
-| **■ Arresta** | ferma la sequenza ed esegue le azioni di arresto (stato sicuro) |
-| **↺ Reset** | riporta a *inattiva* una sequenza conclusa, arrestata o in errore, e fa rientrare l'allarme |
+| **❚❚ Hold** | mette in attesa batch e fasi (azioni di hold) |
+| **▶ Restart** | riprende; dopo un errore riprova il passo fallito senza ripetere le fasi già concluse |
+| **✓ Conferma** | compare quando un passo attende la conferma dell'operatore |
+| **■ Stop** / **⛔ Abort** | arresto controllato o immediato di batch e fasi; i dispositivi vengono rilasciati |
+| **↺ Reset** | toglie dall'elenco un batch concluso o in errore (in errore rilascia i dispositivi) |
+| **▶ Riprova** (su una fase in errore) | riavvia la fase |
 
-Una sequenza può partire anche dal PLC, con il tag di avvio configurato nel Designer.
+### Fasi
 
-Il **diagramma dei passi** mostra azioni e transizioni di ogni passo: il passo corrente è evidenziato in verde con il suo tempo, quelli già eseguiti hanno la durata. A destra ci sono l'**esecuzione corrente** (chi l'ha avviata, parametri, storico dei passi con durate e motivo di uscita) e le **ultime esecuzioni** con esito e durata.
+Le sequenze in **manuale** (permesso `seq.operate`):
+- **▶ Avvia…** chiede il dispositivo (quelli allocati a un batch non sono disponibili) e i parametri;
+- ogni istanza (`Sequenza@dispositivo`) ha i comandi hold, restart, stop, abort e reset;
+- **◫** mostra il diagramma con il passo attivo.
 
-## Ricette
+Le fasi avviate da un batch compaiono con l'etichetta del batch e si comandano dal batch.
 
-**Processo → 🧪 Ricette**: scegli il tipo di ricetta; a sinistra ci sono le ricette e la **ricetta attiva** di ogni unità (ultima caricata).
+### Ricette
 
-| Azione | Permesso | Effetto |
-|---|---|---|
-| **+ Nuova** | `recipe.edit` | nuova ricetta con i valori predefiniti |
-| **Salva** / **Salva come…** | `recipe.edit` | registra i valori: limiti min/max verificati; la versione aumenta se i valori cambiano |
-| **Elimina** | `recipe.edit` | elimina la ricetta |
-| **⇩ Leggi dal PLC** | `recipe.edit` | copia nei campi i valori attuali dell'unità (poi *Salva* per registrarli) |
-| **⇄ Confronta** | — | mostra accanto a ogni parametro il valore sul PLC; ⚠ = diverso |
-| **⬆ Carica su …** | `recipe.load` | scrive tutti i parametri sull'unità scelta (con conferma) |
+Elenco delle ricette con versione:
+- **✎ Modifica**, **⧉ Duplica**, **Elimina** (permesso `recipe.edit`);
+- **▶ Avvia batch**.
 
-Ogni salvataggio, eliminazione e caricamento finisce nell'audit trail con i valori prima e dopo.
+L'editor comprende dispositivi richiesti, parametri, procedura (passi, rami paralleli, fasi con parametri, transizioni) e azioni di stato.
+
+### Dispositivi
+
+Le unità per classe, **libere** o **allocate**, con il batch e la ricetta che le usano e le fasi in corso.
+
+### Storico
+
+I batch conclusi: ricetta e versione, lotto, dispositivi, esito, durata, utente. Il click apre il **report del batch**: parametri, passi della procedura con durate, fasi con parametri ed esito.
+
+### Riavvio del server
+
+Batch e fasi in corso vengono salvati di continuo. Dopo un riavvio del server tornano **in hold**, con le stesse allocazioni dei dispositivi: l'operatore verifica l'impianto e dà **Restart**.
 
 ## Audit trail
 
@@ -150,10 +167,10 @@ Menu **Audit** (permesso `audit.view`): il registro di chi ha fatto cosa, quando
 |---|---|
 | **Data e ora** | al millisecondo |
 | **Utente** | utente autenticato e origine (hmi, designer, ricette, sequenza, auth…) |
-| **Categoria** | 🖱 comandi, ⚙ configurazione, 🔐 sicurezza, 🔔 allarmi, 🧪 ricette, 🔁 sequenze, 🏬 wcs |
+| **Categoria** | 🖱 comandi, ⚙ configurazione, 🔐 sicurezza, 🔔 allarmi, 🧪 ricette, 🔁 sequenze e batch, 🏬 wcs |
 | **Azione** | es. Scrittura tag, Riconoscimento allarmi, Progetto salvato, Ricetta caricata, Avvio sequenza, Accesso fallito |
 | **Oggetto** | tag, ricetta, sequenza, vista… |
-| **Valore precedente / nuovo** | per le scritture: valore prima e dopo; per le ricette: i parametri cambiati |
+| **Valore precedente / nuovo** | per le scritture: valore prima e dopo; per ricette e batch: versione, stato, dispositivi e parametri |
 | **Dettaglio** | es. per il progetto le sezioni modificate (`tags: +R1.Level ~CV1.Speed −OLD`) |
 | **Client** | indirizzo IP del posto operatore (o `X-Forwarded-For` dietro reverse proxy) |
 

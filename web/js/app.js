@@ -5,7 +5,7 @@ import { showMenu, editItems } from './ctxmenu.js';
 import { initAuth, mountUserChip, can, AUTH } from './auth.js';
 import { mountThemeButton, themeMenuItem } from './theme.js';
 import { showWcs } from './wcs.js';
-import { showSequences, showRecipes, showAudit } from './process.js';
+import { showProcess, showAudit } from './process.js';
 
 const live = new Live();
 const page = document.getElementById('page');
@@ -33,7 +33,7 @@ function route() {
   if (kind === 'tags') return showTags();
   if (kind === 'trend') return showTrend();
   if (kind === 'diag') return showDiag();
-  if (kind === 'process') return (routeParams.tab === 'recipes' ? showRecipes : showSequences)(page, routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
+  if (kind === 'process') return showProcess(page, routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   if (kind === 'audit') return showAudit(page, routeParams, live).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   if (kind === 'wcs') return showWcs(page, arg ? decodeURIComponent(arg) : '', routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   const home = views.find((v) => v.home) || views[0];
@@ -158,7 +158,8 @@ function runtimeMenu(e) {
       { label: 'Panoramica aree', icon: '🗺', action: () => (location.hash = '#/areas') },
       { label: 'Allarmi', icon: '🔔', action: () => { areaFilter = ''; location.hash = '#/alarms'; } },
       hasWh ? { label: 'WCS magazzini', icon: '🏬', action: () => (location.hash = '#/wcs') } : null,
-      hasProc ? { label: 'Sequenze', icon: '🔁', action: () => (location.hash = '#/process') } : null,
+      hasProc ? { label: 'Batch', icon: '🧾', action: () => (location.hash = '#/process?tab=batch') } : null,
+      hasProc ? { label: 'Fasi', icon: '🔁', action: () => (location.hash = '#/process?tab=phases') } : null,
       hasProc ? { label: 'Ricette', icon: '🧪', action: () => (location.hash = '#/process?tab=recipes') } : null,
       can('audit.view') ? { label: 'Audit trail', icon: '📜', action: () => (location.hash = '#/audit') } : null,
       { label: 'Decisioni', icon: '🔀', action: () => (location.hash = '#/decisions') },
@@ -503,8 +504,8 @@ async function init() {
   [views, symbols] = await Promise.all([api.get('/api/views'), api.get('/api/symbols')]);
   AUTH.viewOps = Object.fromEntries(views.map((v) => [v.id, v.can_operate !== false]));
   hasWh = (await api.get('/api/wh').catch(() => [])).length > 0;
-  const [sq, rc] = await Promise.all([api.get('/api/seq').catch(() => []), api.get('/api/recipes').catch(() => [])]);
-  hasProc = sq.length + rc.length > 0;
+  const pr = await api.get('/api/proc').catch(() => null);
+  hasProc = !!pr && pr.sequences.length + pr.devices.length > 0;
   for (const s of symbols) { try { compiled[s.id] = compileSymbol(s.svg); } catch { /* simbolo non valido */ } }
   document.getElementById('plant').textContent = info.plant.name;
   document.title = info.plant.name;

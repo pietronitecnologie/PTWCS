@@ -1,246 +1,237 @@
-//! Ricette di processo.
+//! Ricette (procedure ISA-88): schedulano le sequenze (fasi) su dispositivi.
 //!
-//! Il **tipo di ricetta** (progetto) elenca i parametri e il tag su cui ognuno
-//! viene scritto; con `units` lo stesso tipo serve più unità identiche (`{unit}`
-//! nei tag). Le **ricette** (insiemi di valori) sono dati di produzione: stanno
-//! nel database, si modificano dal runtime con il permesso `recipe.edit` e si
-//! caricano sul PLC con `recipe.load`. Ogni modifica e ogni caricamento finiscono
-//! nell'audit trail con i valori.
+//! Una ricetta dichiara i **dispositivi** che le servono (alias + classe), i suoi
+//! **parametri** (formula) e una rete SFC di passi le cui azioni avviano le fasi
+//! (`phase`: sequenza, dispositivo `{alias}`, parametri `{parametro}`), anche in
+//! rami paralleli. All'avvio di un batch i dispositivi vengono allocati in
+//! esclusiva fino alla fine del batch. Le ricette stanno nel database (dati di
+//! produzione, modificabili dal runtime con `recipe.edit`), con versione.
 
-use crate::config::{RecipeType, Config};
+use crate::config::{Config, SeqAction, SeqParam, StepDef, check_sfc};
 use crate::store::Store;
-use crate::tagdb::{TagDb, now_ms};
+use crate::tagdb::now_ms;
 use crate::value::Value;
 use anyhow::{Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::RwLock;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Recipe {
+/// Dispositivo richiesto dalla ricetta.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct DeviceReq {
+    /// Nome usato nella ricetta (`{alias}`), es. "reattore".
+    pub alias: String,
+    /// Classe richiesta, es. "Reattore".
+    pub class: String,
+    /// Dispositivo proposto all'avvio.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub default: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct RecipeDef {
     pub name: String,
     #[serde(default)]
     pub description: String,
     #[serde(default)]
-    pub values: BTreeMap<String, Value>,
+    pub devices: Vec<DeviceReq>,
+    /// Parametri della ricetta (il default è il valore di formula).
+    #[serde(default)]
+    pub parameters: Vec<SeqParam>,
+    #[serde(default)]
+    pub steps: Vec<StepDef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hold_actions: Vec<SeqAction>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub restart_actions: Vec<SeqAction>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stop_actions: Vec<SeqAction>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub abort_actions: Vec<SeqAction>,
     #[serde(default)]
     pub version: u32,
-    #[serde(default)]
-    pub created: i64,
     #[serde(default)]
     pub modified: i64,
     #[serde(default)]
     pub modified_by: String,
 }
 
-/// Ultima ricetta caricata su un'unità.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ActiveRecipe {
-    pub recipe: String,
-    pub version: u32,
-    pub ts: i64,
-    pub by: String,
-    pub ok: bool,
+/// Verifica i valori dei parametri (limiti, default, nomi) e li ritorna come testo per `{nome}`.
+pub fn resolve_params(what: &str, formal: &[SeqParam], given: &BTreeMap<String, String>) -> Result<BTreeMap<String, String>> {
+    if let Some(k) = given.keys().find(|k| !formal.iter().any(|p| &p.name == *k)) {
+        bail!("{what}: parametro sconosciuto '{k}'");
+    }
+    let mut out = BTreeMap::new();
+    for p in formal {
+        let v = match given.get(&p.name).map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            Some(v) => v.to_string(),
+            None => match &p.default {
+                Some(Value::Null) | None => bail!("{what}: parametro '{}' mancante", p.name),
+                Some(v) => v.to_string(),
+            },
+        };
+        if p.min.is_some() || p.max.is_some() {
+            let x: f64 = v.parse().map_err(|_| anyhow!("{what}: parametro '{}' deve essere un numero (\"{v}\")", p.name))?;
+            if p.min.is_some_and(|m| x < m) || p.max.is_some_and(|m| x > m) {
+                bail!(
+                    "{what}: parametro '{}' = {x} fuori dai limiti [{} .. {}]",
+                    p.name,
+                    p.min.map(|m| m.to_string()).unwrap_or("-∞".into()),
+                    p.max.map(|m| m.to_string()).unwrap_or("+∞".into())
+                );
+            }
+        }
+        out.insert(p.name.clone(), v);
+    }
+    Ok(out)
 }
 
-/// Esito della scrittura di un parametro.
-#[derive(Debug, Clone, Serialize)]
-pub struct ParamResult {
-    pub param: String,
-    pub tag: String,
-    pub value: Value,
-    pub ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+impl RecipeDef {
+    /// Coerenza con il progetto: classi dei dispositivi, sequenze, parametri delle fasi.
+    pub fn validate(&self, cfg: &Config) -> Result<()> {
+        let n = self.name.trim();
+        if n.is_empty() || n.len() > 64 || n.contains('/') {
+            bail!("nome ricetta non valido");
+        }
+        let mut aliases = HashSet::new();
+        for d in &self.devices {
+            if d.alias.trim().is_empty() || !aliases.insert(d.alias.as_str()) {
+                bail!("alias di dispositivo vuoto o duplicato: '{}'", d.alias);
+            }
+            if !cfg.project.devices.iter().any(|x| x.class == d.class) {
+                bail!("dispositivo {}: nessun dispositivo di classe '{}'", d.alias, d.class);
+            }
+        }
+        let mut pn = HashSet::new();
+        for p in &self.parameters {
+            if !pn.insert(p.name.as_str()) {
+                bail!("parametro duplicato '{}'", p.name);
+            }
+        }
+        let seqs: HashSet<String> = cfg.project.sequences.iter().map(|s| s.name.clone()).collect();
+        let extra: Vec<&SeqAction> = self.hold_actions.iter().chain(&self.restart_actions).chain(&self.stop_actions).chain(&self.abort_actions).collect();
+        check_sfc(&format!("ricetta {n}"), &self.steps, &extra, &seqs, true)?;
+        // fasi: dispositivo dichiarato e della classe giusta, parametri esistenti
+        fn walk<'a>(steps: &'a [StepDef], out: &mut Vec<&'a SeqAction>) {
+            for s in steps {
+                out.extend(s.actions.iter().filter(|a| a.kind == "phase"));
+                for b in &s.branches {
+                    walk(b, out);
+                }
+            }
+        }
+        let mut phases = vec![];
+        walk(&self.steps, &mut phases);
+        for a in phases {
+            let sq = cfg.project.sequences.iter().find(|s| s.name == a.sequence).unwrap();
+            if !sq.device_class.is_empty() {
+                let alias = a.device.trim().trim_start_matches('{').trim_end_matches('}');
+                match self.devices.iter().find(|d| d.alias == alias) {
+                    Some(d) if d.class != sq.device_class => bail!("fase {}: il dispositivo {{{alias}}} è di classe {} ma la sequenza vuole {}", a.sequence, d.class, sq.device_class),
+                    Some(_) => {}
+                    None if cfg.project.devices.iter().any(|x| x.name == a.device && x.class == sq.device_class) => {}
+                    None => bail!("fase {}: dispositivo '{}' non dichiarato nella ricetta (usa {{alias}})", a.sequence, a.device),
+                }
+            }
+            if let Some(k) = a.params.keys().find(|k| !sq.parameters.iter().any(|p| &p.name == *k)) {
+                bail!("fase {}: la sequenza non ha il parametro '{k}'", a.sequence);
+            }
+        }
+        Ok(())
+    }
 }
-
-/// Modifica di un parametro: (nome, valore precedente, valore nuovo).
-pub type Change = (String, Option<Value>, Value);
 
 #[derive(Default)]
 pub struct Recipes {
-    data: RwLock<HashMap<String, Recipe>>,
-    active: RwLock<HashMap<String, ActiveRecipe>>,
+    data: RwLock<HashMap<String, RecipeDef>>,
     store: RwLock<Option<Store>>,
-}
-
-fn key(t: &str, n: &str) -> String {
-    format!("{t}/{n}")
-}
-
-/// Tag di un parametro per un'unità.
-pub fn param_tag(tag: &str, unit: &str) -> String {
-    tag.replace("{unit}", unit)
-}
-
-fn check_unit(def: &RecipeType, unit: &str) -> Result<()> {
-    if def.units.is_empty() {
-        if !unit.is_empty() {
-            bail!("il tipo di ricetta {} non prevede unità", def.name);
-        }
-    } else if !def.units.iter().any(|u| u == unit) {
-        bail!("unità '{unit}' non valida per {} (ammesse: {})", def.name, def.units.join(", "));
-    }
-    Ok(())
 }
 
 impl Recipes {
     pub async fn open(store: Store) -> Result<Self> {
         let me = Self::default();
-        for (k, d) in store.kv_load("recipes").await? {
-            if let Ok(r) = serde_json::from_str::<Recipe>(&d) {
+        for (k, d) in store.kv_load("recipe_procs").await? {
+            if let Ok(r) = serde_json::from_str::<RecipeDef>(&d) {
                 me.data.write().unwrap().insert(k, r);
-            }
-        }
-        for (k, d) in store.kv_load("recipe_active").await? {
-            if let Ok(a) = serde_json::from_str::<ActiveRecipe>(&d) {
-                me.active.write().unwrap().insert(k, a);
             }
         }
         *me.store.write().unwrap() = Some(store);
         Ok(me)
     }
 
-    fn persist(&self, table: &'static str, k: String, data: Option<String>) {
+    fn persist(&self, k: String, data: Option<String>) {
         if let Some(s) = self.store.read().unwrap().clone() {
             tokio::spawn(async move {
-                let _ = s.kv_put(table, k, data).await;
+                let _ = s.kv_put("recipe_procs", k, data).await;
             });
         }
     }
 
-    pub fn list(&self, rtype: &str) -> Vec<Recipe> {
-        let pre = format!("{rtype}/");
-        let mut v: Vec<Recipe> = self.data.read().unwrap().iter().filter(|(k, _)| k.starts_with(&pre)).map(|(_, r)| r.clone()).collect();
+    pub fn list(&self) -> Vec<RecipeDef> {
+        let mut v: Vec<RecipeDef> = self.data.read().unwrap().values().cloned().collect();
         v.sort_by(|a, b| a.name.cmp(&b.name));
         v
     }
 
-    pub fn get(&self, rtype: &str, name: &str) -> Option<Recipe> {
-        self.data.read().unwrap().get(&key(rtype, name)).cloned()
+    pub fn get(&self, name: &str) -> Option<RecipeDef> {
+        self.data.read().unwrap().get(name).cloned()
     }
 
-    /// Ricette attive per unità ("" se il tipo non ha unità).
-    pub fn active(&self, rtype: &str) -> BTreeMap<String, ActiveRecipe> {
-        let pre = format!("{rtype}/");
-        self.active.read().unwrap().iter().filter_map(|(k, a)| k.strip_prefix(&pre).map(|u| (u.to_string(), a.clone()))).collect()
-    }
-
-    /// Normalizza e verifica i valori: parametri noti, numeri nei limiti, default per i mancanti.
-    pub fn validate(def: &RecipeType, values: &BTreeMap<String, Value>) -> Result<BTreeMap<String, Value>> {
-        if let Some(k) = values.keys().find(|k| !def.parameters.iter().any(|p| &p.name == *k)) {
-            bail!("parametro sconosciuto: {k}");
-        }
-        let mut out = BTreeMap::new();
-        for p in &def.parameters {
-            let v = match values.get(&p.name) {
-                Some(Value::Null) | None => p.default.clone().ok_or_else(|| anyhow!("parametro {}: valore mancante", p.name))?,
-                Some(v) => v.clone(),
-            };
-            if p.min.is_some() || p.max.is_some() {
-                let x = v.as_f64().ok_or_else(|| anyhow!("parametro {}: serve un numero", p.name))?;
-                if p.min.is_some_and(|m| x < m) || p.max.is_some_and(|m| x > m) {
-                    bail!("parametro {}: {x} fuori dai limiti [{} .. {}]", p.name, p.min.map(|m| m.to_string()).unwrap_or("-∞".into()), p.max.map(|m| m.to_string()).unwrap_or("+∞".into()));
-                }
-            }
-            out.insert(p.name.clone(), v);
-        }
-        Ok(out)
-    }
-
-    /// Crea o aggiorna una ricetta; ritorna la ricetta e le modifiche (parametro, prima, dopo).
-    pub fn save(&self, def: &RecipeType, name: &str, description: String, values: &BTreeMap<String, Value>, user: &str) -> Result<(Recipe, Vec<Change>)> {
-        let name = name.trim();
-        if name.is_empty() || name.contains('/') || name.len() > 64 {
-            bail!("nome ricetta non valido");
-        }
-        let values = Self::validate(def, values)?;
-        let k = key(&def.name, name);
+    /// Salva (nuova versione se cambia). Ritorna la ricetta e la versione precedente.
+    pub fn save(&self, cfg: &Config, mut r: RecipeDef, user: &str) -> Result<(RecipeDef, Option<RecipeDef>)> {
+        r.name = r.name.trim().to_string();
+        r.validate(cfg)?;
         let mut data = self.data.write().unwrap();
-        let old = data.get(&k).cloned();
-        let changes: Vec<Change> = values
-            .iter()
-            .filter(|(p, v)| old.as_ref().and_then(|o| o.values.get(*p)) != Some(*v))
-            .map(|(p, v)| (p.clone(), old.as_ref().and_then(|o| o.values.get(p).cloned()), v.clone()))
-            .collect();
-        let now = now_ms();
-        let r = Recipe {
-            name: name.into(),
-            description,
-            values,
-            version: old.as_ref().map(|o| o.version + if changes.is_empty() { 0 } else { 1 }).unwrap_or(1),
-            created: old.as_ref().map(|o| o.created).unwrap_or(now),
-            modified: now,
-            modified_by: user.into(),
+        let old = data.get(&r.name).cloned();
+        let same = old.as_ref().is_some_and(|o| {
+            let (mut a, mut b) = (o.clone(), r.clone());
+            for x in [&mut a, &mut b] {
+                x.version = 0;
+                x.modified = 0;
+                x.modified_by.clear();
+            }
+            a == b
+        });
+        r.version = match &old {
+            Some(o) if same => o.version,
+            Some(o) => o.version + 1,
+            None => 1,
         };
-        data.insert(k.clone(), r.clone());
+        r.modified = if same { old.as_ref().map(|o| o.modified).unwrap_or_else(now_ms) } else { now_ms() };
+        r.modified_by = if same { old.as_ref().map(|o| o.modified_by.clone()).unwrap_or_default() } else { user.into() };
+        data.insert(r.name.clone(), r.clone());
         drop(data);
-        self.persist("recipes", k, serde_json::to_string(&r).ok());
-        Ok((r, changes))
+        self.persist(r.name.clone(), serde_json::to_string(&r).ok());
+        Ok((r, old))
     }
 
-    pub fn delete(&self, rtype: &str, name: &str) -> Result<Recipe> {
-        let k = key(rtype, name);
-        let r = self.data.write().unwrap().remove(&k).ok_or_else(|| anyhow!("ricetta {name} non trovata"))?;
-        self.persist("recipes", k, None);
+    pub fn delete(&self, name: &str) -> Result<RecipeDef> {
+        let r = self.data.write().unwrap().remove(name).ok_or_else(|| anyhow!("ricetta {name} non trovata"))?;
+        self.persist(name.into(), None);
         Ok(r)
-    }
-
-    /// Carica una ricetta su un'unità: scrive tutti i parametri sui tag.
-    pub async fn load(&self, cfg: &Config, db: &TagDb, rtype: &str, name: &str, unit: &str, user: &str) -> Result<Vec<ParamResult>> {
-        let def = cfg.project.recipe_types.iter().find(|r| r.name == rtype).ok_or_else(|| anyhow!("tipo di ricetta {rtype} non trovato"))?;
-        check_unit(def, unit)?;
-        let r = self.get(rtype, name).ok_or_else(|| anyhow!("ricetta {name} non trovata"))?;
-        // rivalida (i limiti del tipo possono essere cambiati dopo il salvataggio)
-        let values = Self::validate(def, &r.values)?;
-        let mut out = vec![];
-        for p in &def.parameters {
-            let tag = param_tag(&p.tag, unit);
-            let v = values[&p.name].clone();
-            let res = db.write(&tag, v.clone()).await;
-            out.push(ParamResult { param: p.name.clone(), tag, value: v, ok: res.is_ok(), error: res.err().map(|e| format!("{e:#}")) });
-        }
-        let ok = out.iter().all(|x| x.ok);
-        let a = ActiveRecipe { recipe: name.into(), version: r.version, ts: now_ms(), by: user.into(), ok };
-        let k = key(rtype, unit);
-        self.persist("recipe_active", k.clone(), serde_json::to_string(&a).ok());
-        self.active.write().unwrap().insert(k, a);
-        Ok(out)
-    }
-
-    /// Valori attuali dei tag di un'unità (lettura dal PLC).
-    pub fn read(def: &RecipeType, db: &TagDb, unit: &str) -> Result<BTreeMap<String, Value>> {
-        check_unit(def, unit)?;
-        Ok(def.parameters.iter().map(|p| (p.name.clone(), db.value(&param_tag(&p.tag, unit)))).collect())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::RecipeParam;
 
     #[test]
-    fn validation_limits_and_defaults() {
-        let def = RecipeType {
-            name: "Batch".into(),
-            description: String::new(),
-            area: None,
-            units: vec!["R1".into()],
-            parameters: vec![
-                RecipeParam { name: "Temp".into(), tag: "{unit}.SP_Temp".into(), unit: "°C".into(), min: Some(20.0), max: Some(90.0), default: Some(Value::Float(60.0)), description: String::new() },
-                RecipeParam { name: "Nome".into(), tag: "{unit}.Prod".into(), unit: String::new(), min: None, max: None, default: None, description: String::new() },
-            ],
-        };
-        let mut v = BTreeMap::new();
-        v.insert("Nome".to_string(), Value::Str("Impasto".into()));
-        let out = Recipes::validate(&def, &v).unwrap();
-        assert_eq!(out["Temp"], Value::Float(60.0));
-        v.insert("Temp".into(), Value::Float(95.0));
-        assert!(Recipes::validate(&def, &v).is_err());
-        v.insert("Altro".into(), Value::Int(1));
-        assert!(Recipes::validate(&def, &v).is_err());
-        assert_eq!(param_tag("{unit}.SP_Temp", "R1"), "R1.SP_Temp");
-        assert!(check_unit(&def, "R9").is_err());
+    fn params_limits_and_defaults() {
+        let f = vec![
+            SeqParam { name: "Temp".into(), min: Some(20.0), max: Some(90.0), default: Some(Value::Float(60.0)), ..Default::default() },
+            SeqParam { name: "Prod".into(), ..Default::default() },
+        ];
+        let mut g = BTreeMap::new();
+        assert!(resolve_params("t", &f, &g).is_err(), "Prod senza default è obbligatorio");
+        g.insert("Prod".to_string(), "Crema".to_string());
+        assert_eq!(resolve_params("t", &f, &g).unwrap()["Temp"], "60");
+        g.insert("Temp".into(), "95".into());
+        assert!(resolve_params("t", &f, &g).is_err());
+        g.insert("Temp".into(), "x".into());
+        assert!(resolve_params("t", &f, &g).is_err());
+        g.insert("Temp".into(), "70".into());
+        g.insert("Altro".into(), "1".into());
+        assert!(resolve_params("t", &f, &g).is_err());
     }
 }

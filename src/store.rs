@@ -100,8 +100,9 @@ impl Store {
              CREATE INDEX IF NOT EXISTS ix_wh_picks ON wh_picks(wh, ts);
              CREATE TABLE IF NOT EXISTS sec_users(k TEXT PRIMARY KEY, data TEXT);
              CREATE TABLE IF NOT EXISTS sec_sessions(k TEXT PRIMARY KEY, data TEXT);
-             CREATE TABLE IF NOT EXISTS recipes(k TEXT PRIMARY KEY, data TEXT);
-             CREATE TABLE IF NOT EXISTS recipe_active(k TEXT PRIMARY KEY, data TEXT);
+             CREATE TABLE IF NOT EXISTS recipe_procs(k TEXT PRIMARY KEY, data TEXT);
+             CREATE TABLE IF NOT EXISTS batches(k TEXT PRIMARY KEY, data TEXT);
+             CREATE TABLE IF NOT EXISTS active_inst(k TEXT PRIMARY KEY, data TEXT);
              CREATE TABLE IF NOT EXISTS seq_runs(k TEXT PRIMARY KEY, data TEXT);",
         )?;
         let _ = conn.execute("ALTER TABLE decisions ADD COLUMN rule TEXT", []);

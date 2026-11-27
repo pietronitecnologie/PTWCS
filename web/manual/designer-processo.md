@@ -1,110 +1,123 @@
 # Designer – Processo
 
-Il workspace **⚗ Processo** configura i **tipi di ricetta** e le **sequenze** a passi. Le modifiche si attivano con **Salva progetto**.
+Il controllo di processo segue il modello ISA-88 (come SIMATIC BATCH):
 
-Le ricette vere e proprie, cioè gli insiemi di valori, sono dati di produzione: si creano e si modificano dal runtime (**Processo → Ricette**) e stanno nel database del server.
-
-## Tipi di ricetta
-
-Un tipo di ricetta descrive **quali parametri** ha una ricetta e **su quale tag** viene scritto ciascuno quando la ricetta è caricata.
-
-| Campo | Significato | Esempio |
+| Concetto | Cos'è | Dove si configura |
 |---|---|---|
-| **Nome** | identificativo, usato nelle sequenze (azione *Carica ricetta*) | `Batch` |
-| **Descrizione** | testo mostrato nel runtime | |
-| **Area** | area di appartenenza | `Processo` |
-| **Unità** | unità identiche su cui caricare la stessa ricetta; nei tag si usa `{unit}`. Vuoto = unità singola | `R1, R2` |
+| **Dispositivo** (unità) | una parte d'impianto: reattore, serbatoio, linea. Ha una **classe** | Designer → ⚗ Processo → Dispositivi |
+| **Sequenza** (fase) | un SFC con **parametri propri** che scrive e legge i tag del dispositivo. Esempi: *Carico tank*, *Alza temperatura* | Designer → ⚗ Processo → Sequenze |
+| **Ricetta** (procedura) | uno SFC che **schedula le sequenze**: le avvia sui dispositivi passando i parametri, anche in parallelo | Runtime → Processo → Ricette |
+| **Batch** | una ricetta in esecuzione: **alloca in esclusiva** i suoi dispositivi | Runtime → Processo → Batch |
 
-### Parametri
+Dispositivi e sequenze fanno parte del progetto (**Salva progetto**). Le ricette sono dati di produzione: si creano dal runtime e stanno nel database, con versioni.
+
+## Dispositivi
 
 | Colonna | Significato | Esempio |
 |---|---|---|
-| **Parametro** | nome visualizzato nella ricetta | `Temperatura` |
-| **Tag** | tag su cui scrivere; può contenere `{unit}` | `{unit}.SP_Temp` |
-| **Unità** | unità di misura | `°C` |
-| **Min / Max** | limiti, verificati al salvataggio e al caricamento della ricetta | `25` / `90` |
-| **Default** | valore per le nuove ricette e per i parametri mancanti | `60` |
-| **Descrizione** | aiuto per l'operatore | |
+| **Nome** | identificativo; sostituisce `{unit}` nei tag delle sequenze | `R1` |
+| **Classe** | tipo di unità: sequenze e ricette chiedono un dispositivo di una classe | `Reattore` |
+| **Area** | area di appartenenza: gli allarmi di batch e fasi finiscono qui | `Processo` |
+| **Descrizione** | testo libero | |
 
-I tag dei parametri devono essere **scrivibili**. Se un tag ha *Ruoli scrittura*, solo quei ruoli possono caricare la ricetta.
+**Allocazione**: quando parte un batch, ogni dispositivo che usa diventa suo fino alla fine del batch. Nel frattempo nessun altro batch può allocarlo e nessuna fase manuale può partire su di esso.
 
-## Sequenze
-
-Una sequenza è una successione di **passi**, in stile SFC/GRAFCET:
-1. entrando in un passo, la sequenza esegue le sue **azioni**;
-2. poi attende una delle sue **transizioni**;
-3. la prima transizione vera porta al passo indicato.
-
-| Campo | Significato | Esempio |
-|---|---|---|
-| **Nome** | identificativo | `Batch_R1` |
-| **Descrizione**, **Area** | testo e area; gli allarmi della sequenza finiscono in questa area | |
-| **Unità** | sostituisce `{unit}` in tag, valori e ricette: la stessa sequenza si duplica per unità uguali cambiando solo questo campo | `R1` |
-| **Avvio da PLC** | tag booleano: sul fronte di salita la sequenza parte (se non è già in esecuzione) | `R1.Start` |
-| **Parametri di avvio** | parametri con valore predefinito, chiesti all'operatore all'avvio e usabili come `{nome}` | `recipe=Standard` |
-
-### Passi e transizioni
-
-Ogni passo ha:
+## Sequenze (fasi)
 
 | Campo | Significato |
 |---|---|
-| **Nome**, **Descrizione** | come appare nel diagramma e nello storico |
-| **T. minimo (s)** | le transizioni vengono valutate solo dopo questo tempo |
-| **Timeout (s)** | tempo massimo nel passo (vuoto = nessuno) |
-| **in timeout →** | passo a cui andare in timeout. *errore + allarme* = la sequenza va in errore e genera l'allarme `SEQ.<nome>` nell'area |
+| **Nome**, **Descrizione**, **Area** | identificazione |
+| **Classe di dispositivo** | la fase lavora su un dispositivo di questa classe; nei tag si scrive `{unit}` (es. `{unit}.FillValve`). Vuoto = fase senza dispositivo |
+| **Dispositivo predefinito** | proposto all'avvio manuale e usato dall'avvio da PLC |
+| **Avvio da PLC** | tag booleano: sul fronte di salita la fase parte sul dispositivo predefinito, con i parametri di default |
 
-**⚡ Azioni all'ingresso**, eseguite in ordine:
+La stessa sequenza può girare contemporaneamente su dispositivi diversi: c'è un'istanza per dispositivo, es. `Carico@R1` e `Carico@R2`.
 
-| Azione | Campi | Effetto |
-|---|---|---|
-| **Scrivi tag** | tag, valore (`true`, `false`, numero, testo, `{parametro}`) | scrive il tag |
-| **Carica ricetta** | tipo di ricetta, nome (es. `{recipe}`) | scrive tutti i parametri della ricetta sull'unità della sequenza |
-| **Script Python** | funzione | esegue uno [script](designer-script.md) con payload `{sequence, unit, params}` |
-| **Messaggio nel log** | testo | scrive nel log eventi |
+### Parametri della sequenza
 
-Se un'azione fallisce (tag non scrivibile, ricetta inesistente, errore nello script), la sequenza va in **errore** con allarme.
-
-**➜ Transizioni**: valutate in ordine; vince la prima vera.
-
-| Campo | Significato |
+| Colonna | Significato |
 |---|---|
-| **tutte / almeno una** | combinazione delle condizioni |
-| **vai a** | passo successivo: *(passo seguente)* in elenco, un passo per nome (anche all'indietro, per i cicli) o **FINE** |
-| **etichetta** | descrizione mostrata nel diagramma e nello storico |
-| **Condizioni** | tag, operatore (`==`, `!=`, `>`, `>=`, `<`, `<=`) e valore. Il valore può essere una costante oppure `tag:Nome` (es. livello `>=` `tag:{unit}.SP_Level`) |
+| **Parametro** | nome, usato come `{nome}` in tag, valori e condizioni |
+| **Unità**, **Descrizione** | per l'operatore e l'editor delle ricette |
+| **Min / Max** | limiti verificati all'avvio (dalla ricetta o dall'operatore) |
+| **Default** | valore se non viene passato; senza default il parametro è obbligatorio |
 
-Pseudo-tag nelle condizioni:
+Esempio: la sequenza *Riscaldo* ha i parametri `Temperatura` e `Mantenimento`.
+- Il primo passo scrive `{unit}.SP_Temp ← {Temperatura}` e accende il riscaldatore.
+- La transizione attende `{unit}.Temp >= {Temperatura}`.
+- Il passo successivo attende `@elapsed >= {Mantenimento}`.
+
+### Passi, rami paralleli e transizioni
+
+Lo stesso editor serve per sequenze e ricette.
+
+| Elemento | Significato |
+|---|---|
+| **Passo** | nome, descrizione, tempo minimo, timeout (vuoto = nessuno) e passo in caso di timeout (*errore + allarme* se non indicato) |
+| **⚡ Azioni all'ingresso** | *Scrivi tag* (valore, `true`/`false`, `{parametro}`), *Script Python*, *Messaggio nel log*; nelle ricette anche *Avvia fase* |
+| **⫴ Rami paralleli** | divergenza simultanea (AND): all'ingresso nel passo partono tutti i rami, ognuno con i suoi passi. Il passo prosegue solo quando **tutti** i rami sono arrivati in fondo (convergenza) |
+| **➜ Transizioni** | valutate in ordine, vince la prima vera: più transizioni = **divergenza alternativa**. *vai a* = passo seguente, un passo per nome (anche all'indietro, per i cicli) o FINE |
+
+Una transizione è vera quando:
+- le sue **condizioni** sono vere tutte (*tutte*) o almeno una (*almeno una*);
+- ogni condizione confronta tag e valore con `==`, `!=`, `>`, `>=`, `<` o `<=`;
+- il valore può essere una costante, `{parametro}` oppure `tag:Nome` (il valore di un altro tag).
+
+Pseudo-tag:
 
 | Pseudo-tag | Valore |
 |---|---|
-| `@elapsed` | secondi trascorsi nel passo, pause escluse (es. `@elapsed >= tag:{unit}.SP_MixTime`) |
-| `@confirm` | vero dopo la **conferma dell'operatore** dal runtime (es. controllo qualità) |
+| `@elapsed` | secondi nel passo, tempo di hold escluso |
+| `@confirm` | conferma dell'operatore (pulsante **✓ Conferma** nel runtime) |
+| `@phases_done` | (ricette) le fasi avviate nel passo sono concluse |
 
-Una transizione senza condizioni scatta subito.
+Senza transizioni il passo prosegue subito, oppure quando rami e fasi sono conclusi. Nei rami, *FINE* chiude il ramo.
 
-I pulsanti di ogni passo:
-- **↑ ↓** spostano il passo;
-- **+** inserisce un passo dopo;
-- **✕** elimina il passo;
-- **▸** espande o chiude il passo.
+Gli strumenti sul passo:
+- **↑ ↓** spostano il passo; **+** inserisce un passo dopo; **✕** lo elimina; **▸** espande o chiude;
+- **◫ Diagramma** mostra l'SFC in sola lettura.
 
-Rinominando un passo, i riferimenti delle transizioni si aggiornano da soli.
+### Stati e azioni di stato
 
-### Azioni di arresto
+Fasi e batch seguono il modello di stato ISA-88:
 
-Eseguite quando l'operatore **arresta** la sequenza: servono a portare l'impianto in stato sicuro (chiudere valvole, fermare motori e riscaldatori).
+| Comando | Da → a | Azioni eseguite |
+|---|---|---|
+| **Hold** | in esecuzione → in hold (le transizioni si fermano, i tempi si congelano) | *Hold*: es. chiudere le valvole |
+| **Restart** | in hold o in errore → in esecuzione (dopo un errore riprova il passo fallito) | *Restart*: es. riaprire la valvola |
+| **Stop** | → arrestata | *Stop*: arresto controllato |
+| **Abort** | → abortita | *Abort* (vuoto = quelle di stop): arresto immediato |
+| **Reset** | da completata, arrestata, abortita o in errore → inattiva | — |
 
-## Esempio: reattore batch
+Timeout o azioni fallite portano in **errore**, con l'allarme `SEQ.<istanza>` nell'area.
 
-| # | Passo | Azioni | Transizione |
-|---|---|---|---|
-| 1 | Carico ricetta | carica ricetta `Batch` `{recipe}` | subito |
-| 2 | Riempimento | `{unit}.FillValve` ← vero | `{unit}.Level >= tag:{unit}.SP_Level` (timeout 180 s) |
-| 3 | Riscaldamento | valvola chiusa, riscaldatore e agitatore accesi | `{unit}.Temp >= tag:{unit}.SP_Temp` |
-| 4 | Mantenimento | — | `@elapsed >= tag:{unit}.SP_MixTime` |
-| 5 | Controllo qualità | riscaldatore spento | `@confirm == true` |
-| 6 | Scarico | agitatore spento, scarico aperto | `{unit}.Level <= 1` |
-| 7 | Fine | scarico chiuso | → FINE |
+Comandi, errori e avvii si propagano tra batch e fasi:
+- hold, restart, stop e abort di un batch valgono per tutte le sue fasi;
+- l'errore di una fase manda il batch in errore e mette in hold le altre fasi.
 
-La demo si ricrea con `python3 tools/build_demo_process.py`: reattori R1 e R2 simulati, ricette *Standard*, *Rapida* e *Intensiva*, sequenze `Batch_R1` e `Batch_R2`.
+## Ricette
+
+Le ricette si creano nel runtime (**Processo → 🧪 Ricette → + Nuova**, permesso `recipe.edit`):
+
+| Sezione | Contenuto |
+|---|---|
+| **Dispositivi richiesti** | alias (es. `reattore`), classe (`Reattore`), dispositivo predefinito. Nelle fasi si scrive `{reattore}` |
+| **Parametri della ricetta** | valori di formula con limiti, modificabili all'avvio del batch; passati alle fasi come `{nome}` |
+| **Procedura** | SFC i cui passi avviano le fasi: *Avvia fase* → sequenza, dispositivo `{alias}`, valori dei parametri della sequenza (costanti o `{parametro_ricetta}`). Un passo con fasi attende che siano concluse; i rami paralleli fanno lavorare più fasi insieme |
+| **Azioni di stato** | come per le sequenze |
+
+Ogni salvataggio con modifiche crea una nuova **versione**. Un batch in corso continua a usare la versione con cui è partito.
+
+### Esempio: ricetta *Crema*
+
+| # | Passo | Cosa fa |
+|---|---|---|
+| 1 | Carico | fase `Carico` su `{reattore}` con `Livello = {Livello}` |
+| 2 | Trattamento | **rami paralleli**: fase `Riscaldo` (`Temperatura`, `Mantenimento`) ‖ fase `Agitazione` (`Velocita`, `Tempo = 60`) |
+| 3 | Controllo qualità | attende la conferma dell'operatore (`@confirm`) |
+| 4 | Scarico | fase `Scarico` |
+
+La demo si ricrea con `python3 tools/build_demo_process.py`:
+- reattori R1 e R2 simulati;
+- sequenze `Carico`, `Riscaldo`, `Agitazione` e `Scarico`;
+- ricette *Crema* e *Base*.

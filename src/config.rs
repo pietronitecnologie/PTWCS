@@ -98,34 +98,32 @@ pub struct Project {
     /// Login, ruoli e permessi.
     #[serde(default)]
     pub security: SecurityDef,
-    /// Tipi di ricetta (parametri → tag); le ricette (valori) sono nel database.
+    /// Dispositivi (unità) allocabili dai batch: reattori, serbatoi, linee…
     #[serde(default)]
-    pub recipe_types: Vec<RecipeType>,
-    /// Sequenze di processo a passi (stile SFC).
+    pub devices: Vec<DeviceDef>,
+    /// Sequenze SFC (fasi) con parametri propri, su un dispositivo.
+    /// Le ricette (procedure che schedulano le fasi) sono nel database.
     #[serde(default)]
     pub sequences: Vec<SequenceDef>,
 }
 
-/// Tipo di ricetta: elenco di parametri, ognuno scritto su un tag. Con `units`
-/// la stessa ricetta si carica su più unità identiche: `{unit}` nei tag.
+/// Dispositivo (unità ISA-88): una ricetta in esecuzione lo alloca in esclusiva.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub struct RecipeType {
+pub struct DeviceDef {
     pub name: String,
+    /// Classe (es. "Reattore"): le sequenze e le ricette chiedono un dispositivo di una classe.
+    #[serde(default)]
+    pub class: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub area: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub units: Vec<String>,
-    #[serde(default)]
-    pub parameters: Vec<RecipeParam>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub struct RecipeParam {
+/// Parametro formale di una sequenza o di una ricetta (`{nome}` nei campi).
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
+pub struct SeqParam {
     pub name: String,
-    /// Tag di destinazione (può contenere `{unit}`).
-    pub tag: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub unit: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -138,8 +136,8 @@ pub struct RecipeParam {
     pub description: String,
 }
 
-/// Sequenza a passi: ogni passo esegue azioni all'ingresso e attende una
-/// transizione (condizioni sui tag) verso il passo successivo.
+/// Sequenza SFC (fase ISA-88): passi con azioni e transizioni, parametri propri
+/// che finiscono nei tag del PLC (`{nome}`), eseguita su un dispositivo (`{unit}`).
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct SequenceDef {
     pub name: String,
@@ -147,23 +145,31 @@ pub struct SequenceDef {
     pub description: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub area: Option<String>,
-    /// Unità su cui lavora (sostituisce `{unit}` in tag, valori e ricette).
+    /// Classe di dispositivo su cui lavora (vuoto = nessun dispositivo).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub device_class: String,
+    /// Dispositivo predefinito (avvio manuale e da PLC).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub unit: String,
-    /// Avvio dal PLC: fronte di salita di questo tag.
+    /// Avvio dal PLC: fronte di salita di questo tag (sul dispositivo predefinito).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub start_tag: String,
-    /// Parametri di avvio con default (es. `recipe`), usabili come `{nome}`.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub params: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parameters: Vec<SeqParam>,
     #[serde(default)]
     pub steps: Vec<StepDef>,
-    /// Azioni all'arresto (stato sicuro).
+    /// Azioni del modello di stato ISA-88.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hold_actions: Vec<SeqAction>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub restart_actions: Vec<SeqAction>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stop_actions: Vec<SeqAction>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub abort_actions: Vec<SeqAction>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct StepDef {
     pub name: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -171,7 +177,12 @@ pub struct StepDef {
     /// Azioni eseguite all'ingresso nel passo.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actions: Vec<SeqAction>,
-    /// Transizioni valutate in ordine: la prima vera porta al passo `next`.
+    /// Rami paralleli (divergenza AND): partono insieme all'ingresso nel passo;
+    /// il passo prosegue quando tutti i rami sono arrivati in fondo.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub branches: Vec<Vec<StepDef>>,
+    /// Transizioni valutate in ordine: la prima vera porta al passo `next`
+    /// (più transizioni = divergenza alternativa).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub transitions: Vec<Transition>,
     /// Tempo minimo nel passo prima di valutare le transizioni (s).
@@ -180,7 +191,7 @@ pub struct StepDef {
     /// Tempo massimo nel passo (s, 0 = nessuno).
     #[serde(default, skip_serializing_if = "is_zero_f")]
     pub timeout_s: f64,
-    /// Passo a cui andare in timeout (vuoto = sequenza in errore con allarme).
+    /// Passo a cui andare in timeout (vuoto = errore con allarme).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub on_timeout: String,
 }
@@ -190,13 +201,14 @@ fn is_zero_f(v: &f64) -> bool {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Transition {
-    /// Condizioni; pseudo-tag: `@elapsed` (s nel passo), `@confirm` (conferma operatore).
+    /// Condizioni; pseudo-tag: `@elapsed` (s nel passo), `@confirm` (conferma
+    /// operatore), `@phases_done` (fasi avviate nel passo concluse).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub when: Vec<SeqCond>,
     /// "all" (tutte) oppure "any" (almeno una).
     #[serde(default = "all_mode", skip_serializing_if = "is_all")]
     pub mode: String,
-    /// Passo successivo: nome, vuoto = il seguente in elenco, "END" = fine.
+    /// Passo successivo (nello stesso ramo): nome, vuoto = il seguente, "END" = fine.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub next: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -214,13 +226,16 @@ pub struct SeqCond {
     pub tag: String,
     /// ==, !=, >, >=, <, <=
     pub op: String,
-    /// Costante o "tag:Nome" (valore di un altro tag).
+    /// Costante, "{parametro}" o "tag:Nome" (valore di un altro tag).
     pub value: Value,
 }
 
-/// Azione di un passo: `write` (tag, value), `recipe` (recipe_type, recipe),
-/// `script` (fn), `log` (text).
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+/// Azione di un passo:
+/// - `write` (tag, value): scrive un tag;
+/// - `phase` (sequence, device, params): avvia una sequenza (solo nelle ricette);
+/// - `script` (fn): esegue uno script Python;
+/// - `log` (text): messaggio nel log eventi.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct SeqAction {
     pub kind: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -228,9 +243,13 @@ pub struct SeqAction {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Value>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub recipe_type: String,
+    pub sequence: String,
+    /// Dispositivo della fase: nome o `{alias}` di un dispositivo della ricetta.
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub recipe: String,
+    pub device: String,
+    /// Parametri passati alla fase (valori o `{parametro_ricetta}`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub params: BTreeMap<String, String>,
     #[serde(default, rename = "fn", skip_serializing_if = "String::is_empty")]
     pub func: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -275,14 +294,63 @@ pub struct RoleDef {
     pub permissions: Vec<String>,
 }
 
+/// Verifica di una rete SFC (passi, rami paralleli, transizioni, azioni).
+pub fn check_sfc(what: &str, steps: &[StepDef], extra: &[&SeqAction], seqs: &HashSet<String>, phases: bool) -> Result<()> {
+    if steps.is_empty() {
+        bail!("{what}: nessun passo");
+    }
+    let mut names = HashSet::new();
+    for st in steps {
+        if !names.insert(st.name.as_str()) {
+            bail!("{what}: passo duplicato '{}'", st.name);
+        }
+    }
+    let check_action = |a: &SeqAction, ctx: &str| -> Result<()> {
+        match a.kind.as_str() {
+            "write" if a.tag.trim().is_empty() => bail!("{what} {ctx}: azione write senza tag"),
+            "phase" if !phases => bail!("{what} {ctx}: l'avvio di fasi è ammesso solo nelle ricette"),
+            "phase" if !seqs.contains(&a.sequence) => bail!("{what} {ctx}: sequenza '{}' inesistente", a.sequence),
+            "script" if a.func.is_empty() => bail!("{what} {ctx}: script senza funzione"),
+            "write" | "phase" | "script" | "log" => Ok(()),
+            k => bail!("{what} {ctx}: azione sconosciuta '{k}'"),
+        }
+    };
+    for a in extra {
+        check_action(a, "(azioni di stato)")?;
+    }
+    for st in steps {
+        let ctx = format!("passo {}", st.name);
+        for a in &st.actions {
+            check_action(a, &ctx)?;
+        }
+        for t in &st.transitions {
+            if !t.next.is_empty() && t.next != "END" && !names.contains(t.next.as_str()) {
+                bail!("{what} {ctx}: transizione verso passo inesistente '{}' (nello stesso ramo)", t.next);
+            }
+            for c in &t.when {
+                if !["==", "!=", ">", ">=", "<", "<="].contains(&c.op.as_str()) {
+                    bail!("{what} {ctx}: operatore non valido '{}'", c.op);
+                }
+            }
+        }
+        if !st.on_timeout.is_empty() && st.on_timeout != "END" && !names.contains(st.on_timeout.as_str()) {
+            bail!("{what} {ctx}: passo di timeout inesistente '{}'", st.on_timeout);
+        }
+        for (k, b) in st.branches.iter().enumerate() {
+            check_sfc(&format!("{what} {ctx} ramo {}", k + 1), b, &[], seqs, phases)?;
+        }
+    }
+    Ok(())
+}
+
 /// Ruoli predefiniti.
 pub fn default_roles() -> Vec<RoleDef> {
     let r = |n: &str, d: &str, p: &[&str]| RoleDef { name: n.into(), description: d.into(), permissions: p.iter().map(|x| x.to_string()).collect() };
     vec![
         r("amministratore", "Accesso completo, gestione utenti e sicurezza", &["*"]),
-        r("progettista", "Designer completo (viste, progetto, regole, script)", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "designer.views", "designer.project", "rules.edit", "scripts.edit", "seq.operate", "recipe.load", "recipe.edit", "audit.view"]),
-        r("manutentore", "Runtime completo e WCS, Designer in sola lettura", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "seq.operate", "recipe.load", "recipe.edit", "audit.view"]),
-        r("operatore", "Conduzione impianto: comandi, allarmi, missioni, sequenze, ricette", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "seq.operate", "recipe.load"]),
+        r("progettista", "Designer completo (viste, progetto, regole, script)", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "designer.views", "designer.project", "rules.edit", "scripts.edit", "seq.operate", "batch.operate", "recipe.edit", "audit.view"]),
+        r("manutentore", "Runtime completo e WCS, Designer in sola lettura", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "seq.operate", "batch.operate", "recipe.edit", "audit.view"]),
+        r("operatore", "Conduzione impianto: comandi, allarmi, missioni, fasi e batch", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "seq.operate", "batch.operate"]),
         r("visualizzatore", "Sola visualizzazione", &["runtime.view"]),
     ]
 }
@@ -1259,47 +1327,19 @@ impl Config {
                 bail!("{what} {name}: ruolo di scrittura '{r}' non definito");
             }
         }
-        // ricette e sequenze
-        let rtypes = uniq("tipo di ricetta", self.project.recipe_types.iter().map(|r| r.name.as_str()).collect())?;
-        for r in &self.project.recipe_types {
-            uniq(&format!("ricetta {}: parametro", r.name), r.parameters.iter().map(|p| p.name.as_str()).collect())?;
-            for p in &r.parameters {
-                if p.tag.trim().is_empty() {
-                    bail!("ricetta {}: parametro {} senza tag", r.name, p.name);
-                }
-                if let (Some(a), Some(b)) = (p.min, p.max)
-                    && a > b
-                {
-                    bail!("ricetta {}: parametro {}: min > max", r.name, p.name);
-                }
-            }
-        }
-        uniq("sequenza", self.project.sequences.iter().map(|s| s.name.as_str()).collect())?;
+        // dispositivi e sequenze
+        uniq("dispositivo", self.project.devices.iter().map(|d| d.name.as_str()).collect())?;
+        let seqs = uniq("sequenza", self.project.sequences.iter().map(|s| s.name.as_str()).collect())?;
         for sq in &self.project.sequences {
-            let steps = uniq(&format!("sequenza {}: passo", sq.name), sq.steps.iter().map(|s| s.name.as_str()).collect())?;
-            for st in &sq.steps {
-                for t in &st.transitions {
-                    if !t.next.is_empty() && t.next != "END" && !steps.contains(&t.next) {
-                        bail!("sequenza {} passo {}: transizione verso passo inesistente '{}'", sq.name, st.name, t.next);
-                    }
-                    for c in &t.when {
-                        if !["==", "!=", ">", ">=", "<", "<="].contains(&c.op.as_str()) {
-                            bail!("sequenza {} passo {}: operatore non valido '{}'", sq.name, st.name, c.op);
-                        }
-                    }
-                }
-                if !st.on_timeout.is_empty() && st.on_timeout != "END" && !steps.contains(&st.on_timeout) {
-                    bail!("sequenza {} passo {}: passo di timeout inesistente '{}'", sq.name, st.name, st.on_timeout);
-                }
-                for a in st.actions.iter().chain(sq.stop_actions.iter()) {
-                    match a.kind.as_str() {
-                        "write" if a.tag.is_empty() => bail!("sequenza {} passo {}: azione write senza tag", sq.name, st.name),
-                        "recipe" if !rtypes.contains(&a.recipe_type) => bail!("sequenza {} passo {}: tipo di ricetta '{}' inesistente", sq.name, st.name, a.recipe_type),
-                        "write" | "recipe" | "script" | "log" => {}
-                        k => bail!("sequenza {} passo {}: azione sconosciuta '{k}'", sq.name, st.name),
-                    }
-                }
+            uniq(&format!("sequenza {}: parametro", sq.name), sq.parameters.iter().map(|p| p.name.as_str()).collect())?;
+            if !sq.device_class.is_empty() && !self.project.devices.iter().any(|d| d.class == sq.device_class) {
+                bail!("sequenza {}: nessun dispositivo di classe '{}'", sq.name, sq.device_class);
             }
+            if !sq.unit.is_empty() && !self.project.devices.iter().any(|d| d.name == sq.unit && (sq.device_class.is_empty() || d.class == sq.device_class)) {
+                bail!("sequenza {}: dispositivo predefinito '{}' inesistente o di altra classe", sq.name, sq.unit);
+            }
+            let extra: Vec<&SeqAction> = sq.hold_actions.iter().chain(&sq.restart_actions).chain(&sq.stop_actions).chain(&sq.abort_actions).collect();
+            check_sfc(&format!("sequenza {}", sq.name), &sq.steps, &extra, &seqs, false)?;
         }
         let drivers = uniq("driver", self.drivers.iter().map(|d| d.name.as_str()).collect())?;
         let areas = uniq("area", self.areas.iter().map(|a| a.name.as_str()).collect())?;

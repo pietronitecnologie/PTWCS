@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Demo di processo: due reattori batch (R1, R2) con ricette e sequenze.
+"""Demo di processo ISA-88: due reattori batch (R1, R2).
 
-Crea tag interni simulati, lo script a timer `sim_reactor`, il tipo di ricetta
-`Batch` (unità R1, R2) con tre ricette e le sequenze `Batch_R1` / `Batch_R2`.
+- Dispositivi R1, R2 (classe Reattore) con tag interni simulati (script a timer `sim_reactor`).
+- Sequenze (fasi) con parametri: Carico, Riscaldo, Agitazione, Scarico.
+- Ricette (procedure) che schedulano le fasi: "Crema" (riscaldo e agitazione in
+  parallelo, controllo qualità con conferma) e "Base".
 Con la sicurezza attiva servono PTWCS_USER / PTWCS_PASSWORD (progettista o admin).
 
 Uso:  python3 tools/build_demo_process.py [http://127.0.0.1:8080]
@@ -50,57 +52,72 @@ for u in UNITS:
     T("Level", "f32", unit="%", d="livello", historize=True)
     T("Temp", "f32", unit="°C", d="temperatura", historize=True)
     T("AgitSpeed", "f32", unit="rpm", d="velocità agitatore")
-    for n, d in (("FillValve", "valvola di carico"), ("DrainValve", "valvola di scarico"), ("Heater", "riscaldatore"), ("Agitator", "agitatore"), ("Start", "avvio batch da PLC")):
+    for n, d in (("FillValve", "valvola di carico"), ("DrainValve", "valvola di scarico"), ("Heater", "riscaldatore"), ("Agitator", "agitatore")):
         T(n, "bool", True, d=d)
-    T("SP_Level", "f32", True, "%", "setpoint livello", initial=70)
     T("SP_Temp", "f32", True, "°C", "setpoint temperatura", initial=60)
-    T("SP_MixTime", "f32", True, "s", "tempo di mantenimento", initial=30)
     T("SP_AgitSpeed", "f32", True, "rpm", "velocità agitatore", initial=120)
-    T("Product", "string", True, d="prodotto", len=20)
-
+p["tags"] = [t for t in p["tags"] if not any(t["name"] == f"{u}.{n}" for u in UNITS for n in ("SP_Level", "SP_MixTime", "Product", "Start"))]
+p.pop("recipe_types", None)
 upsert(p["timer_scripts"], {"name": "sim_reactor", "function": "sim_reactor", "interval_ms": 500, "enabled": True})
-p.setdefault("recipe_types", [])
-upsert(p["recipe_types"], {
-    "name": "Batch", "description": "Ricetta del reattore batch: livello di carico, temperatura, tempo di mantenimento, agitazione",
-    "area": "Processo", "units": list(UNITS),
-    "parameters": [
-        {"name": "Prodotto", "tag": "{unit}.Product", "description": "Codice prodotto", "default": "Base"},
-        {"name": "Livello", "tag": "{unit}.SP_Level", "unit": "%", "min": 10, "max": 95, "default": 70, "description": "Livello di carico"},
-        {"name": "Temperatura", "tag": "{unit}.SP_Temp", "unit": "°C", "min": 25, "max": 90, "default": 60, "description": "Temperatura di processo"},
-        {"name": "Mantenimento", "tag": "{unit}.SP_MixTime", "unit": "s", "min": 5, "max": 600, "default": 30, "description": "Tempo di mantenimento in temperatura"},
-        {"name": "Agitazione", "tag": "{unit}.SP_AgitSpeed", "unit": "rpm", "min": 40, "max": 200, "default": 120, "description": "Velocità dell'agitatore"},
-    ]})
-p.setdefault("sequences", [])
-for u in UNITS:
-    off = [{"kind": "write", "tag": "{unit}." + n, "value": False} for n in ("FillValve", "Heater", "Agitator", "DrainValve")]
-    upsert(p["sequences"], {
-        "name": f"Batch_{u}", "description": f"Ciclo batch del reattore {u}", "area": "Processo", "unit": u,
-        "start_tag": f"{u}.Start", "params": {"recipe": "Standard"},
-        "steps": [
-            {"name": "Carico ricetta", "description": "Scrive i setpoint della ricetta scelta all'avvio",
-             "actions": [{"kind": "recipe", "recipe_type": "Batch", "recipe": "{recipe}"}, {"kind": "log", "text": "batch {unit}: ricetta {recipe}"}],
-             "transitions": [{"next": ""}]},
-            {"name": "Riempimento", "actions": [{"kind": "write", "tag": "{unit}.FillValve", "value": True}],
-             "transitions": [{"when": [{"tag": "{unit}.Level", "op": ">=", "value": "tag:{unit}.SP_Level"}], "label": "livello raggiunto"}],
-             "timeout_s": 180},
-            {"name": "Riscaldamento", "actions": [{"kind": "write", "tag": "{unit}.FillValve", "value": False},
-                                                  {"kind": "write", "tag": "{unit}.Heater", "value": True},
-                                                  {"kind": "write", "tag": "{unit}.Agitator", "value": True}],
-             "transitions": [{"when": [{"tag": "{unit}.Temp", "op": ">=", "value": "tag:{unit}.SP_Temp"}], "label": "temperatura raggiunta"}],
-             "timeout_s": 600},
-            {"name": "Mantenimento", "transitions": [{"when": [{"tag": "@elapsed", "op": ">=", "value": "tag:{unit}.SP_MixTime"}], "label": "tempo trascorso"}]},
-            {"name": "Controllo qualità", "description": "Prelievo del campione: l'operatore conferma l'esito",
-             "actions": [{"kind": "write", "tag": "{unit}.Heater", "value": False}],
-             "transitions": [{"when": [{"tag": "@confirm", "op": "==", "value": True}], "label": "campione conforme"}]},
-            {"name": "Scarico", "actions": [{"kind": "write", "tag": "{unit}.Agitator", "value": False},
-                                            {"kind": "write", "tag": "{unit}.DrainValve", "value": True}],
-             "transitions": [{"when": [{"tag": "{unit}.Level", "op": "<=", "value": 1}], "label": "reattore vuoto"}], "timeout_s": 180},
-            {"name": "Fine", "actions": [{"kind": "write", "tag": "{unit}.DrainValve", "value": False}], "transitions": [{"next": "END"}]},
-        ],
-        "stop_actions": off})
+p["devices"] = [{"name": u, "class": "Reattore", "area": "Processo", "description": f"Reattore batch {u}"} for u in UNITS]
+W = lambda tag, v: {"kind": "write", "tag": "{unit}." + tag, "value": v}
+p["sequences"] = [
+    {"name": "Carico", "description": "Carica il reattore fino al livello richiesto", "area": "Processo", "device_class": "Reattore", "unit": "R1",
+     "parameters": [{"name": "Livello", "unit": "%", "min": 10, "max": 95, "default": 60, "description": "Livello di carico"}],
+     "steps": [
+         {"name": "Apri carico", "actions": [W("FillValve", True)],
+          "transitions": [{"when": [{"tag": "{unit}.Level", "op": ">=", "value": "{Livello}"}], "label": "livello raggiunto"}], "timeout_s": 180},
+         {"name": "Chiudi carico", "actions": [W("FillValve", False)]}],
+     "hold_actions": [W("FillValve", False)], "restart_actions": [W("FillValve", True)], "stop_actions": [W("FillValve", False)]},
+    {"name": "Riscaldo", "description": "Porta il reattore in temperatura e la mantiene per il tempo richiesto", "area": "Processo", "device_class": "Reattore", "unit": "R1",
+     "parameters": [{"name": "Temperatura", "unit": "°C", "min": 25, "max": 90, "default": 60},
+                    {"name": "Mantenimento", "unit": "s", "min": 0, "max": 900, "default": 30}],
+     "steps": [
+         {"name": "Riscalda", "actions": [{"kind": "write", "tag": "{unit}.SP_Temp", "value": "{Temperatura}"}, W("Heater", True)],
+          "transitions": [{"when": [{"tag": "{unit}.Temp", "op": ">=", "value": "{Temperatura}"}], "label": "temperatura raggiunta"}], "timeout_s": 600},
+         {"name": "Mantieni", "transitions": [{"when": [{"tag": "@elapsed", "op": ">=", "value": "{Mantenimento}"}], "label": "tempo trascorso"}]},
+         {"name": "Spegni", "actions": [W("Heater", False)]}],
+     "hold_actions": [W("Heater", False)], "restart_actions": [W("Heater", True)], "stop_actions": [W("Heater", False)]},
+    {"name": "Agitazione", "description": "Agita alla velocità richiesta per il tempo richiesto", "area": "Processo", "device_class": "Reattore", "unit": "R1",
+     "parameters": [{"name": "Velocita", "unit": "rpm", "min": 40, "max": 200, "default": 120}, {"name": "Tempo", "unit": "s", "min": 5, "max": 1800, "default": 60}],
+     "steps": [
+         {"name": "Avvia agitatore", "actions": [{"kind": "write", "tag": "{unit}.SP_AgitSpeed", "value": "{Velocita}"}, W("Agitator", True)],
+          "transitions": [{"when": [{"tag": "@elapsed", "op": ">=", "value": "{Tempo}"}]}]},
+         {"name": "Ferma agitatore", "actions": [W("Agitator", False)]}],
+     "hold_actions": [W("Agitator", False)], "restart_actions": [W("Agitator", True)], "stop_actions": [W("Agitator", False)]},
+    {"name": "Scarico", "description": "Svuota il reattore", "area": "Processo", "device_class": "Reattore", "unit": "R1",
+     "steps": [
+         {"name": "Apri scarico", "actions": [W("DrainValve", True)],
+          "transitions": [{"when": [{"tag": "{unit}.Level", "op": "<=", "value": 1}], "label": "reattore vuoto"}], "timeout_s": 180},
+         {"name": "Chiudi scarico", "actions": [W("DrainValve", False)]}],
+     "hold_actions": [W("DrainValve", False)], "restart_actions": [W("DrainValve", True)], "stop_actions": [W("DrainValve", False)]},
+]
 print("progetto:", call("PUT", "/api/project", p).get("ok"))
-for name, prod, lvl, temp, mix, agit, desc in [("Standard", "Crema", 70, 65, 40, 120, "Ricetta di produzione standard"),
-                                               ("Rapida", "Base", 50, 45, 15, 160, "Lotto piccolo, ciclo breve"),
-                                               ("Intensiva", "Densa", 85, 80, 90, 90, "Alta temperatura, mantenimento lungo")]:
-    call("PUT", f"/api/recipes/Batch/{name}", {"description": desc, "values": {"Prodotto": prod, "Livello": lvl, "Temperatura": temp, "Mantenimento": mix, "Agitazione": agit}})
-    print("ricetta", name)
+
+PH = lambda seq, **params: {"kind": "phase", "sequence": seq, "device": "{reattore}", **({"params": params} if params else {})}
+recipes = [
+    {"name": "Crema", "description": "Carico, riscaldo e agitazione in parallelo, controllo qualità, scarico",
+     "devices": [{"alias": "reattore", "class": "Reattore", "default": "R1"}],
+     "parameters": [{"name": "Livello", "unit": "%", "min": 30, "max": 90, "default": 70},
+                    {"name": "Temperatura", "unit": "°C", "min": 40, "max": 85, "default": 65},
+                    {"name": "Mantenimento", "unit": "s", "min": 10, "max": 300, "default": 40},
+                    {"name": "Velocita", "unit": "rpm", "min": 60, "max": 180, "default": 120}],
+     "steps": [
+         {"name": "Carico", "actions": [PH("Carico", Livello="{Livello}")]},
+         {"name": "Trattamento", "description": "Riscaldo e agitazione in parallelo",
+          "branches": [[{"name": "Calore", "actions": [PH("Riscaldo", Temperatura="{Temperatura}", Mantenimento="{Mantenimento}")]}],
+                       [{"name": "Miscelazione", "actions": [PH("Agitazione", Velocita="{Velocita}", Tempo="60")]}]]},
+         {"name": "Controllo qualità", "description": "Prelievo del campione: l'operatore conferma",
+          "transitions": [{"when": [{"tag": "@confirm", "op": "==", "value": True}], "label": "campione conforme"}]},
+         {"name": "Scarico", "actions": [PH("Scarico")]}]},
+    {"name": "Base", "description": "Carico, riscaldo breve e scarico",
+     "devices": [{"alias": "reattore", "class": "Reattore", "default": "R2"}],
+     "parameters": [{"name": "Livello", "unit": "%", "min": 20, "max": 80, "default": 50},
+                    {"name": "Temperatura", "unit": "°C", "min": 30, "max": 60, "default": 45}],
+     "steps": [
+         {"name": "Carico", "actions": [PH("Carico", Livello="{Livello}")]},
+         {"name": "Riscaldo", "actions": [PH("Riscaldo", Temperatura="{Temperatura}", Mantenimento="15")]},
+         {"name": "Scarico", "actions": [PH("Scarico")]}]},
+]
+for r in recipes:
+    print("ricetta", r["name"], "v", call("PUT", f"/api/recipes/{r['name']}", r)["version"])

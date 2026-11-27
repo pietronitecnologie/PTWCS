@@ -208,3 +208,9 @@ table.permtbl tr.pg td { background: var(--panel2); font-weight: 700; color: #cb
 [data-theme="light"] .t-fstr { color: #4d7c0f; } [data-theme="light"] .t-com { color: #94a3b8; } [data-theme="light"] .t-num { color: #b45309; }
 [data-theme="light"] .t-def { color: #1d4ed8; } [data-theme="light"] .t-bi { color: #0e7490; } [data-theme="light"] .t-call { color: #2563eb; }
 [data-theme="light"] .t-dec { color: #c2410c; } [data-theme="light"] .t-ctx { color: #c2410c; } [data-theme="light"] .t-op { color: #64748b; }
+.pr-brs { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 4px; }
+.pr-br { flex: 1; min-width: 320px; border: 2px dashed var(--border); border-radius: 8px; padding: 6px; }
+.phase-params { display: flex; flex-wrap: wrap; gap: 4px; }
+.phase-params .chip { display: inline-flex; align-items: center; gap: 4px; }
+.pr-state { border-left: 3px solid var(--warn); padding: 4px 8px; margin: 6px 0; }
+.act-row { flex-wrap: wrap; }

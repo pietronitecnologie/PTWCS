@@ -15,7 +15,7 @@ Si usa da browser e ha due applicazioni:
 
 ## Runtime
 
-- [Uso del runtime](runtime.md): viste, barra delle aree, navigazione, faceplate, allarmi, decisioni, tag, trend, diagnostica, sequenze, ricette, audit trail, tema chiaro
+- [Uso del runtime](runtime.md): viste, barra delle aree, navigazione, faceplate, allarmi, decisioni, tag, trend, diagnostica, processo (batch, fasi, ricette, dispositivi), audit trail, tema chiaro
 - [WCS magazzini automatici](wcs.md): missioni, ordini, giacenze, riorganizzazione, KPI dei trasli, strategie
 
 ## Designer
@@ -24,7 +24,7 @@ Si usa da browser e ha due applicazioni:
 - [Tag e UDT](designer-tag.md): tag, tipi e istanze UDT, allarmi, trend
 - [Smistamento](designer-smistamento.md): protocollo request/reply, regole, classi, WMS
 - [Progetto](designer-progetto.md): aree, scan class, script a timer, magazzini automatici, sicurezza, driver
-- [Processo](designer-processo.md): tipi di ricetta e sequenze a passi
+- [Processo](designer-processo.md): dispositivi, sequenze SFC (fasi) e ricette che le schedulano (ISA-88)
 - [Script Python](designer-script.md): un file per funzione, editor, suggerimenti, snippet, test
 
 ## Aiuto contestuale

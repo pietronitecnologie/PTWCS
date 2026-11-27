@@ -95,15 +95,13 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/scripts/test", post(script_test))
         .route("/api/scripts/call", post(script_call))
         .route("/api/audit", get(audit_list))
+        .route("/api/proc", get(proc_state))
+        .route("/api/proc/history", get(proc_history))
+        .route("/api/phase/{seq}/start", post(phase_start))
+        .route("/api/inst/{key}/{cmd}", post(inst_cmd))
         .route("/api/recipes", get(recipes_list))
-        .route("/api/recipes/{rtype}/{name}", get(recipe_get).put(recipe_put).delete(recipe_del))
-        .route("/api/recipes/{rtype}/{name}/load", post(recipe_load))
-        .route("/api/recipes/{rtype}/{name}/compare", get(recipe_compare))
-        .route("/api/recipes/{rtype}/read", get(recipe_read))
-        .route("/api/seq", get(seq_list))
-        .route("/api/seq/{name}", get(seq_get))
-        .route("/api/seq/{name}/runs", get(seq_runs))
-        .route("/api/seq/{name}/{cmd}", post(seq_cmd))
+        .route("/api/recipes/{name}", get(recipe_get).put(recipe_put).delete(recipe_del))
+        .route("/api/batches", post(batch_start))
         .route("/api/auth/me", get(auth_me))
         .route("/api/auth/login", post(auth_login))
         .route("/api/auth/logout", post(auth_logout))
@@ -149,9 +147,10 @@ pub fn required_perm(method: &axum::http::Method, path: &str) -> Option<&'static
     Some(match (area, get) {
         ("security", _) | ("users", _) => "users.manage",
         ("audit", _) => "audit.view",
-        ("recipes", false) if path.ends_with("/load") => "recipe.load",
         ("recipes", false) => "recipe.edit",
-        ("seq", false) => "seq.operate",
+        ("phase", false) => "seq.operate",
+        ("batches", false) => "batch.operate",
+        ("inst", false) => "runtime.view",
         ("project", true) => "runtime.view",
         ("project", false) if path.ends_with("/check") || path.ends_with("/udt_preview") => "designer",
         ("tags", false) if path == "/api/tags/write" => "tag.write",
@@ -167,7 +166,6 @@ pub fn required_perm(method: &axum::http::Method, path: &str) -> Option<&'static
         ("rules", false) => "rules.edit",
         ("wh", false) if path.ends_with("/reorg") || path.contains("/lu/") => "wh.config",
         ("wh", false) => "wh.operate",
-        ("recipes", true) if path.ends_with("/read") => "recipe.edit",
         (_, true) => "runtime.view",
         (_, false) => "designer.project",
     })
@@ -964,127 +962,131 @@ async fn audit_list(State(app): S, Query(q): Query<AuditQ>) -> R<Response> {
     Ok(Json(json!({"rows": rows, "total": total, "actions": actions, "categories": categories})).into_response())
 }
 
-// ---------------------------------------------------------------- ricette
+// ---------------------------------------------------------------- processo: fasi, ricette, batch
 
-/// Nome dell'utente per registri e ricette ("hmi" se la sicurezza è disattivata).
+/// Nome dell'utente per registri e batch ("hmi" se la sicurezza è disattivata).
 fn who(me: &crate::security::Principal) -> String {
     let n = me.name();
     if n.is_empty() { "hmi".into() } else { n }
 }
 
-fn recipe_type(app: &AppState, t: &str) -> R<crate::config::RecipeType> {
-    app.cfg().project.recipe_types.iter().find(|r| r.name == t).cloned().ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("tipo di ricetta {t} non trovato")))
-}
-
-async fn recipes_list(State(app): S) -> Json<J> {
-    let cfg = app.cfg();
-    Json(json!(cfg.project.recipe_types.iter().map(|t| json!({
-        "type": t, "recipes": app.recipes.list(&t.name), "active": app.recipes.active(&t.name),
-    })).collect::<Vec<_>>()))
-}
-
-async fn recipe_get(State(app): S, Path((t, n)): Path<(String, String)>) -> R<Json<J>> {
-    recipe_type(&app, &t)?;
-    Ok(Json(json!(app.recipes.get(&t, &n).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("ricetta {n} non trovata")))?)))
-}
-
-#[derive(Deserialize)]
-struct RecipeBody {
-    #[serde(default)]
-    description: String,
-    values: std::collections::BTreeMap<String, crate::value::Value>,
-}
-
-async fn recipe_put(State(app): S, axum::Extension(me): Who, Path((t, n)): Path<(String, String)>, Json(b): Json<RecipeBody>) -> R<Json<J>> {
-    let def = recipe_type(&app, &t)?;
-    let (r, changes) = app.recipes.save(&def, &n, b.description, &b.values, &who(&me))?;
-    let old: std::collections::BTreeMap<_, _> = changes.iter().map(|(p, o, _)| (p.clone(), o.clone())).collect();
-    let new: std::collections::BTreeMap<_, _> = changes.iter().map(|(p, _, v)| (p.clone(), v.clone())).collect();
-    let created = old.values().all(Option::is_none);
-    app.audit_ext("ricette", if created { "recipe_create" } else { "recipe_save" }, &format!("{t}/{n}"), (!created).then(|| serde_json::to_string(&old).unwrap_or_default()), Some(serde_json::to_string(&new).unwrap_or_default()),
-        format!("versione {}{}", r.version, if changes.is_empty() { " (nessuna modifica ai valori)" } else { "" }));
-    Ok(Json(json!(r)))
-}
-
-async fn recipe_del(State(app): S, Path((t, n)): Path<(String, String)>) -> R<Json<J>> {
-    recipe_type(&app, &t)?;
-    let r = app.recipes.delete(&t, &n)?;
-    app.audit_ext("ricette", "recipe_delete", &format!("{t}/{n}"), Some(serde_json::to_string(&r.values).unwrap_or_default()), None, format!("versione {}", r.version));
-    Ok(Json(json!({"ok": true})))
-}
-
-#[derive(Deserialize, Default)]
-struct UnitQ {
-    #[serde(default)]
-    unit: String,
-}
-
-async fn recipe_load(State(app): S, axum::Extension(me): Who, Path((t, n)): Path<(String, String)>, body: Option<Json<UnitQ>>) -> R<Json<J>> {
-    let unit = body.map(|b| b.0.unit).unwrap_or_default();
-    let def = recipe_type(&app, &t)?;
-    // ruoli di scrittura dei tag dei parametri
-    for p in &def.parameters {
-        check_write(&app, &me, &crate::recipes::param_tag(&p.tag, &unit), None)?;
+fn inst_json(i: &crate::sequences::Instance) -> J {
+    let mut act = vec![];
+    crate::sequences::active_steps(&i.cursor, &i.proc.steps, "", &mut act);
+    let mut j = json!(i);
+    j["active"] = json!(act.iter().map(|(p, s, since)| json!({"path": p, "step": s, "since": since})).collect::<Vec<_>>());
+    // procedura effettivamente in esecuzione (copia presa all'avvio)
+    j["steps"] = json!(i.proc.steps);
+    if let Some(o) = j.as_object_mut() {
+        o.remove("proc");
     }
-    let res = app.recipes.load(&app.cfg(), &app.db, &t, &n, &unit, &who(&me)).await?;
-    let ok = res.iter().all(|r| r.ok);
-    let vals: std::collections::BTreeMap<_, _> = res.iter().map(|r| (r.param.clone(), r.value.clone())).collect();
-    app.audit_ext("ricette", "recipe_load", &format!("{t}/{n}"), None, Some(serde_json::to_string(&vals).unwrap_or_default()),
-        format!("{}{}", if unit.is_empty() { String::new() } else { format!("unità {unit}") }, if ok { "" } else { " · ERRORI di scrittura" }));
-    Ok(Json(json!({"ok": ok, "results": res})))
+    j
 }
 
-/// Valori attuali sul PLC dei parametri (per creare una ricetta "dal PLC").
-async fn recipe_read(State(app): S, Path(t): Path<String>, Query(q): Query<UnitQ>) -> R<Json<J>> {
-    let def = recipe_type(&app, &t)?;
-    Ok(Json(json!(crate::recipes::Recipes::read(&def, &app.db, &q.unit)?)))
-}
-
-/// Confronto ricetta ↔ valori attuali sul PLC.
-async fn recipe_compare(State(app): S, Path((t, n)): Path<(String, String)>, Query(q): Query<UnitQ>) -> R<Json<J>> {
-    let def = recipe_type(&app, &t)?;
-    let r = app.recipes.get(&t, &n).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("ricetta {n} non trovata")))?;
-    let cur = crate::recipes::Recipes::read(&def, &app.db, &q.unit)?;
-    Ok(Json(json!(def.parameters.iter().map(|p| {
-        let (a, b) = (r.values.get(&p.name).cloned().unwrap_or_default(), cur.get(&p.name).cloned().unwrap_or_default());
-        let eq = match (a.as_f64(), b.as_f64()) { (Some(x), Some(y)) => (x - y).abs() < 1e-6, _ => a.to_string() == b.to_string() };
-        json!({"param": p.name, "tag": crate::recipes::param_tag(&p.tag, &q.unit), "recipe": a, "plc": b, "equal": eq, "unit": p.unit})
-    }).collect::<Vec<_>>())))
-}
-
-// ---------------------------------------------------------------- sequenze
-
-async fn seq_list(State(app): S) -> Json<J> {
+/// Stato complessivo del processo: dispositivi (con allocazioni), sequenze, istanze attive, ricette.
+async fn proc_state(State(app): S) -> Json<J> {
     let cfg = app.cfg();
-    let states = app.sequencer.states(&app);
-    Json(json!(cfg.project.sequences.iter().map(|d| json!({"def": d, "state": states.iter().find(|s| s.name == d.name)})).collect::<Vec<_>>()))
-}
-
-async fn seq_get(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
-    let cfg = app.cfg();
-    let d = cfg.project.sequences.iter().find(|d| d.name == name).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("sequenza {name} non trovata")))?;
-    Ok(Json(json!({"def": d, "state": app.sequencer.state(&app, &name)})))
-}
-
-async fn seq_runs(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
-    let rows = app.store.kv_recent("seq_runs", format!("{name}/"), 50).await?;
-    Ok(Json(J::Array(rows.into_iter().filter_map(|(_, d)| serde_json::from_str(&d).ok()).collect())))
+    let (inst, alloc) = app.sequencer.snapshot(&app).await;
+    let devices: Vec<J> = cfg.project.devices.iter().map(|d| {
+        let b = alloc.get(&d.name);
+        json!({"name": d.name, "class": d.class, "description": d.description, "area": d.area,
+            "batch": b, "recipe": b.and_then(|b| inst.iter().find(|i| &i.key == b)).map(|i| i.name.clone()),
+            "phases": inst.iter().filter(|i| i.kind == "phase" && i.device == d.name && i.state.active()).map(|i| i.key.clone()).collect::<Vec<_>>()})
+    }).collect();
+    Json(json!({"devices": devices, "sequences": cfg.project.sequences, "instances": inst.iter().map(inst_json).collect::<Vec<_>>(), "recipes": app.recipes.list()}))
 }
 
 #[derive(Deserialize, Default)]
-struct SeqCmd {
+struct PhaseStart {
     #[serde(default)]
-    step: Option<String>,
+    device: String,
     #[serde(default)]
     params: std::collections::BTreeMap<String, String>,
 }
 
-async fn seq_cmd(State(app): S, axum::Extension(me): Who, Path((name, cmd)): Path<(String, String)>, body: Option<Json<SeqCmd>>) -> R<Json<J>> {
+async fn phase_start(State(app): S, axum::Extension(me): Who, Path(seq): Path<String>, body: Option<Json<PhaseStart>>) -> R<Json<J>> {
     let b = body.map(|b| b.0).unwrap_or_default();
-    let detail = format!("{}{}", b.step.as_ref().map(|s| format!("passo {s} ")).unwrap_or_default(), if b.params.is_empty() { String::new() } else { format!("parametri {:?}", b.params) });
-    let st = app.sequencer.command(&app, &name, &cmd, b.step.as_deref(), b.params, &who(&me)).await?;
-    app.audit_ext("hmi", &format!("seq_{cmd}"), &name, None, Some(st.step_name.clone()), detail);
-    Ok(Json(json!(st)))
+    let i = app.sequencer.start_phase(&app, &seq, &b.device, b.params.clone(), &who(&me)).await?;
+    app.audit_ext("hmi", "seq_start", &i.key, None, Some(serde_json::to_string(&i.params).unwrap_or_default()), "fase manuale".into());
+    Ok(Json(inst_json(&i)))
+}
+
+#[derive(Deserialize, Default)]
+struct InstCmd {
+    #[serde(default)]
+    step: Option<String>,
+}
+
+/// Comandi ISA-88 su una fase o un batch.
+async fn inst_cmd(State(app): S, axum::Extension(me): Who, Path((key, cmd)): Path<(String, String)>, body: Option<Json<InstCmd>>) -> R<Json<J>> {
+    let b = body.map(|b| b.0).unwrap_or_default();
+    let cur = app.sequencer.get(&app, &key).await.ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("{key} non trovato")))?;
+    let need = if cur.kind == "batch" || cur.owner.is_some() { "batch.operate" } else { "seq.operate" };
+    if !me.can(need) {
+        return Err(ApiError(StatusCode::FORBIDDEN, format!("permesso negato ({need})")));
+    }
+    let i = app.sequencer.command(&app, &key, &cmd, b.step.as_deref(), &who(&me)).await?;
+    let what = if cur.kind == "batch" { "batch" } else { "seq" };
+    app.audit_ext("hmi", &format!("{what}_{cmd}"), &key, Some(format!("{:?}", cur.state).to_lowercase()), Some(format!("{:?}", i.state).to_lowercase()),
+        b.step.map(|s| format!("passo {s}")).unwrap_or_else(|| cur.name.clone()));
+    Ok(Json(inst_json(&i)))
+}
+
+async fn recipes_list(State(app): S) -> Json<J> {
+    Json(json!(app.recipes.list()))
+}
+
+async fn recipe_get(State(app): S, Path(n): Path<String>) -> R<Json<J>> {
+    Ok(Json(json!(app.recipes.get(&n).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("ricetta {n} non trovata")))?)))
+}
+
+async fn recipe_put(State(app): S, axum::Extension(me): Who, Path(n): Path<String>, Json(mut r): Json<crate::recipes::RecipeDef>) -> R<Json<J>> {
+    r.name = n.clone();
+    let (r, old) = app.recipes.save(&app.cfg(), r, &who(&me))?;
+    let changed = old.as_ref().is_none_or(|o| o.version != r.version);
+    app.audit_ext("ricette", if old.is_none() { "recipe_create" } else { "recipe_save" }, &n,
+        old.as_ref().map(|o| format!("v{}", o.version)), Some(format!("v{}", r.version)),
+        if changed { format!("{} passi, {} parametri, dispositivi {:?}", r.steps.len(), r.parameters.len(), r.devices.iter().map(|d| format!("{}:{}", d.alias, d.class)).collect::<Vec<_>>()) } else { "nessuna modifica".into() });
+    Ok(Json(json!(r)))
+}
+
+async fn recipe_del(State(app): S, Path(n): Path<String>) -> R<Json<J>> {
+    let r = app.recipes.delete(&n)?;
+    app.audit_ext("ricette", "recipe_delete", &n, Some(format!("v{}", r.version)), None, String::new());
+    Ok(Json(json!({"ok": true})))
+}
+
+#[derive(Deserialize)]
+struct BatchReq {
+    recipe: String,
+    #[serde(default)]
+    devices: std::collections::BTreeMap<String, String>,
+    #[serde(default)]
+    params: std::collections::BTreeMap<String, String>,
+    #[serde(default)]
+    label: String,
+}
+
+async fn batch_start(State(app): S, axum::Extension(me): Who, Json(b): Json<BatchReq>) -> R<Json<J>> {
+    let r = app.recipes.get(&b.recipe).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("ricetta {} non trovata", b.recipe)))?;
+    let i = app.sequencer.start_batch(&app, &r, b.devices, b.params, &b.label, &who(&me)).await?;
+    app.audit_ext("hmi", "batch_start", &i.key, None, Some(serde_json::to_string(&json!({"devices": i.devices, "params": i.params})).unwrap_or_default()),
+        format!("ricetta {} v{}{}", r.name, r.version, if b.label.is_empty() { String::new() } else { format!(" · {}", b.label) }));
+    Ok(Json(inst_json(&i)))
+}
+
+/// Registro dei batch conclusi (o delle esecuzioni di una fase con `?phase=`).
+#[derive(Deserialize, Default)]
+struct HistQ {
+    #[serde(default)]
+    phase: String,
+    limit: Option<u32>,
+}
+
+async fn proc_history(State(app): S, Query(q): Query<HistQ>) -> R<Json<J>> {
+    let limit = q.limit.unwrap_or(30).min(500);
+    let rows = if q.phase.is_empty() { app.store.kv_recent("batches", String::new(), limit).await? } else { app.store.kv_recent("seq_runs", format!("{}/", q.phase), limit).await? };
+    Ok(Json(J::Array(rows.into_iter().filter_map(|(_, d)| serde_json::from_str(&d).ok()).collect())))
 }
 
 /// Riepilogo delle differenze tra due progetti per l'audit: per ogni sezione

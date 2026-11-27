@@ -146,9 +146,9 @@ La tabella ha una colonna per ruolo e una riga per permesso: spunta i permessi d
 | `script.call` | eseguire script Python dai pulsanti delle viste |
 | `wh.operate` | WCS: missioni, ordini, prelievi, depositi, movimentazioni, blocco celle |
 | `wh.config` | WCS: riorganizzazione automatica e rettifiche dell'anagrafica UdC |
-| `seq.operate` | sequenze: avvio, arresto, pausa, ripresa, reset, avanzamento manuale, conferma |
-| `recipe.load` | caricare una ricetta sul PLC |
-| `recipe.edit` | creare, modificare, eliminare ricette e leggerle dal PLC |
+| `seq.operate` | fasi (sequenze) in manuale: avvio, hold, restart, stop, abort, reset |
+| `batch.operate` | avviare un batch (allocando i dispositivi) e comandarlo, comprese le sue fasi |
+| `recipe.edit` | creare, modificare ed eliminare le ricette (procedure) |
 | `audit.view` | consultare ed esportare l'audit trail |
 | `designer` | aprire il Designer in consultazione |
 | `designer.views` | modificare viste, faceplate e simboli |
@@ -164,7 +164,7 @@ Ruoli predefiniti:
 | amministratore | tutto (`*`) |
 | progettista | Designer completo e runtime |
 | manutentore | runtime e WCS completi, Designer in sola lettura |
-| operatore | conduzione: comandi, allarmi, missioni WCS |
+| operatore | conduzione: comandi, allarmi, missioni WCS, fasi e batch |
 | visualizzatore | sola visualizzazione |
 
 Deve sempre esistere almeno un ruolo con `users.manage` (o `*`): il progetto non si salva senza.
