@@ -333,6 +333,17 @@ fn read_views(dir: &Path) -> (Vec<RawComp>, HashMap<String, f64>, Vec<String>) {
     (out, scales, errors)
 }
 
+/// Riferimento a un componente: `id` nella stessa vista, `vista/id` in un'altra vista
+/// (per impianti divisi su più pagine: un nastro può proseguire in un'altra vista).
+fn full_key(view: &str, id: &str) -> String {
+    if id.contains('/') { id.to_string() } else { format!("{view}/{id}") }
+}
+
+/// Elenco di tag separati da virgola (es. heartbeat di più PLC).
+fn tag_list(s: &str) -> impl Iterator<Item = String> + '_ {
+    s.split(',').map(str::trim).filter(|t| !t.is_empty()).map(str::to_string)
+}
+
 fn opt(s: &str) -> String {
     s.trim().to_string()
 }
@@ -435,7 +446,7 @@ impl Model {
             if id.is_empty() {
                 return Next::None;
             }
-            let k = format!("{view}/{id}");
+            let k = full_key(view, id);
             if let Some(i) = conv_idx.get(&k) {
                 Next::Conv(*i)
             } else if let Some(i) = sink_idx.get(&k) {
@@ -443,7 +454,7 @@ impl Model {
             } else if allow_div && div_idx.contains_key(&k) {
                 Next::Div(usize::MAX)
             } else {
-                errs.push(format!("{from}: componente successivo '{id}' non trovato (deve essere un nastro{}, un pozzo, nella stessa vista)", if allow_div { ", un deviatore" } else { "" }));
+                errs.push(format!("{from}: componente successivo '{id}' non trovato (deve essere un nastro{}, un pozzo, nella stessa vista o come vista/id)", if allow_div { ", un deviatore" } else { "" }));
                 Next::None
             }
         };
@@ -480,7 +491,7 @@ impl Model {
                 continue;
             }
             let n = match resolve(&r.view, &r.def.next, &k, true, &mut errs, &div_idx) {
-                Next::Div(_) => div_idx.get(&format!("{}/{}", r.view, r.def.next.trim())).map(|i| Next::Div(*i)).unwrap_or(Next::None),
+                Next::Div(_) => div_idx.get(&full_key(&r.view, r.def.next.trim())).map(|i| Next::Div(*i)).unwrap_or(Next::None),
                 Next::Conv(i) if i == ci => {
                     errs.push(format!("{k}: un nastro non può essere il successivo di sé stesso"));
                     Next::None
@@ -514,7 +525,7 @@ impl Model {
                     }
                 }
             } else {
-                match conv_idx.get(&format!("{}/{}", r.view, r.def.on.trim())) {
+                match conv_idx.get(&full_key(&r.view, r.def.on.trim())) {
                     Some(i) => *i,
                     None => {
                         errs.push(format!("{k}: nastro '{}' non trovato", r.def.on.trim()));
@@ -1316,17 +1327,21 @@ pub async fn run(app: Arc<AppState>) {
                 s.cycle_us = t0.elapsed().as_micros() as u64;
             }
             if running != was_running {
-                if !ph.active_tag.is_empty() {
-                    writes.push((ph.active_tag.clone(), Value::Bool(running)));
+                for t in tag_list(&ph.active_tag) {
+                    writes.push((t, Value::Bool(running)));
                 }
                 was_running = running;
                 frame = Some(s.frame());
             }
             if running && now - last_hb >= Duration::from_millis(500) {
                 last_hb = now;
-                if !ph.heartbeat_tag.is_empty() {
-                    hb = (hb + 1) % 32768;
-                    writes.push((ph.heartbeat_tag.clone(), Value::Int(hb)));
+                hb = (hb + 1) % 32768;
+                for t in tag_list(&ph.heartbeat_tag) {
+                    writes.push((t, Value::Int(hb)));
+                }
+                // riscritto a ogni heartbeat: un PLC riavviato (o aggiunto dopo l'avvio) lo riceve
+                for t in tag_list(&ph.active_tag) {
+                    writes.push((t, Value::Bool(true)));
                 }
             }
             if running && now - last_frame >= Duration::from_millis(100) {

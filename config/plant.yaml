@@ -1,5 +1,5 @@
 # Impianto demo: linea di smistamento colli con scanner e deviatore.
-# Avviare il simulatore PLC:  cargo run --bin plc_sim
+# Avviare il simulatore PLC:  cargo run --bin plc_sim   (hub: cargo run --bin plc_hub)
 # Avviare il WCS:             cargo run -- config/plant.yaml
 plant:
   name: Magazzino Demo
@@ -26,6 +26,14 @@ drivers:
     unit_id: 1
     poll_ms: 100
     area: Linea
+
+  # Hub di smistamento pacchi (demo grande): cargo run --release --bin plc_hub
+  - name: PLC_HUB
+    protocol: modbus
+    host: 127.0.0.1
+    port: 5021
+    unit_id: 1
+    poll_ms: 100
 
   # Esempi per gli altri protocolli (rimuovere il commento e adattare):
   # - name: PLC_S7

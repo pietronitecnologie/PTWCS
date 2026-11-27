@@ -1,0 +1,1894 @@
+{
+  "area": "Hub-Ricevimento",
+  "background": "#0b1220",
+  "components": [
+    {
+      "bindings": {},
+      "events": {},
+      "h": 34,
+      "id": "title",
+      "name": "title",
+      "props": {
+        "bold": true,
+        "color": "#e2e8f0",
+        "fontSize": 24,
+        "text": "Hub – Ricevimento e pre-smistamento"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 700,
+      "x": 30,
+      "y": 18
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 23,
+      "id": "hint",
+      "name": "hint",
+      "props": {
+        "bold": false,
+        "color": "#64748b",
+        "fontSize": 13,
+        "text": "3 baie di scarico → merge sul collettore (priorità alla linea principale) → scanner SC0 → Nord / Sud / scarti"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 830,
+      "x": 760,
+      "y": 26
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 150,
+      "id": "pb1",
+      "name": "pb1",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 930,
+      "x": 20,
+      "y": 100
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "pb1_t",
+      "name": "pb1_t",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 14,
+        "text": "Baia 1 – scarico camion"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 193.2,
+      "x": 32,
+      "y": 106
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_B1.Running"
+        },
+        "text": {
+          "expr": "'Baia 1: ' + (tag('HUB_B1.Running') ? 'IN MARCIA' : tag('HUB_B1.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_B1.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Baia 1?"
+        }
+      },
+      "h": 36,
+      "id": "bb1",
+      "name": "bb1",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Baia 1"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 170,
+      "x": 760,
+      "y": 106
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B1_C1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B1_C1.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B1_C1",
+      "name": "B1_C1",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "B1_C2",
+        "run": "B1_C1.Run",
+        "speed": 0.8,
+        "speed_fb": "B1_C1.Speed"
+      },
+      "props": {
+        "label": "Telescopico"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 300.0,
+      "x": 60.0,
+      "y": 150.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B1_C2.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B1_C2.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B1_C2",
+      "name": "B1_C2",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "B1_C3",
+        "run": "B1_C2.Run",
+        "speed": 0.8,
+        "speed_fb": "B1_C2.Speed"
+      },
+      "props": {
+        "label": "B1-C2"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 250.0,
+      "x": 360.0,
+      "y": 150.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B1_C3.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B1_C3.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B1_C3",
+      "name": "B1_C3",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "B1_C4",
+        "run": "B1_C3.Run",
+        "speed": 0.8,
+        "speed_fb": "B1_C3.Speed"
+      },
+      "props": {
+        "label": "B1-C3"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 250.0,
+      "x": 610.0,
+      "y": 150.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B1_C4.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B1_C4.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B1_C4",
+      "name": "B1_C4",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "COL_1",
+        "run": "B1_C4.Run",
+        "speed": 0.8,
+        "speed_fb": "B1_C4.Speed"
+      },
+      "props": {
+        "label": "C4 merge"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 120.0,
+      "x": 860.0,
+      "y": 150.0
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 20,
+      "id": "src1",
+      "name": "src1",
+      "physics": {
+        "barcodes": "IT-MI-001201,IT-MI-004512,IT-MI-007788,IT-TO-001201,IT-TO-004512,IT-TO-007788,IT-BO-001201,IT-BO-004512,IT-BO-007788,IT-VE-001201,IT-VE-004512,IT-VE-007788,IT-GE-001201,IT-GE-004512,IT-GE-007788,IT-RM-001201,IT-RM-004512,IT-RM-007788,IT-NA-001201,IT-NA-004512,IT-NA-007788,IT-FI-001201,IT-FI-004512,IT-FI-007788,IT-BA-001201,IT-BA-004512,IT-BA-007788,IT-PA-001201,IT-PA-004512,IT-PA-007788,DE-BE-112233,FR-PA-556677,CH-ZH-101010,ES-MD-445566,GR-AT-778800,XX-ZZ-000001",
+        "enable": "HUB_B1.Enable",
+        "interval_max": 6.5,
+        "interval_min": 3.0,
+        "kind": "source",
+        "materials": "Collo,Pacco,Busta",
+        "on": "B1_C1"
+      },
+      "props": {
+        "color": "#4ade80",
+        "fontSize": 12,
+        "text": "⊕ camion baia 1"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 150,
+      "x": 60,
+      "y": 126
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "HUB.PE_B1_OUT",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "HUB_PE_B1_OUT",
+      "name": "HUB_PE_B1_OUT",
+      "physics": {
+        "at_m": 2.2,
+        "kind": "photocell",
+        "on": "B1_C3",
+        "tag": "HUB.PE_B1_OUT"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 90,
+      "type": "symbol",
+      "w": 22,
+      "x": 819.0,
+      "y": 159.0
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.B1_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cb1",
+      "name": "cb1",
+      "props": {
+        "fontSize": 15,
+        "label": "Colli"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 120,
+      "x": 560,
+      "y": 106
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 150,
+      "id": "pb2",
+      "name": "pb2",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 930,
+      "x": 20,
+      "y": 300
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "pb2_t",
+      "name": "pb2_t",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 14,
+        "text": "Baia 2 – scarico camion"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 193.2,
+      "x": 32,
+      "y": 306
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_B2.Running"
+        },
+        "text": {
+          "expr": "'Baia 2: ' + (tag('HUB_B2.Running') ? 'IN MARCIA' : tag('HUB_B2.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_B2.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Baia 2?"
+        }
+      },
+      "h": 36,
+      "id": "bb2",
+      "name": "bb2",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Baia 2"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 170,
+      "x": 760,
+      "y": 306
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B2_C1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B2_C1.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B2_C1",
+      "name": "B2_C1",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "B2_C2",
+        "run": "B2_C1.Run",
+        "speed": 0.8,
+        "speed_fb": "B2_C1.Speed"
+      },
+      "props": {
+        "label": "Telescopico"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 300.0,
+      "x": 60.0,
+      "y": 350.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B2_C2.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B2_C2.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B2_C2",
+      "name": "B2_C2",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "B2_C3",
+        "run": "B2_C2.Run",
+        "speed": 0.8,
+        "speed_fb": "B2_C2.Speed"
+      },
+      "props": {
+        "label": "B2-C2"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 250.0,
+      "x": 360.0,
+      "y": 350.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B2_C3.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B2_C3.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B2_C3",
+      "name": "B2_C3",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "B2_C4",
+        "run": "B2_C3.Run",
+        "speed": 0.8,
+        "speed_fb": "B2_C3.Speed"
+      },
+      "props": {
+        "label": "B2-C3"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 250.0,
+      "x": 610.0,
+      "y": 350.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B2_C4.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B2_C4.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B2_C4",
+      "name": "B2_C4",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "COL_2",
+        "run": "B2_C4.Run",
+        "speed": 0.8,
+        "speed_fb": "B2_C4.Speed"
+      },
+      "props": {
+        "label": "C4 merge"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 120.0,
+      "x": 860.0,
+      "y": 350.0
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 20,
+      "id": "src2",
+      "name": "src2",
+      "physics": {
+        "barcodes": "IT-MI-001201,IT-MI-004512,IT-MI-007788,IT-TO-001201,IT-TO-004512,IT-TO-007788,IT-BO-001201,IT-BO-004512,IT-BO-007788,IT-VE-001201,IT-VE-004512,IT-VE-007788,IT-GE-001201,IT-GE-004512,IT-GE-007788,IT-RM-001201,IT-RM-004512,IT-RM-007788,IT-NA-001201,IT-NA-004512,IT-NA-007788,IT-FI-001201,IT-FI-004512,IT-FI-007788,IT-BA-001201,IT-BA-004512,IT-BA-007788,IT-PA-001201,IT-PA-004512,IT-PA-007788,DE-BE-112233,FR-PA-556677,CH-ZH-101010,ES-MD-445566,GR-AT-778800,XX-ZZ-000001",
+        "enable": "HUB_B2.Enable",
+        "interval_max": 6.5,
+        "interval_min": 3.0,
+        "kind": "source",
+        "materials": "Collo,Pacco,Busta",
+        "on": "B2_C1"
+      },
+      "props": {
+        "color": "#4ade80",
+        "fontSize": 12,
+        "text": "⊕ camion baia 2"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 150,
+      "x": 60,
+      "y": 326
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "HUB.PE_B2_OUT",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "HUB_PE_B2_OUT",
+      "name": "HUB_PE_B2_OUT",
+      "physics": {
+        "at_m": 2.2,
+        "kind": "photocell",
+        "on": "B2_C3",
+        "tag": "HUB.PE_B2_OUT"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 90,
+      "type": "symbol",
+      "w": 22,
+      "x": 819.0,
+      "y": 359.0
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.B2_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cb2",
+      "name": "cb2",
+      "props": {
+        "fontSize": 15,
+        "label": "Colli"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 120,
+      "x": 560,
+      "y": 306
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 150,
+      "id": "pb3",
+      "name": "pb3",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 930,
+      "x": 20,
+      "y": 500
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "pb3_t",
+      "name": "pb3_t",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 14,
+        "text": "Baia 3 – scarico camion"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 193.2,
+      "x": 32,
+      "y": 506
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_B3.Running"
+        },
+        "text": {
+          "expr": "'Baia 3: ' + (tag('HUB_B3.Running') ? 'IN MARCIA' : tag('HUB_B3.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_B3.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Baia 3?"
+        }
+      },
+      "h": 36,
+      "id": "bb3",
+      "name": "bb3",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Baia 3"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 170,
+      "x": 760,
+      "y": 506
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B3_C1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B3_C1.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B3_C1",
+      "name": "B3_C1",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "B3_C2",
+        "run": "B3_C1.Run",
+        "speed": 0.8,
+        "speed_fb": "B3_C1.Speed"
+      },
+      "props": {
+        "label": "Telescopico"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 300.0,
+      "x": 60.0,
+      "y": 550.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B3_C2.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B3_C2.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B3_C2",
+      "name": "B3_C2",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "B3_C3",
+        "run": "B3_C2.Run",
+        "speed": 0.8,
+        "speed_fb": "B3_C2.Speed"
+      },
+      "props": {
+        "label": "B3-C2"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 250.0,
+      "x": 360.0,
+      "y": 550.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B3_C3.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B3_C3.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B3_C3",
+      "name": "B3_C3",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "B3_C4",
+        "run": "B3_C3.Run",
+        "speed": 0.8,
+        "speed_fb": "B3_C3.Speed"
+      },
+      "props": {
+        "label": "B3-C3"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 250.0,
+      "x": 610.0,
+      "y": 550.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "B3_C4.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "B3_C4.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "B3_C4",
+      "name": "B3_C4",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "COL_3",
+        "run": "B3_C4.Run",
+        "speed": 0.8,
+        "speed_fb": "B3_C4.Speed"
+      },
+      "props": {
+        "label": "C4 merge"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 120.0,
+      "x": 860.0,
+      "y": 550.0
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 20,
+      "id": "src3",
+      "name": "src3",
+      "physics": {
+        "barcodes": "IT-MI-001201,IT-MI-004512,IT-MI-007788,IT-TO-001201,IT-TO-004512,IT-TO-007788,IT-BO-001201,IT-BO-004512,IT-BO-007788,IT-VE-001201,IT-VE-004512,IT-VE-007788,IT-GE-001201,IT-GE-004512,IT-GE-007788,IT-RM-001201,IT-RM-004512,IT-RM-007788,IT-NA-001201,IT-NA-004512,IT-NA-007788,IT-FI-001201,IT-FI-004512,IT-FI-007788,IT-BA-001201,IT-BA-004512,IT-BA-007788,IT-PA-001201,IT-PA-004512,IT-PA-007788,DE-BE-112233,FR-PA-556677,CH-ZH-101010,ES-MD-445566,GR-AT-778800,XX-ZZ-000001",
+        "enable": "HUB_B3.Enable",
+        "interval_max": 6.5,
+        "interval_min": 3.0,
+        "kind": "source",
+        "materials": "Collo,Pacco,Busta",
+        "on": "B3_C1"
+      },
+      "props": {
+        "color": "#4ade80",
+        "fontSize": 12,
+        "text": "⊕ camion baia 3"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 150,
+      "x": 60,
+      "y": 526
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "HUB.PE_B3_OUT",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "HUB_PE_B3_OUT",
+      "name": "HUB_PE_B3_OUT",
+      "physics": {
+        "at_m": 2.2,
+        "kind": "photocell",
+        "on": "B3_C3",
+        "tag": "HUB.PE_B3_OUT"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 90,
+      "type": "symbol",
+      "w": 22,
+      "x": 819.0,
+      "y": 559.0
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.B3_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cb3",
+      "name": "cb3",
+      "props": {
+        "fontSize": 15,
+        "label": "Colli"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 120,
+      "x": 560,
+      "y": 506
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 950,
+      "id": "pcol",
+      "name": "pcol",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 620,
+      "x": 960,
+      "y": 90
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "pcol_t",
+      "name": "pcol_t",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 14,
+        "text": "Collettore e pre-smistamento"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 235.2,
+      "x": 972,
+      "y": 96
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_COL.Running"
+        },
+        "text": {
+          "expr": "'Collettore: ' + (tag('HUB_COL.Running') ? 'IN MARCIA' : tag('HUB_COL.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_COL.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Collettore?"
+        }
+      },
+      "h": 36,
+      "id": "bcol",
+      "name": "bcol",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Collettore"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 190,
+      "x": 1380,
+      "y": 96
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "COL_1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "COL_1.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "COL_1",
+      "name": "COL_1",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "COL_2",
+        "run": "COL_1.Run",
+        "speed": 0.8,
+        "speed_fb": "COL_1.Speed"
+      },
+      "props": {
+        "label": "COL-1"
+      },
+      "rotation": 90,
+      "type": "conveyor",
+      "w": 200.0,
+      "x": 900.0,
+      "y": 230.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "COL_2.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "COL_2.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "COL_2",
+      "name": "COL_2",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "COL_3",
+        "run": "COL_2.Run",
+        "speed": 0.8,
+        "speed_fb": "COL_2.Speed"
+      },
+      "props": {
+        "label": "COL-2"
+      },
+      "rotation": 90,
+      "type": "conveyor",
+      "w": 200.0,
+      "x": 900.0,
+      "y": 430.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "COL_3.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "COL_3.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "COL_3",
+      "name": "COL_3",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "COL_4",
+        "run": "COL_3.Run",
+        "speed": 0.8,
+        "speed_fb": "COL_3.Speed"
+      },
+      "props": {
+        "label": "COL-3"
+      },
+      "rotation": 90,
+      "type": "conveyor",
+      "w": 200.0,
+      "x": 900.0,
+      "y": 630.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "COL_4.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "COL_4.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "COL_4",
+      "name": "COL_4",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "PS_1",
+        "run": "COL_4.Run",
+        "speed": 0.8,
+        "speed_fb": "COL_4.Speed"
+      },
+      "props": {
+        "label": "COL-4"
+      },
+      "rotation": 90,
+      "type": "conveyor",
+      "w": 200.0,
+      "x": 900.0,
+      "y": 830.0
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "HUB.PE_COL1_END",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "HUB_PE_COL1_END",
+      "name": "HUB_PE_COL1_END",
+      "physics": {
+        "at_m": 1.7,
+        "kind": "photocell",
+        "on": "COL_1",
+        "tag": "HUB.PE_COL1_END"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 180,
+      "type": "symbol",
+      "w": 22,
+      "x": 989.0,
+      "y": 309.0
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "HUB.PE_COL2_END",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "HUB_PE_COL2_END",
+      "name": "HUB_PE_COL2_END",
+      "physics": {
+        "at_m": 1.7,
+        "kind": "photocell",
+        "on": "COL_2",
+        "tag": "HUB.PE_COL2_END"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 180,
+      "type": "symbol",
+      "w": 22,
+      "x": 989.0,
+      "y": 509.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "PS_1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "PS_1.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "PS_1",
+      "name": "PS_1",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "gap_m": 0.3,
+        "kind": "conveyor",
+        "next": "PS_2",
+        "run": "PS_1.Run",
+        "speed": 1.1,
+        "speed_fb": "PS_1.Speed"
+      },
+      "props": {
+        "label": "PS-1 scanner"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 240.0,
+      "x": 1000.0,
+      "y": 930.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "PS_2.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "PS_2.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "PS_2",
+      "name": "PS_2",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "DV0",
+        "run": "PS_2.Run",
+        "speed": 1.1,
+        "speed_fb": "PS_2.Speed"
+      },
+      "props": {
+        "label": "PS-2"
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 140.0,
+      "x": 1240.0,
+      "y": 930.0
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 64,
+      "id": "SC0",
+      "name": "SC0",
+      "physics": {
+        "at_m": 1.2,
+        "code_tag": "HSIM0.SimCode",
+        "count_tag": "HSIM0.SimCount",
+        "kind": "scanner",
+        "noread_pct": 2,
+        "on": "PS_1",
+        "weight_scale": 100,
+        "weight_tag": "HSIM0.SimWeight"
+      },
+      "props": {
+        "symbol": "scanner"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 54,
+      "x": 1093.0,
+      "y": 850.0
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "HUB.PE_DV0",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "HUB_PE_DV0",
+      "name": "HUB_PE_DV0",
+      "physics": {
+        "at_m": 0.6,
+        "kind": "photocell",
+        "on": "PS_2",
+        "tag": "HUB.PE_DV0"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 90,
+      "type": "symbol",
+      "w": 22,
+      "x": 1289.0,
+      "y": 939.0
+    },
+    {
+      "bindings": {
+        "elements.flap.fill": {
+          "kind": "tag",
+          "tag": "HUB.DV0_Pos",
+          "transform": {
+            "default": "#f59e0b",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "99",
+                "out": "#ef4444"
+              }
+            ]
+          }
+        },
+        "elements.flap.rotate": {
+          "kind": "tag",
+          "tag": "HUB.DV0_Pos",
+          "transform": {
+            "default": "0",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "1",
+                "out": "-60"
+              },
+              {
+                "in": "2",
+                "out": "0"
+              },
+              {
+                "in": "99",
+                "out": "60"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 80,
+      "id": "DV0",
+      "name": "DV0",
+      "physics": {
+        "kind": "diverter",
+        "outputs": [
+          {
+            "next": "PSN_1",
+            "value": "1"
+          },
+          {
+            "next": "PSS_1",
+            "value": "2"
+          },
+          {
+            "next": "REJ_1",
+            "value": "99"
+          }
+        ],
+        "position": "HUB.DV0_Pos",
+        "switch_s": 0.3
+      },
+      "props": {
+        "symbol": "diverter"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 80,
+      "x": 1370.0,
+      "y": 910
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "PSN_1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "PSN_1.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "PSN_1",
+      "name": "PSN_1",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "PSN_2",
+        "run": "PSN_1.Run",
+        "speed": 0.8,
+        "speed_fb": "PSN_1.Speed"
+      },
+      "props": {
+        "label": "→ Nord"
+      },
+      "rotation": -90,
+      "type": "conveyor",
+      "w": 260.0,
+      "x": 1320.0,
+      "y": 780.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "PSN_2.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "PSN_2.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "PSN_2",
+      "name": "PSN_2",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "PSN_3",
+        "run": "PSN_2.Run",
+        "speed": 0.8,
+        "speed_fb": "PSN_2.Speed"
+      },
+      "props": {
+        "label": "PSN-2"
+      },
+      "rotation": -90,
+      "type": "conveyor",
+      "w": 260.0,
+      "x": 1320.0,
+      "y": 520.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "PSN_3.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "PSN_3.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "PSN_3",
+      "name": "PSN_3",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "hub_nord/SN_IN",
+        "run": "PSN_3.Run",
+        "speed": 0.8,
+        "speed_fb": "PSN_3.Speed"
+      },
+      "props": {
+        "label": "PSN-3"
+      },
+      "rotation": -90,
+      "type": "conveyor",
+      "w": 260.0,
+      "x": 1320.0,
+      "y": 260.0
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "toN",
+      "name": "toN",
+      "props": {
+        "bold": true,
+        "color": "#e879f9",
+        "fontSize": 14,
+        "text": "↗ Sorter Nord"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 109.2,
+      "x": 1290.0,
+      "y": 400.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "PSS_1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "PSS_1.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "PSS_1",
+      "name": "PSS_1",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "PSS_2",
+        "run": "PSS_1.Run",
+        "speed": 0.8,
+        "speed_fb": "PSS_1.Speed"
+      },
+      "props": {
+        "label": ""
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 100.0,
+      "x": 1470.0,
+      "y": 930.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "PSS_2.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "PSS_2.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "PSS_2",
+      "name": "PSS_2",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "hub_sud/SS_IN",
+        "run": "PSS_2.Run",
+        "speed": 0.8,
+        "speed_fb": "PSS_2.Speed"
+      },
+      "props": {
+        "label": ""
+      },
+      "rotation": -90,
+      "type": "conveyor",
+      "w": 100.0,
+      "x": 1520.0,
+      "y": 880.0
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "toS",
+      "name": "toS",
+      "props": {
+        "bold": true,
+        "color": "#e879f9",
+        "fontSize": 14,
+        "text": "↗ Sorter Sud"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 100.8,
+      "x": 1420.0,
+      "y": 815
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "REJ_1.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "REJ_1.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "REJ_1",
+      "name": "REJ_1",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "next": "REJ_2",
+        "run": "REJ_1.Run",
+        "speed": 0.8,
+        "speed_fb": "REJ_1.Speed"
+      },
+      "props": {
+        "direction": "left",
+        "label": ""
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 100.0,
+      "x": 1300.0,
+      "y": 990.0
+    },
+    {
+      "bindings": {
+        "fault": {
+          "kind": "tag",
+          "tag": "REJ_2.Fault"
+        },
+        "running": {
+          "kind": "tag",
+          "tag": "REJ_2.Run"
+        }
+      },
+      "events": {},
+      "h": 40,
+      "id": "REJ_2",
+      "name": "REJ_2",
+      "physics": {
+        "accel": 1.0,
+        "decel": 2.0,
+        "fb_scale": 100,
+        "kind": "conveyor",
+        "run": "REJ_2.Run",
+        "sink": true,
+        "speed": 0.8,
+        "speed_fb": "REJ_2.Speed"
+      },
+      "props": {
+        "direction": "left",
+        "label": ""
+      },
+      "rotation": 0,
+      "type": "conveyor",
+      "w": 160.0,
+      "x": 1140.0,
+      "y": 990.0
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 22,
+      "id": "rej",
+      "name": "rej",
+      "props": {
+        "bold": false,
+        "color": "#fca5a5",
+        "fontSize": 12,
+        "text": "✋ postazione scarti (codifica manuale)"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 260,
+      "x": 860.0,
+      "y": 998
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "HUB.PE_PSN",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "HUB_PE_PSN",
+      "name": "HUB_PE_PSN",
+      "physics": {
+        "at_m": 0.5,
+        "kind": "photocell",
+        "on": "PSN_1",
+        "tag": "HUB.PE_PSN"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 0,
+      "type": "symbol",
+      "w": 22,
+      "x": 1439.0,
+      "y": 869.0
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "HUB.PE_PSS",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "HUB_PE_PSS",
+      "name": "HUB_PE_PSS",
+      "physics": {
+        "at_m": 0.5,
+        "kind": "photocell",
+        "on": "PSS_1",
+        "tag": "HUB.PE_PSS"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 90,
+      "type": "symbol",
+      "w": 22,
+      "x": 1509.0,
+      "y": 939.0
+    },
+    {
+      "bindings": {
+        "elements.beam.stroke": {
+          "kind": "tag",
+          "tag": "HUB.PE_REJ",
+          "transform": {
+            "default": "#22c55e",
+            "kind": "map",
+            "rules": [
+              {
+                "in": "true",
+                "out": "#f59e0b"
+              }
+            ]
+          }
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "HUB_PE_REJ",
+      "name": "HUB_PE_REJ",
+      "physics": {
+        "at_m": 1.4,
+        "kind": "photocell",
+        "on": "REJ_2",
+        "tag": "HUB.PE_REJ"
+      },
+      "props": {
+        "symbol": "dev_photocell"
+      },
+      "rotation": 270,
+      "type": "symbol",
+      "w": 22,
+      "x": 1149.0,
+      "y": 999.0
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.PS_Nord"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cpn",
+      "name": "cpn",
+      "props": {
+        "fontSize": 15,
+        "label": "→ Nord"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 1250,
+      "y": 600
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.PS_Sud"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cps",
+      "name": "cps",
+      "props": {
+        "fontSize": 15,
+        "label": "→ Sud"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 1250,
+      "y": 650
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.PS_Scarti"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "cpr",
+      "name": "cpr",
+      "props": {
+        "color": "#fca5a5",
+        "fontSize": 15,
+        "label": "Scarti"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 130,
+      "x": 1250,
+      "y": 700
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HSC0.Barcode"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "scbc",
+      "name": "scbc",
+      "props": {
+        "fontSize": 14,
+        "label": "SC0"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 200,
+      "x": 1160,
+      "y": 870
+    }
+  ],
+  "height": 1060,
+  "home": false,
+  "physics": {
+    "scale_mm": 10
+  },
+  "title": "Hub – Ricevimento",
+  "width": 1600
+}

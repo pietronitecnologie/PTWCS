@@ -28,6 +28,29 @@ areas:
 - name: MP-Uscite
   description: Raccolta e baie BU1/BU2
   parent: MagPallet
+- name: Hub
+  description: Hub di smistamento pacchi (demo grande con layer fisico)
+- name: Hub-Ricevimento
+  description: Baie di scarico e pre-smistamento
+  parent: Hub
+- name: Hub-Baia1
+  description: Baia di scarico 1
+  parent: Hub-Ricevimento
+- name: Hub-Baia2
+  description: Baia di scarico 2
+  parent: Hub-Ricevimento
+- name: Hub-Baia3
+  description: Baia di scarico 3
+  parent: Hub-Ricevimento
+- name: Hub-Collettore
+  description: Collettore, pre-smistatore SC0 e scarti
+  parent: Hub-Ricevimento
+- name: Hub-SorterNord
+  description: Sorter Nord ad anello, 6 scivoli + scarti
+  parent: Hub
+- name: Hub-SorterSud
+  description: Sorter Sud ad anello, 6 scivoli + scarti
+  parent: Hub
 scan_classes:
 - name: veloce
   rate_ms: 100
@@ -1008,6 +1031,49 @@ udt_types:
     type: bool
     address: DB{DB}.DBX{Base+0}.7
     description: Pallet posto 2
+- name: HubLinea
+  description: 'Linea dell''hub: abilitazione dal WCS e stato dal PLC'
+  params:
+  - name: N
+    default: 0
+    description: Numero linea
+  members:
+  - name: Enable
+    type: bool
+    address: coil:{N+100}
+    writable: true
+    description: Abilitazione (avvio/arresto)
+  - name: Running
+    type: bool
+    address: di:{N+100}
+    description: In marcia senza guasti
+- name: HubNastro
+  description: 'Nastro dell''hub: marcia e guasto dal PLC, velocità reale (ingresso simulato)'
+  params:
+  - name: N
+    default: 0
+    description: Numero nastro
+  members:
+  - name: Run
+    type: bool
+    address: coil:{N+1000}
+    description: Marcia (uscita PLC)
+  - name: Fault
+    type: bool
+    address: di:{N+1000}
+    description: Guasto motore
+    alarms:
+    - name: FAULT
+      op: ==
+      value: true
+      message: '{Instance}: guasto motore (marcia senza velocità)'
+      severity: alarm
+  - name: Speed
+    type: u16
+    address: hr:{N+1000}
+    writable: true
+    description: Velocità reale (ingresso simulato)
+    unit: m/s×100
 udt_instances:
 - name: CV1
   type: Nastro
@@ -1174,6 +1240,555 @@ udt_instances:
   params:
     DB: 322
   description: Baia d'uscita 2
+- name: HUB_COL
+  type: HubLinea
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 0
+  description: Collettore e pre-smistamento
+- name: HUB_B1
+  type: HubLinea
+  driver: PLC_HUB
+  area: Hub-Baia1
+  params:
+    N: 1
+  description: Baia 1
+- name: HUB_B2
+  type: HubLinea
+  driver: PLC_HUB
+  area: Hub-Baia2
+  params:
+    N: 2
+  description: Baia 2
+- name: HUB_B3
+  type: HubLinea
+  driver: PLC_HUB
+  area: Hub-Baia3
+  params:
+    N: 3
+  description: Baia 3
+- name: HUB_SN
+  type: HubLinea
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 4
+  description: Sorter Nord
+- name: HUB_SS
+  type: HubLinea
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 5
+  description: Sorter Sud
+- name: B1_C1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia1
+  params:
+    N: 0
+  description: Baia 1 – nastro telescopico
+- name: B1_C2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia1
+  params:
+    N: 1
+  description: Baia 1 – trasporto 1
+- name: B1_C3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia1
+  params:
+    N: 2
+  description: Baia 1 – trasporto 2
+- name: B1_C4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia1
+  params:
+    N: 3
+  description: Baia 1 – immissione sul collettore
+- name: B2_C1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia2
+  params:
+    N: 4
+  description: Baia 2 – nastro telescopico
+- name: B2_C2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia2
+  params:
+    N: 5
+  description: Baia 2 – trasporto 1
+- name: B2_C3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia2
+  params:
+    N: 6
+  description: Baia 2 – trasporto 2
+- name: B2_C4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia2
+  params:
+    N: 7
+  description: Baia 2 – immissione sul collettore
+- name: B3_C1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia3
+  params:
+    N: 8
+  description: Baia 3 – nastro telescopico
+- name: B3_C2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia3
+  params:
+    N: 9
+  description: Baia 3 – trasporto 1
+- name: B3_C3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia3
+  params:
+    N: 10
+  description: Baia 3 – trasporto 2
+- name: B3_C4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Baia3
+  params:
+    N: 11
+  description: Baia 3 – immissione sul collettore
+- name: COL_1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 12
+  description: Collettore segmento 1
+- name: COL_2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 13
+  description: Collettore segmento 2
+- name: COL_3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 14
+  description: Collettore segmento 3
+- name: COL_4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 15
+  description: Collettore segmento 4
+- name: PS_1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 16
+  description: 'Pre-smistamento: scanner SC0'
+- name: PS_2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 17
+  description: 'Pre-smistamento: ingresso deviatore'
+- name: PSN_1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 18
+  description: Alimentazione sorter Nord 1
+- name: PSN_2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 19
+  description: Alimentazione sorter Nord 2
+- name: PSN_3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 20
+  description: Alimentazione sorter Nord 3
+- name: PSS_1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 21
+  description: Alimentazione sorter Sud 1
+- name: PSS_2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 22
+  description: Alimentazione sorter Sud 2
+- name: REJ_1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 23
+  description: Linea scarti 1
+- name: REJ_2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-Collettore
+  params:
+    N: 24
+  description: Linea scarti 2
+- name: SN_IN
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 25
+  description: 'Sorter Nord: alimentazione dal pre-smistamento'
+- name: SN_I1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 26
+  description: 'Sorter Nord: immissione (merge ricircolo)'
+- name: SN_I2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 27
+  description: 'Sorter Nord: scanner HSCN'
+- name: SN_I3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 28
+  description: 'Sorter Nord: accelerazione'
+- name: SN_S1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 29
+  description: 'Sorter Nord: sezione 1'
+- name: SN_CH1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 30
+  description: 'Sorter Nord: scivolo 1 – Milano'
+- name: SN_S2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 31
+  description: 'Sorter Nord: sezione 2'
+- name: SN_CH2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 32
+  description: 'Sorter Nord: scivolo 2 – Torino'
+- name: SN_S3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 33
+  description: 'Sorter Nord: sezione 3'
+- name: SN_CH3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 34
+  description: 'Sorter Nord: scivolo 3 – Bologna'
+- name: SN_S4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 35
+  description: 'Sorter Nord: sezione 4'
+- name: SN_CH4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 36
+  description: 'Sorter Nord: scivolo 4 – Venezia'
+- name: SN_S5
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 37
+  description: 'Sorter Nord: sezione 5'
+- name: SN_CH5
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 38
+  description: 'Sorter Nord: scivolo 5 – Genova'
+- name: SN_S6
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 39
+  description: 'Sorter Nord: sezione 6'
+- name: SN_CH6
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 40
+  description: 'Sorter Nord: scivolo 6 – Estero'
+- name: SN_S7
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 41
+  description: 'Sorter Nord: sezione 7'
+- name: SN_CH7
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 42
+  description: 'Sorter Nord: scivolo 7 scarti'
+- name: SN_R1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 43
+  description: 'Sorter Nord: ricircolo salita'
+- name: SN_R2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 44
+  description: 'Sorter Nord: ricircolo 2'
+- name: SN_R3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 45
+  description: 'Sorter Nord: ricircolo 3'
+- name: SN_R4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  params:
+    N: 46
+  description: 'Sorter Nord: ricircolo discesa'
+- name: SS_IN
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 47
+  description: 'Sorter Sud: alimentazione dal pre-smistamento'
+- name: SS_I1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 48
+  description: 'Sorter Sud: immissione (merge ricircolo)'
+- name: SS_I2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 49
+  description: 'Sorter Sud: scanner HSCS'
+- name: SS_I3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 50
+  description: 'Sorter Sud: accelerazione'
+- name: SS_S1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 51
+  description: 'Sorter Sud: sezione 1'
+- name: SS_CH1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 52
+  description: 'Sorter Sud: scivolo 1 – Roma'
+- name: SS_S2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 53
+  description: 'Sorter Sud: sezione 2'
+- name: SS_CH2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 54
+  description: 'Sorter Sud: scivolo 2 – Napoli'
+- name: SS_S3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 55
+  description: 'Sorter Sud: sezione 3'
+- name: SS_CH3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 56
+  description: 'Sorter Sud: scivolo 3 – Firenze'
+- name: SS_S4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 57
+  description: 'Sorter Sud: sezione 4'
+- name: SS_CH4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 58
+  description: 'Sorter Sud: scivolo 4 – Bari'
+- name: SS_S5
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 59
+  description: 'Sorter Sud: sezione 5'
+- name: SS_CH5
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 60
+  description: 'Sorter Sud: scivolo 5 – Palermo'
+- name: SS_S6
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 61
+  description: 'Sorter Sud: sezione 6'
+- name: SS_CH6
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 62
+  description: 'Sorter Sud: scivolo 6 – Estero'
+- name: SS_S7
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 63
+  description: 'Sorter Sud: sezione 7'
+- name: SS_CH7
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 64
+  description: 'Sorter Sud: scivolo 7 scarti'
+- name: SS_R1
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 65
+  description: 'Sorter Sud: ricircolo salita'
+- name: SS_R2
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 66
+  description: 'Sorter Sud: ricircolo 2'
+- name: SS_R3
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 67
+  description: 'Sorter Sud: ricircolo 3'
+- name: SS_R4
+  type: HubNastro
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  params:
+    N: 68
+  description: 'Sorter Sud: ricircolo discesa'
+- name: HSC0
+  type: TelegrammaScanner
+  driver: PLC_HUB
+  area: Hub-Collettore
+  scan_class: veloce
+  params:
+    Base: 3000
+  description: Pre-smistatore SC0
+- name: HSCN
+  type: TelegrammaScanner
+  driver: PLC_HUB
+  area: Hub-SorterNord
+  scan_class: veloce
+  params:
+    Base: 3020
+  description: Scanner sorter Nord
+- name: HSCS
+  type: TelegrammaScanner
+  driver: PLC_HUB
+  area: Hub-SorterSud
+  scan_class: veloce
+  params:
+    Base: 3040
+  description: Scanner sorter Sud
 tags:
 - name: Line.ResetFaults
   driver: PLC_LINEA
@@ -1626,6 +2241,776 @@ tags:
   description: 'Ingresso simulato: velocità reale CV1'
   unit: m/min×10
   area: Servizi
+- name: HUB.PE_B1_OUT
+  driver: PLC_HUB
+  address: coil:2000
+  type: bool
+  writable: true
+  description: 'Baia 1: colli scaricati (ingresso simulato)'
+  area: Hub-Baia1
+  scan_class: veloce
+- name: HUB.PE_B2_OUT
+  driver: PLC_HUB
+  address: coil:2001
+  type: bool
+  writable: true
+  description: 'Baia 2: colli scaricati (ingresso simulato)'
+  area: Hub-Baia2
+  scan_class: veloce
+- name: HUB.PE_B3_OUT
+  driver: PLC_HUB
+  address: coil:2002
+  type: bool
+  writable: true
+  description: 'Baia 3: colli scaricati (ingresso simulato)'
+  area: Hub-Baia3
+  scan_class: veloce
+- name: HUB.PE_COL1_END
+  driver: PLC_HUB
+  address: coil:2003
+  type: bool
+  writable: true
+  description: 'Collettore 1: fine segmento (merge baia 2) (ingresso simulato)'
+  area: Hub-Collettore
+  scan_class: veloce
+- name: HUB.PE_COL2_END
+  driver: PLC_HUB
+  address: coil:2004
+  type: bool
+  writable: true
+  description: 'Collettore 2: fine segmento (merge baia 3) (ingresso simulato)'
+  area: Hub-Collettore
+  scan_class: veloce
+- name: HUB.PE_DV0
+  driver: PLC_HUB
+  address: coil:2005
+  type: bool
+  writable: true
+  description: 'Pre-smistamento: collo davanti al deviatore (ingresso simulato)'
+  area: Hub-Collettore
+  scan_class: veloce
+- name: HUB.PE_PSN
+  driver: PLC_HUB
+  address: coil:2006
+  type: bool
+  writable: true
+  description: 'Pre-smistamento: collo verso Nord (ingresso simulato)'
+  area: Hub-Collettore
+  scan_class: veloce
+- name: HUB.PE_PSS
+  driver: PLC_HUB
+  address: coil:2007
+  type: bool
+  writable: true
+  description: 'Pre-smistamento: collo verso Sud (ingresso simulato)'
+  area: Hub-Collettore
+  scan_class: veloce
+- name: HUB.PE_REJ
+  driver: PLC_HUB
+  address: coil:2008
+  type: bool
+  writable: true
+  description: 'Pre-smistamento: collo agli scarti (ingresso simulato)'
+  area: Hub-Collettore
+  scan_class: veloce
+- name: SN.PE_D1
+  driver: PLC_HUB
+  address: coil:2009
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo davanti al deviatore 1 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH1_FULL
+  driver: PLC_HUB
+  address: coil:2010
+  type: bool
+  writable: true
+  description: 'Sorter Nord: scivolo 1 pieno (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH1
+  driver: PLC_HUB
+  address: coil:2011
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo nello scivolo 1 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_D2
+  driver: PLC_HUB
+  address: coil:2012
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo davanti al deviatore 2 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH2_FULL
+  driver: PLC_HUB
+  address: coil:2013
+  type: bool
+  writable: true
+  description: 'Sorter Nord: scivolo 2 pieno (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH2
+  driver: PLC_HUB
+  address: coil:2014
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo nello scivolo 2 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_D3
+  driver: PLC_HUB
+  address: coil:2015
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo davanti al deviatore 3 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH3_FULL
+  driver: PLC_HUB
+  address: coil:2016
+  type: bool
+  writable: true
+  description: 'Sorter Nord: scivolo 3 pieno (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH3
+  driver: PLC_HUB
+  address: coil:2017
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo nello scivolo 3 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_D4
+  driver: PLC_HUB
+  address: coil:2018
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo davanti al deviatore 4 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH4_FULL
+  driver: PLC_HUB
+  address: coil:2019
+  type: bool
+  writable: true
+  description: 'Sorter Nord: scivolo 4 pieno (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH4
+  driver: PLC_HUB
+  address: coil:2020
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo nello scivolo 4 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_D5
+  driver: PLC_HUB
+  address: coil:2021
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo davanti al deviatore 5 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH5_FULL
+  driver: PLC_HUB
+  address: coil:2022
+  type: bool
+  writable: true
+  description: 'Sorter Nord: scivolo 5 pieno (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH5
+  driver: PLC_HUB
+  address: coil:2023
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo nello scivolo 5 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_D6
+  driver: PLC_HUB
+  address: coil:2024
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo davanti al deviatore 6 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH6_FULL
+  driver: PLC_HUB
+  address: coil:2025
+  type: bool
+  writable: true
+  description: 'Sorter Nord: scivolo 6 pieno (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH6
+  driver: PLC_HUB
+  address: coil:2026
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo nello scivolo 6 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_D7
+  driver: PLC_HUB
+  address: coil:2027
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo davanti al deviatore 7 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH7_FULL
+  driver: PLC_HUB
+  address: coil:2028
+  type: bool
+  writable: true
+  description: 'Sorter Nord: scivolo 7 pieno (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_CH7
+  driver: PLC_HUB
+  address: coil:2029
+  type: bool
+  writable: true
+  description: 'Sorter Nord: collo nello scivolo 7 (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.PE_R4_END
+  driver: PLC_HUB
+  address: coil:2030
+  type: bool
+  writable: true
+  description: 'Sorter Nord: ricircolo all''immissione (ingresso simulato)'
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SS.PE_D1
+  driver: PLC_HUB
+  address: coil:2031
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo davanti al deviatore 1 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH1_FULL
+  driver: PLC_HUB
+  address: coil:2032
+  type: bool
+  writable: true
+  description: 'Sorter Sud: scivolo 1 pieno (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH1
+  driver: PLC_HUB
+  address: coil:2033
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo nello scivolo 1 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_D2
+  driver: PLC_HUB
+  address: coil:2034
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo davanti al deviatore 2 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH2_FULL
+  driver: PLC_HUB
+  address: coil:2035
+  type: bool
+  writable: true
+  description: 'Sorter Sud: scivolo 2 pieno (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH2
+  driver: PLC_HUB
+  address: coil:2036
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo nello scivolo 2 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_D3
+  driver: PLC_HUB
+  address: coil:2037
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo davanti al deviatore 3 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH3_FULL
+  driver: PLC_HUB
+  address: coil:2038
+  type: bool
+  writable: true
+  description: 'Sorter Sud: scivolo 3 pieno (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH3
+  driver: PLC_HUB
+  address: coil:2039
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo nello scivolo 3 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_D4
+  driver: PLC_HUB
+  address: coil:2040
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo davanti al deviatore 4 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH4_FULL
+  driver: PLC_HUB
+  address: coil:2041
+  type: bool
+  writable: true
+  description: 'Sorter Sud: scivolo 4 pieno (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH4
+  driver: PLC_HUB
+  address: coil:2042
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo nello scivolo 4 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_D5
+  driver: PLC_HUB
+  address: coil:2043
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo davanti al deviatore 5 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH5_FULL
+  driver: PLC_HUB
+  address: coil:2044
+  type: bool
+  writable: true
+  description: 'Sorter Sud: scivolo 5 pieno (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH5
+  driver: PLC_HUB
+  address: coil:2045
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo nello scivolo 5 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_D6
+  driver: PLC_HUB
+  address: coil:2046
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo davanti al deviatore 6 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH6_FULL
+  driver: PLC_HUB
+  address: coil:2047
+  type: bool
+  writable: true
+  description: 'Sorter Sud: scivolo 6 pieno (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH6
+  driver: PLC_HUB
+  address: coil:2048
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo nello scivolo 6 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_D7
+  driver: PLC_HUB
+  address: coil:2049
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo davanti al deviatore 7 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH7_FULL
+  driver: PLC_HUB
+  address: coil:2050
+  type: bool
+  writable: true
+  description: 'Sorter Sud: scivolo 7 pieno (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_CH7
+  driver: PLC_HUB
+  address: coil:2051
+  type: bool
+  writable: true
+  description: 'Sorter Sud: collo nello scivolo 7 (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.PE_R4_END
+  driver: PLC_HUB
+  address: coil:2052
+  type: bool
+  writable: true
+  description: 'Sorter Sud: ricircolo all''immissione (ingresso simulato)'
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: HUB.DV0_Pos
+  driver: PLC_HUB
+  address: hr:1100
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-Collettore
+  scan_class: veloce
+- name: SN.D1_Pos
+  driver: PLC_HUB
+  address: hr:1101
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.D2_Pos
+  driver: PLC_HUB
+  address: hr:1102
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.D3_Pos
+  driver: PLC_HUB
+  address: hr:1103
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.D4_Pos
+  driver: PLC_HUB
+  address: hr:1104
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.D5_Pos
+  driver: PLC_HUB
+  address: hr:1105
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.D6_Pos
+  driver: PLC_HUB
+  address: hr:1106
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SN.D7_Pos
+  driver: PLC_HUB
+  address: hr:1107
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterNord
+  scan_class: veloce
+- name: SS.D1_Pos
+  driver: PLC_HUB
+  address: hr:1108
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.D2_Pos
+  driver: PLC_HUB
+  address: hr:1109
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.D3_Pos
+  driver: PLC_HUB
+  address: hr:1110
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.D4_Pos
+  driver: PLC_HUB
+  address: hr:1111
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.D5_Pos
+  driver: PLC_HUB
+  address: hr:1112
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.D6_Pos
+  driver: PLC_HUB
+  address: hr:1113
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: SS.D7_Pos
+  driver: PLC_HUB
+  address: hr:1114
+  type: u16
+  description: Posizione deviatore (uscita PLC)
+  area: Hub-SorterSud
+  scan_class: veloce
+- name: HSIM0.SimCount
+  driver: PLC_HUB
+  address: hr:2000
+  type: u16
+  writable: true
+  description: 'Scanner: contatore letture (ingresso simulato)'
+  area: Hub-Collettore
+- name: HSIM0.SimCode
+  driver: PLC_HUB
+  address: hr:2001
+  type: string
+  writable: true
+  description: 'Scanner: barcode (ingresso simulato)'
+  area: Hub-Collettore
+- name: HSIM0.SimWeight
+  driver: PLC_HUB
+  address: hr:2011
+  type: u16
+  writable: true
+  description: 'Scanner: peso (ingresso simulato)'
+  unit: g×10
+  area: Hub-Collettore
+- name: HSCNSIM.SimCount
+  driver: PLC_HUB
+  address: hr:2016
+  type: u16
+  writable: true
+  description: 'Scanner: contatore letture (ingresso simulato)'
+  area: Hub-SorterNord
+- name: HSCNSIM.SimCode
+  driver: PLC_HUB
+  address: hr:2017
+  type: string
+  writable: true
+  description: 'Scanner: barcode (ingresso simulato)'
+  area: Hub-SorterNord
+- name: HSCNSIM.SimWeight
+  driver: PLC_HUB
+  address: hr:2027
+  type: u16
+  writable: true
+  description: 'Scanner: peso (ingresso simulato)'
+  unit: g×10
+  area: Hub-SorterNord
+- name: HSCSSIM.SimCount
+  driver: PLC_HUB
+  address: hr:2032
+  type: u16
+  writable: true
+  description: 'Scanner: contatore letture (ingresso simulato)'
+  area: Hub-SorterSud
+- name: HSCSSIM.SimCode
+  driver: PLC_HUB
+  address: hr:2033
+  type: string
+  writable: true
+  description: 'Scanner: barcode (ingresso simulato)'
+  area: Hub-SorterSud
+- name: HSCSSIM.SimWeight
+  driver: PLC_HUB
+  address: hr:2043
+  type: u16
+  writable: true
+  description: 'Scanner: peso (ingresso simulato)'
+  unit: g×10
+  area: Hub-SorterSud
+- name: HUB.B1_Count
+  driver: PLC_HUB
+  address: ir:10
+  type: u16
+  description: 'Baia 1: colli scaricati'
+  historize: true
+  area: Hub-Baia1
+- name: HUB.B2_Count
+  driver: PLC_HUB
+  address: ir:11
+  type: u16
+  description: 'Baia 2: colli scaricati'
+  historize: true
+  area: Hub-Baia2
+- name: HUB.B3_Count
+  driver: PLC_HUB
+  address: ir:12
+  type: u16
+  description: 'Baia 3: colli scaricati'
+  historize: true
+  area: Hub-Baia3
+- name: HUB.PS_Nord
+  driver: PLC_HUB
+  address: ir:13
+  type: u16
+  description: 'Pre-smistamento: colli verso Nord'
+  historize: true
+  area: Hub-Collettore
+- name: HUB.PS_Sud
+  driver: PLC_HUB
+  address: ir:14
+  type: u16
+  description: 'Pre-smistamento: colli verso Sud'
+  historize: true
+  area: Hub-Collettore
+- name: HUB.PS_Scarti
+  driver: PLC_HUB
+  address: ir:15
+  type: u16
+  description: 'Pre-smistamento: colli agli scarti'
+  historize: true
+  area: Hub-Collettore
+- name: SN.CH1_Count
+  driver: PLC_HUB
+  address: ir:16
+  type: u16
+  description: 'Sorter Nord: colli nello scivolo 1'
+  historize: true
+  area: Hub-SorterNord
+- name: SN.CH2_Count
+  driver: PLC_HUB
+  address: ir:17
+  type: u16
+  description: 'Sorter Nord: colli nello scivolo 2'
+  historize: true
+  area: Hub-SorterNord
+- name: SN.CH3_Count
+  driver: PLC_HUB
+  address: ir:18
+  type: u16
+  description: 'Sorter Nord: colli nello scivolo 3'
+  historize: true
+  area: Hub-SorterNord
+- name: SN.CH4_Count
+  driver: PLC_HUB
+  address: ir:19
+  type: u16
+  description: 'Sorter Nord: colli nello scivolo 4'
+  historize: true
+  area: Hub-SorterNord
+- name: SN.CH5_Count
+  driver: PLC_HUB
+  address: ir:20
+  type: u16
+  description: 'Sorter Nord: colli nello scivolo 5'
+  historize: true
+  area: Hub-SorterNord
+- name: SN.CH6_Count
+  driver: PLC_HUB
+  address: ir:21
+  type: u16
+  description: 'Sorter Nord: colli nello scivolo 6'
+  historize: true
+  area: Hub-SorterNord
+- name: SN.CH7_Count
+  driver: PLC_HUB
+  address: ir:22
+  type: u16
+  description: 'Sorter Nord: colli nello scivolo 7'
+  historize: true
+  area: Hub-SorterNord
+- name: SS.CH1_Count
+  driver: PLC_HUB
+  address: ir:23
+  type: u16
+  description: 'Sorter Sud: colli nello scivolo 1'
+  historize: true
+  area: Hub-SorterSud
+- name: SS.CH2_Count
+  driver: PLC_HUB
+  address: ir:24
+  type: u16
+  description: 'Sorter Sud: colli nello scivolo 2'
+  historize: true
+  area: Hub-SorterSud
+- name: SS.CH3_Count
+  driver: PLC_HUB
+  address: ir:25
+  type: u16
+  description: 'Sorter Sud: colli nello scivolo 3'
+  historize: true
+  area: Hub-SorterSud
+- name: SS.CH4_Count
+  driver: PLC_HUB
+  address: ir:26
+  type: u16
+  description: 'Sorter Sud: colli nello scivolo 4'
+  historize: true
+  area: Hub-SorterSud
+- name: SS.CH5_Count
+  driver: PLC_HUB
+  address: ir:27
+  type: u16
+  description: 'Sorter Sud: colli nello scivolo 5'
+  historize: true
+  area: Hub-SorterSud
+- name: SS.CH6_Count
+  driver: PLC_HUB
+  address: ir:28
+  type: u16
+  description: 'Sorter Sud: colli nello scivolo 6'
+  historize: true
+  area: Hub-SorterSud
+- name: SS.CH7_Count
+  driver: PLC_HUB
+  address: ir:29
+  type: u16
+  description: 'Sorter Sud: colli nello scivolo 7'
+  historize: true
+  area: Hub-SorterSud
+- name: SN.Recirc
+  driver: PLC_HUB
+  address: ir:201
+  type: u16
+  description: Colli ricircolati
+  historize: true
+  area: Hub-SorterNord
+- name: SS.Recirc
+  driver: PLC_HUB
+  address: ir:202
+  type: u16
+  description: Colli ricircolati
+  historize: true
+  area: Hub-SorterSud
+- name: HubSim.Active
+  driver: PLC_HUB
+  address: coil:99
+  type: bool
+  writable: true
+  description: Simulazione attiva (PLC hub)
+  area: Hub
+- name: HubSim.Heartbeat
+  driver: PLC_HUB
+  address: hr:99
+  type: u16
+  writable: true
+  description: Watchdog della simulazione (PLC hub)
+  area: Hub
+- name: HUB.ResetFaults
+  driver: PLC_HUB
+  address: coil:30
+  type: bool
+  writable: true
+  description: Reset guasti e inseguimento
+  area: Hub
 decision_points:
 - name: SC1
   description: Scanner barcode – scelta uscita del collo
@@ -1654,6 +3039,36 @@ decision_points:
     destination: 0
     result: 4
   area: MP-Ingressi
+- name: HSC0
+  description: 'Hub: pre-smistamento Nord/Sud/scarti'
+  telegram: HSC0
+  handshake: counter
+  function: hub_presort
+  timeout_ms: 400
+  fallback:
+    destination: 99
+    result: 9
+  area: Hub-Collettore
+- name: HSCN
+  description: 'Hub: sorter Nord, scelta dello scivolo'
+  telegram: HSCN
+  handshake: counter
+  function: hub_sort_nord
+  timeout_ms: 400
+  fallback:
+    destination: 99
+    result: 9
+  area: Hub-SorterNord
+- name: HSCS
+  description: 'Hub: sorter Sud, scelta dello scivolo'
+  telegram: HSCS
+  handshake: counter
+  function: hub_sort_sud
+  timeout_ms: 400
+  fallback:
+    destination: 99
+    result: 9
+  area: Hub-SorterSud
 sort_classes:
 - name: NORD
   description: Nord Italia
@@ -2017,9 +3432,10 @@ physics:
   step_ms: 20
   scale_mm: 10.0
   drivers:
+  - PLC_HUB
   - PLC_LINEA
-  heartbeat_tag: SimIO.Heartbeat
-  active_tag: SimIO.Active
+  heartbeat_tag: SimIO.Heartbeat,HubSim.Heartbeat
+  active_tag: SimIO.Active,HubSim.Active
   materials:
   - name: Collo
     length_m: 0.4

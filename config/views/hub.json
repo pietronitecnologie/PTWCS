@@ -1,0 +1,1138 @@
+{
+  "area": "Hub",
+  "background": "#0b1220",
+  "components": [
+    {
+      "bindings": {},
+      "events": {},
+      "h": 36,
+      "id": "title",
+      "name": "title",
+      "props": {
+        "bold": true,
+        "color": "#e2e8f0",
+        "fontSize": 26,
+        "text": "Hub di smistamento pacchi – panoramica"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 900,
+      "x": 30,
+      "y": 18
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "hint",
+      "name": "hint",
+      "props": {
+        "bold": false,
+        "color": "#64748b",
+        "fontSize": 14,
+        "text": "69 nastri · 53 fotocellule · 3 scanner · 15 deviatori · 6 linee · layer fisico: runtime → Simulazione"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 1000,
+      "x": 30,
+      "y": 58
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 400,
+      "id": "pr",
+      "name": "pr",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 740,
+      "x": 30,
+      "y": 100
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "pr_t",
+      "name": "pr_t",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 14,
+        "text": "Ricevimento"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 92.4,
+      "x": 42,
+      "y": 106
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_B1.Running"
+        },
+        "text": {
+          "expr": "'Baia 1: ' + (tag('HUB_B1.Running') ? 'IN MARCIA' : tag('HUB_B1.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_B1.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Baia 1?"
+        }
+      },
+      "h": 36,
+      "id": "lb1",
+      "name": "lb1",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Baia 1"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 260,
+      "x": 50,
+      "y": 150
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.B1_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vb1",
+      "name": "vb1",
+      "props": {
+        "fontSize": 15,
+        "label": "Colli scaricati"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 170,
+      "x": 330,
+      "y": 150
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_B2.Running"
+        },
+        "text": {
+          "expr": "'Baia 2: ' + (tag('HUB_B2.Running') ? 'IN MARCIA' : tag('HUB_B2.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_B2.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Baia 2?"
+        }
+      },
+      "h": 36,
+      "id": "lb2",
+      "name": "lb2",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Baia 2"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 260,
+      "x": 50,
+      "y": 206
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.B2_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vb2",
+      "name": "vb2",
+      "props": {
+        "fontSize": 15,
+        "label": "Colli scaricati"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 170,
+      "x": 330,
+      "y": 206
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_B3.Running"
+        },
+        "text": {
+          "expr": "'Baia 3: ' + (tag('HUB_B3.Running') ? 'IN MARCIA' : tag('HUB_B3.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_B3.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Baia 3?"
+        }
+      },
+      "h": 36,
+      "id": "lb3",
+      "name": "lb3",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Baia 3"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 260,
+      "x": 50,
+      "y": 262
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.B3_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vb3",
+      "name": "vb3",
+      "props": {
+        "fontSize": 15,
+        "label": "Colli scaricati"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 170,
+      "x": 330,
+      "y": 262
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_COL.Running"
+        },
+        "text": {
+          "expr": "'Collettore: ' + (tag('HUB_COL.Running') ? 'IN MARCIA' : tag('HUB_COL.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_COL.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Collettore?"
+        }
+      },
+      "h": 36,
+      "id": "lcol",
+      "name": "lcol",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Collettore"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 260,
+      "x": 50,
+      "y": 318
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.PS_Nord"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vpn",
+      "name": "vpn",
+      "props": {
+        "fontSize": 15,
+        "label": "→ Nord"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 150,
+      "x": 50,
+      "y": 380
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.PS_Sud"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vps",
+      "name": "vps",
+      "props": {
+        "fontSize": 15,
+        "label": "→ Sud"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 150,
+      "x": 220,
+      "y": 380
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HUB.PS_Scarti"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vpr",
+      "name": "vpr",
+      "props": {
+        "color": "#fca5a5",
+        "fontSize": 15,
+        "label": "Scarti"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 150,
+      "x": 390,
+      "y": 380
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HSC0.Barcode"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vbc",
+      "name": "vbc",
+      "props": {
+        "fontSize": 14,
+        "label": "Ultima lettura SC0"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 450,
+      "x": 50,
+      "y": 430
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "view": "hub_ricevimento"
+            }
+          ]
+        }
+      },
+      "h": 40,
+      "id": "nr",
+      "name": "nr",
+      "props": {
+        "fill": "#1d4ed8",
+        "fontSize": 14,
+        "text": "▶ Ricevimento"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 200,
+      "x": 550,
+      "y": 440
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 560,
+      "id": "psSN",
+      "name": "psSN",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 370,
+      "x": 800,
+      "y": 100
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "psSN_t",
+      "name": "psSN_t",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 14,
+        "text": "Sorter Nord"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 92.4,
+      "x": 812,
+      "y": 106
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_SN.Running"
+        },
+        "text": {
+          "expr": "'Sorter Nord: ' + (tag('HUB_SN.Running') ? 'IN MARCIA' : tag('HUB_SN.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_SN.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Sorter Nord?"
+        }
+      },
+      "h": 36,
+      "id": "lbSN",
+      "name": "lbSN",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Sorter Nord"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 330,
+      "x": 820,
+      "y": 150
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SN.CH1_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSN1",
+      "name": "vSN1",
+      "props": {
+        "fontSize": 15,
+        "label": "1 Milano"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 820,
+      "y": 205
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SN.CH2_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSN2",
+      "name": "vSN2",
+      "props": {
+        "fontSize": 15,
+        "label": "2 Torino"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 990,
+      "y": 205
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SN.CH3_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSN3",
+      "name": "vSN3",
+      "props": {
+        "fontSize": 15,
+        "label": "3 Bologna"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 820,
+      "y": 255
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SN.CH4_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSN4",
+      "name": "vSN4",
+      "props": {
+        "fontSize": 15,
+        "label": "4 Venezia"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 990,
+      "y": 255
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SN.CH5_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSN5",
+      "name": "vSN5",
+      "props": {
+        "fontSize": 15,
+        "label": "5 Genova"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 820,
+      "y": 305
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SN.CH6_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSN6",
+      "name": "vSN6",
+      "props": {
+        "fontSize": 15,
+        "label": "6 Estero"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 990,
+      "y": 305
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SN.CH7_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSN7",
+      "name": "vSN7",
+      "props": {
+        "color": "#fca5a5",
+        "fontSize": 15,
+        "label": "7 Scarti"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 820,
+      "y": 355
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SN.Recirc"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "rSN",
+      "name": "rSN",
+      "props": {
+        "fontSize": 15,
+        "label": "Ricircoli"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 990,
+      "y": 355
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HSCN.Barcode"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "bcSN",
+      "name": "bcSN",
+      "props": {
+        "fontSize": 14,
+        "label": "Ultima lettura"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 330,
+      "x": 820,
+      "y": 420
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "view": "hub_nord"
+            }
+          ]
+        }
+      },
+      "h": 40,
+      "id": "nSN",
+      "name": "nSN",
+      "props": {
+        "fill": "#1d4ed8",
+        "fontSize": 14,
+        "text": "▶ Sorter Nord"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 200,
+      "x": 820,
+      "y": 600
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 560,
+      "id": "psSS",
+      "name": "psSS",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 370,
+      "x": 1190,
+      "y": 100
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 24,
+      "id": "psSS_t",
+      "name": "psSS_t",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 14,
+        "text": "Sorter Sud"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 84.0,
+      "x": 1202,
+      "y": 106
+    },
+    {
+      "bindings": {
+        "active": {
+          "kind": "tag",
+          "tag": "HUB_SS.Running"
+        },
+        "text": {
+          "expr": "'Sorter Sud: ' + (tag('HUB_SS.Running') ? 'IN MARCIA' : tag('HUB_SS.Enable') ? 'GUASTO' : 'FERMA')",
+          "kind": "expr"
+        }
+      },
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_SS.Enable",
+              "value": "toggle"
+            }
+          ],
+          "confirm": "Avviare/fermare Sorter Sud?"
+        }
+      },
+      "h": 36,
+      "id": "lbSS",
+      "name": "lbSS",
+      "props": {
+        "activeFill": "#15803d",
+        "fill": "#475569",
+        "fontSize": 13,
+        "text": "Sorter Sud"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 330,
+      "x": 1210,
+      "y": 150
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SS.CH1_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSS1",
+      "name": "vSS1",
+      "props": {
+        "fontSize": 15,
+        "label": "1 Roma"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 1210,
+      "y": 205
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SS.CH2_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSS2",
+      "name": "vSS2",
+      "props": {
+        "fontSize": 15,
+        "label": "2 Napoli"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 1380,
+      "y": 205
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SS.CH3_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSS3",
+      "name": "vSS3",
+      "props": {
+        "fontSize": 15,
+        "label": "3 Firenze"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 1210,
+      "y": 255
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SS.CH4_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSS4",
+      "name": "vSS4",
+      "props": {
+        "fontSize": 15,
+        "label": "4 Bari"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 1380,
+      "y": 255
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SS.CH5_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSS5",
+      "name": "vSS5",
+      "props": {
+        "fontSize": 15,
+        "label": "5 Palermo"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 1210,
+      "y": 305
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SS.CH6_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSS6",
+      "name": "vSS6",
+      "props": {
+        "fontSize": 15,
+        "label": "6 Estero"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 1380,
+      "y": 305
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SS.CH7_Count"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "vSS7",
+      "name": "vSS7",
+      "props": {
+        "color": "#fca5a5",
+        "fontSize": 15,
+        "label": "7 Scarti"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 1210,
+      "y": 355
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "SS.Recirc"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "rSS",
+      "name": "rSS",
+      "props": {
+        "fontSize": 15,
+        "label": "Ricircoli"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 1380,
+      "y": 355
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "HSCS.Barcode"
+        }
+      },
+      "events": {},
+      "h": 30,
+      "id": "bcSS",
+      "name": "bcSS",
+      "props": {
+        "fontSize": 14,
+        "label": "Ultima lettura"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 330,
+      "x": 1210,
+      "y": 420
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "navigate",
+              "view": "hub_sud"
+            }
+          ]
+        }
+      },
+      "h": 40,
+      "id": "nSS",
+      "name": "nSS",
+      "props": {
+        "fill": "#1d4ed8",
+        "fontSize": 14,
+        "text": "▶ Sorter Sud"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 200,
+      "x": 1210,
+      "y": 600
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_COL.Enable",
+              "value": "true"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_B1.Enable",
+              "value": "true"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_B2.Enable",
+              "value": "true"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_B3.Enable",
+              "value": "true"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_SN.Enable",
+              "value": "true"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_SS.Enable",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "all_on",
+      "name": "all_on",
+      "props": {
+        "fill": "#15803d",
+        "text": "▶ Avvia tutte le linee"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 230,
+      "x": 30,
+      "y": 540
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB_COL.Enable",
+              "value": "false"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_B1.Enable",
+              "value": "false"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_B2.Enable",
+              "value": "false"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_B3.Enable",
+              "value": "false"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_SN.Enable",
+              "value": "false"
+            },
+            {
+              "kind": "write",
+              "tag": "HUB_SS.Enable",
+              "value": "false"
+            }
+          ],
+          "confirm": "Fermare tutte le linee dell'hub?"
+        }
+      },
+      "h": 46,
+      "id": "all_off",
+      "name": "all_off",
+      "props": {
+        "fill": "#b91c1c",
+        "text": "■ Ferma tutte le linee"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 230,
+      "x": 275,
+      "y": 540
+    },
+    {
+      "bindings": {},
+      "events": {
+        "onClick": {
+          "actions": [
+            {
+              "kind": "write",
+              "tag": "HUB.ResetFaults",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "h": 46,
+      "id": "reset",
+      "name": "reset",
+      "props": {
+        "fill": "#1d4ed8",
+        "text": "↺ Reset guasti"
+      },
+      "rotation": 0,
+      "type": "button",
+      "w": 230,
+      "x": 520,
+      "y": 540
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "HubSim.Active"
+        }
+      },
+      "events": {},
+      "h": 22,
+      "id": "simon",
+      "name": "simon",
+      "props": {
+        "colorOn": "#a78bfa",
+        "label": "Simulazione fisica attiva (PLC hub)"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 22,
+      "x": 40,
+      "y": 620
+    }
+  ],
+  "height": 700,
+  "home": false,
+  "physics": {
+    "scale_mm": 10
+  },
+  "title": "Hub – panoramica",
+  "width": 1600
+}

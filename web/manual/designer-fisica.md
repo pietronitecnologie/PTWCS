@@ -45,7 +45,7 @@ Tasto destro sul foglio → **Collega automaticamente i nastri**: collega ogni n
 | Campo | Significato |
 |---|---|
 | **Marcia** ▶ | tag bool comandato dal PLC |
-| **Successivo** | nastro, deviatore o pozzo in cui passano le unità alla fine del nastro |
+| **Successivo** | nastro, deviatore o pozzo in cui passano le unità alla fine del nastro. Per un componente di un'altra vista: **↗ in un'altra vista…** e `vista/id` (es. `hub_nord/SN_IN`) |
 | **Uscita dall'impianto** | le unità escono alla fine del nastro (senza contatore) |
 | **Lunghezza** | in metri; vuoto = larghezza del disegno × scala della vista |
 | **Velocità max**, **Accelerazione**, **Decelerazione** | m/s e m/s²: le rampe valgono all'avvio e all'arresto |
@@ -116,6 +116,13 @@ Le unità che arrivano qui lasciano l'impianto. Un **contatore** ◀ opzionale v
 
 Quando è fuori **blocca le unità** in quella posizione del nastro: serve per zone di accumulo, varchi, stazioni.
 
+### Impianti su più viste
+
+Un impianto grande si divide in pagine per area o linea, e i nastri proseguono da una vista all'altra:
+- nel campo *Successivo* (o nelle uscite di un deviatore) si indica `vista/id` del componente nell'altra vista;
+- nel disegno il collegamento compare come **↗ vista/id**;
+- nel runtime ogni unità è disegnata sulla vista del nastro su cui si trova.
+
 ## Scala della vista
 
 Le proprietà della vista, con il layer ⚛ Fisica attivo, contengono la **Scala mm/px**. Con 10 mm/px un nastro largo 300 px è lungo 3 m. Senza un valore vale la scala predefinita del progetto.
@@ -132,8 +139,8 @@ Sono nel workspace **⚛ Fisica** e si applicano con **Salva progetto**.
 | **Scala predefinita** | mm per pixel delle viste senza una scala propria |
 | **Avvio automatico** | la simulazione parte con il server: solo per banchi di prova dedicati |
 | **Driver simulabili** | i driver su cui la simulazione può scrivere i sensori: **solo PLC virtuali o in collaudo** |
-| **Tag heartbeat** | contatore incrementato ogni 0,5 s mentre la simulazione gira (watchdog nel PLC) |
-| **Tag simulazione attiva** | vero mentre la simulazione gira: il PLC usa gli ingressi simulati |
+| **Tag heartbeat** | contatore incrementato ogni 0,5 s mentre la simulazione gira (watchdog nel PLC). Con più PLC: più tag separati da virgola |
+| **Tag simulazione attiva** | vero mentre la simulazione gira: il PLC usa gli ingressi simulati. Viene riscritto a ogni heartbeat, così un PLC riavviato lo riceve. Anche qui più tag separati da virgola |
 
 ## Materiali
 
@@ -193,6 +200,10 @@ Lo stesso schema funziona con un **PLC reale in collaudo** (driver S7 verso la C
 
 ## Demo
 
+Ci sono due demo: la linea di smistamento (piccola) e l'hub di smistamento pacchi (grande).
+
+### Linea di smistamento
+
 `python3 tools/build_demo_physics.py` aggiunge il layer fisico alla linea di smistamento della demo:
 - **tag** `SimIO.*` sul PLC di linea;
 - **materiali**: collo, pacco, busta;
@@ -206,3 +217,32 @@ Il PLC simulato `plc_sim`, con la simulazione attiva, fa la stessa cosa di `FB_S
 - va in guasto se un collo resta fermo su una fotocellula.
 
 WCS e regole di smistamento decidono le uscite come in produzione. Le prove si fanno da runtime → **Simulazione**.
+
+### Hub di smistamento pacchi
+
+Si genera con `python3 tools/build_demo_hub.py` (server avviato), poi si avvia il suo PLC:
+
+```bash
+cargo run --release --bin plc_hub
+```
+
+Ha 69 nastri, 53 fotocellule, 3 scanner, 15 deviatori e 6 linee, su quattro viste:
+
+| Vista | Area | Contenuto |
+|---|---|---|
+| **Hub – panoramica** | Hub | stato delle linee, avvio e arresto di tutte le linee, conteggi per baia, scivolo e ricircolo, navigazione |
+| **Hub – Ricevimento** | Hub-Ricevimento (Baia 1–3, Collettore) | 3 baie di scarico camion con merge sul collettore, pre-smistatore con scanner SC0 → Nord / Sud / scarti, linea scarti con postazione di codifica manuale |
+| **Hub – Sorter Nord** / **Sud** | Hub-SorterNord / Hub-SorterSud | sorter ad anello: immissione con merge del ricircolo, scanner, 7 deviatori (6 scivoli per città + scarti), ricircolo |
+
+Il PLC `plc_hub` legge la sua configurazione da `config/hub/plc_hub.json`, generato dal builder insieme a tag e viste. La logica:
+
+| Funzione | Comportamento |
+|---|---|
+| **Linee** | ogni linea si avvia e si ferma con il suo pulsante; un nastro è in marcia se la linea è abilitata e il nastro non è in guasto |
+| **Merge** | l'immissione attende se la fotocellula della linea principale è occupata. Per le baie la principale è il collettore, per il sorter il ricircolo. Dopo 6 s passa comunque (anti-blocco) |
+| **Controllo motori** | marcia comandata da 2,5 s senza velocità reale → guasto e allarme. Si prova con **⚡ Avaria motore** nella pagina Simulazione |
+| **Scanner** | a ogni lettura parte la richiesta al WCS (punti di decisione `HSC0`, `HSCN`, `HSCS`, script `hub_presort`, `hub_sort_nord`, `hub_sort_sud`) e il collo viene inseguito in una coda per ogni deviatore |
+| **Deviatori** | il pre-smistatore va sulla destinazione ricevuta. Nel sorter ogni deviatore devia se il collo è per il suo scivolo e lo scivolo non è pieno (fotocellula d'ingresso occupata da più di 1,5 s); altrimenti il collo prosegue e, dopo l'ultimo, ricircola e viene riletto |
+| **Risincronizzazione** | le code si azzerano quando la simulazione riparte. Le voci più vecchie di 30 s vengono scartate |
+
+Il sorter separa i colli: il nastro dello scanner richiede 35 cm di distanza tra le unità e le sezioni del sorter sono più veloci dell'immissione.

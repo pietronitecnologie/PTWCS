@@ -108,9 +108,12 @@ export function physOverlay(view, def = 10) {
     if (c.physics?.kind === 'conveyor') { const a = axis(c); return [a.x0, a.y0]; }
     const a = axis(c); return [a.cx, a.cy];
   };
-  const link = (x0, y0, t, label = '') => {
+  const link = (x0, y0, t, label = '', ref = '') => {
     const p = entry(t);
-    if (!p) return '';
+    if (!p) {
+      // collegamento verso un'altra vista (vista/id)
+      return ref.includes('/') ? `<text x="${x0 + 6}" y="${y0 - 6}" fill="#e879f9" font-size="12" font-weight="600">↗ ${esc(ref)}${label ? ` (${esc(label)})` : ''}</text>` : '';
+    }
     return `<line x1="${x0}" y1="${y0}" x2="${p[0]}" y2="${p[1]}" stroke="#e879f9" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#phLink)"/>` +
       (label ? `<text x="${(x0 + p[0]) / 2 + 4}" y="${(y0 + p[1]) / 2 - 4}" fill="#e879f9" font-size="11" font-weight="600">${esc(label)}</text>` : '');
   };
@@ -121,12 +124,12 @@ export function physOverlay(view, def = 10) {
       const a = axis(c), ppm = convPpm(c, view, def), len = (a.w / ppm);
       h += `<line x1="${a.x0}" y1="${a.y0}" x2="${a.x1}" y2="${a.y1}" stroke="${k.color}" stroke-width="3" marker-end="url(#phArr)" opacity=".9"/>
         <text x="${a.cx}" y="${a.cy + a.h / 2 + 13}" fill="${k.color}" font-size="11" text-anchor="middle" transform="rotate(${((a.deg % 360) + 360) % 360 > 90 && ((a.deg % 360) + 360) % 360 < 270 ? a.deg + 180 : a.deg} ${a.cx} ${a.cy})">${len.toFixed(2)} m · ${(+p.speed || 0.5)} m/s${p.run ? ' · ' + esc(p.run) : ' · ⚠ marcia?'}</text>`;
-      if (p.next) h += link(a.x1, a.y1, byId[p.next]);
+      if (p.next) h += link(a.x1, a.y1, byId[p.next], '', p.next);
       else if (p.sink) h += `<text x="${a.x1 + 4}" y="${a.y1 + 4}" fill="#94a3b8" font-size="14">⊖</text>`;
     } else if (p.kind === 'diverter') {
       const a = axis(c);
       h += `<circle cx="${a.cx}" cy="${a.cy}" r="9" fill="none" stroke="${k.color}" stroke-width="2.5"/>`;
-      for (const o of p.outputs || []) h += link(a.cx, a.cy, byId[o.next], o.value);
+      for (const o of p.outputs || []) h += link(a.cx, a.cy, byId[o.next], o.value, o.next);
     } else if (p.kind === 'sink') {
       const a = axis(c);
       h += `<text x="${a.cx}" y="${a.cy + 6}" fill="${k.color}" font-size="18" text-anchor="middle">⊖</text>`;

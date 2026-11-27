@@ -77,6 +77,12 @@ PLC Modbus simulato (linea di smistamento):
 ./target/release/plc_sim 127.0.0.1:5020
 ```
 
+PLC dell'hub di smistamento pacchi (demo grande, configurazione in `config/hub/plc_hub.json`):
+
+```bash
+./target/release/plc_hub
+```
+
 WMS di prova (facoltativo, per la demo delle classi WMS):
 
 ```bash
@@ -471,7 +477,7 @@ PLC (PLCSIM Advanced / reale) ──attuatori──▶ tag ──▶ fisica ─�
 ```
 
 **Designer:**
-- **Viste → ⚛ Fisica**: su ogni componente si sceglie il tipo fisico e si collegano i tag. Si vedono assi, collegamenti e posizioni dei sensori, ed è possibile il collegamento automatico dei nastri.
+- **Viste → ⚛ Fisica** (anche su più viste: i nastri proseguono con `vista/id`): su ogni componente si sceglie il tipo fisico e si collegano i tag. Si vedono assi, collegamenti e posizioni dei sensori, ed è possibile il collegamento automatico dei nastri.
 
   | Tipo | Proprietà |
   |---|---|
@@ -499,7 +505,14 @@ PLC (PLCSIM Advanced / reale) ──attuatori──▶ tag ──▶ fisica ─�
 
 **PLC:** `plc/tia/SimIO.scl` per S7-1500 / PLCSIM Advanced. Contiene il DB `SimIO` scritto da PTWCS, l'immagine `In` e `FB_SimIO`, che sceglie tra ingressi reali e simulati con abilitazione e watchdog.
 
-**Demo:** `python3 tools/build_demo_physics.py`. Ridisegna la linea di smistamento con il layer fisico e i tag `SimIO.*`. Con la simulazione attiva, `plc_sim` esegue la logica vera sugli ingressi simulati:
+**Demo grande – hub di smistamento pacchi:** `python3 tools/build_demo_hub.py`, poi `cargo run --release --bin plc_hub`.
+- **Impianto**: 69 nastri, 53 fotocellule, 3 scanner, 15 deviatori, 6 linee in 3 aree.
+- **Ricevimento**: 3 baie di scarico con merge sul collettore, pre-smistatore Nord/Sud/scarti.
+- **Sorter**: due sorter ad anello con 6 scivoli più gli scarti, ricircolo e merge prioritario.
+- **Viste**: quattro, collegate tra loro: i nastri proseguono da una vista all'altra con `vista/id`.
+- **PLC `plc_hub`**: logica configurata da `config/hub/plc_hub.json` (merge, controllo motori, inseguimento FIFO, scivolo pieno → ricircolo, risincronizzazione).
+
+**Demo piccola:** `python3 tools/build_demo_physics.py`. Ridisegna la linea di smistamento con il layer fisico e i tag `SimIO.*`. Con la simulazione attiva, `plc_sim` esegue la logica vera sugli ingressi simulati:
 - richiesta al WCS a ogni lettura;
 - inseguimento FIFO dei colli;
 - deviatore all'arrivo del collo;

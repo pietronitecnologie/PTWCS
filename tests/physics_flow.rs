@@ -25,7 +25,7 @@ const VIEW: &str = r##"{
     { "id": "B", "type": "conveyor", "x": 220, "y": 0, "w": 100, "h": 40,
       "physics": { "kind": "conveyor", "run": "B.Run", "next": "K", "speed": 1.0, "accel": 5, "decel": 5 } },
     { "id": "C", "type": "conveyor", "x": 220, "y": 100, "w": 100, "h": 40,
-      "physics": { "kind": "conveyor", "run": "B.Run", "sink": true } },
+      "physics": { "kind": "conveyor", "run": "B.Run", "next": "t2/E" } },
     { "id": "K", "type": "rect", "x": 330, "y": 0, "w": 20, "h": 40, "physics": { "kind": "sink", "count_tag": "Out" } },
     { "id": "PE", "type": "rect", "x": 150, "y": 10, "w": 20, "h": 20, "physics": { "kind": "photocell", "tag": "PE" } },
     { "id": "SC", "type": "rect", "x": 90, "y": -60, "w": 20, "h": 20,
@@ -58,6 +58,12 @@ async fn conveyors_sensors_diverter_and_protection() {
     );
     std::fs::write(dir.join("project.yaml"), project).unwrap();
     std::fs::write(dir.join("views/t.json"), VIEW).unwrap();
+    // seconda vista: il nastro C prosegue nel nastro E di un'altra pagina (riferimento vista/id)
+    std::fs::write(
+        dir.join("views/t2.json"),
+        r#"{"title":"T2","width":400,"height":200,"components":[{"id":"E","type":"conveyor","x":0,"y":0,"w":100,"h":40,"physics":{"kind":"conveyor","run":"B.Run","sink":true}}]}"#,
+    )
+    .unwrap();
     let path = dir.join("plant.yaml");
     let a = app::start(Config::load_base(&path).unwrap(), Config::load(&path).unwrap()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -66,7 +72,9 @@ async fn conveyors_sensors_diverter_and_protection() {
     let st = a.physics.status(&a);
     let errors: Vec<String> = serde_json::from_value(st["errors"].clone()).unwrap();
     assert!(errors.iter().any(|e| e.contains("P.Sensor") && e.contains("non è abilitato")), "{errors:?}");
-    assert_eq!(st["components"].as_array().unwrap().len(), 8, "8 componenti validi");
+    assert_eq!(st["components"].as_array().unwrap().len(), 9, "9 componenti validi (2 viste)");
+    let c = st["components"].as_array().unwrap().iter().find(|c| c["key"] == "t/C").unwrap().clone();
+    assert_eq!(c["next"], "t2/E", "collegamento tra viste");
     // la fotocellula senza "Montata su" è agganciata al nastro più vicino, nella posizione disegnata
     let pe = st["components"].as_array().unwrap().iter().find(|c| c["key"] == "t/PE").unwrap().clone();
     assert_eq!(pe["on"], "t/A");

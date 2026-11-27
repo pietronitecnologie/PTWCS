@@ -595,13 +595,13 @@ function physSection(c) {
       const kinds = type.slice(5).split(',');
       const opts = S.view.components.filter((x) => x.id !== c.id && kinds.includes(x.physics?.kind));
       inp = `<select data-pf="${key}"><option value="">${key === 'on' ? '(il più vicino nel disegno)' : ''}</option>${opts.map((x) => `<option value="${esc(x.id)}" ${x.id === v ? 'selected' : ''}>${KINDS[x.physics.kind].icon} ${esc(x.name || x.id)}</option>`).join('')}
-        ${v && !opts.some((x) => x.id === v) ? `<option selected value="${esc(v)}">⚠ ${esc(v)}</option>` : ''}</select>`;
+        ${v && !opts.some((x) => x.id === v) ? `<option selected value="${esc(v)}">${v.includes('/') ? '↗' : '⚠'} ${esc(v)}</option>` : ''}<option value="__other">↗ in un'altra vista…</option></select>`;
     } else if (type === 'outputs') {
       const outs = p.outputs || [];
       const targets = S.view.components.filter((x) => x.id !== c.id && ['conveyor', 'sink'].includes(x.physics?.kind));
       h += `<div class="prow" style="grid-template-columns:130px 1fr"><label>${esc(label)}</label><div>${outs.map((o, i) => `<div class="row" data-po="${i}" style="gap:4px;margin-bottom:3px">
           <input data-ov value="${esc(o.value)}" placeholder="valore" style="width:64px" title="Valore del tag posizione"><span>→</span>
-          <select data-on><option value=""></option>${targets.map((x) => `<option value="${esc(x.id)}" ${x.id === o.next ? 'selected' : ''}>${esc(x.name || x.id)}</option>`).join('')}</select>
+          <select data-on><option value=""></option>${targets.map((x) => `<option value="${esc(x.id)}" ${x.id === o.next ? 'selected' : ''}>${esc(x.name || x.id)}</option>`).join('')}${o.next && !targets.some((x) => x.id === o.next) ? `<option selected value="${esc(o.next)}">↗ ${esc(o.next)}</option>` : ''}<option value="__other">↗ in un'altra vista…</option></select>
           <button class="small danger" data-odel>✕</button></div>`).join('')}<button class="small" data-oadd>+ Uscita</button></div></div>`;
       continue;
     } else inp = `<input data-pf="${key}" value="${esc(v || '')}" placeholder="${esc(ph || '')}">`;
@@ -625,6 +625,7 @@ function wirePhys(c) {
   sec.querySelectorAll('[data-pf]').forEach((el) => (el.onchange = () => mutate(() => {
     const k = el.dataset.pf;
     let v = el.dataset.bool !== undefined ? el.checked : el.value.trim();
+    if (v === '__other') v = (prompt('Componente in un\'altra vista, come vista/id (es. hub_nord/IN1):', c.physics[k] || '') || '').trim();
     if (el.dataset.num !== undefined) v = v === '' ? undefined : +v;
     if (v === '' || v === undefined || v === false || Number.isNaN(v)) delete c.physics[k]; else c.physics[k] = v;
   }, { props: el.tagName === 'SELECT' })));
@@ -633,7 +634,9 @@ function wirePhys(c) {
   sec.querySelectorAll('[data-po]').forEach((row) => {
     const i = +row.dataset.po;
     row.querySelector('[data-ov]').onchange = (e) => mutate(() => (outs()[i].value = e.target.value.trim()), { props: false });
-    row.querySelector('[data-on]').onchange = (e) => mutate(() => (outs()[i].next = e.target.value), { props: false });
+    row.querySelector('[data-on]').onchange = (e) => mutate(() => {
+      outs()[i].next = e.target.value === '__other' ? (prompt('Componente in un\'altra vista, come vista/id:', outs()[i].next || '') || '').trim() : e.target.value;
+    });
     row.querySelector('[data-odel]').onclick = () => mutate(() => outs().splice(i, 1));
   });
   sec.ontoggle = () => { if (sec.open && !S.phys) $('#chkPhys').click(); };
