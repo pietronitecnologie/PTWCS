@@ -21,7 +21,7 @@ Cosa vedi dipende dai tuoi ruoli:
 
 | Zona | Contenuto |
 |---|---|
-| **Intestazione** | nome impianto, menu delle viste generali e delle pagine di sistema (WCS, Aree, Allarmi, Decisioni, Tag, Trend, Diagnostica), stato della connessione (● verde = collegato), ora, link al Designer |
+| **Intestazione** | nome impianto, menu delle viste generali e delle pagine di sistema (WCS, Processo, Aree, Allarmi, Decisioni, Tag, Trend, Diagnostica, Audit), stato della connessione (● verde = collegato), ora, tema ☀/🌙, utente, manuale, link al Designer |
 | **Barra delle aree** | sempre visibile, stile PCS7: un pulsante per area con lo stato degli allarmi |
 | **Pagina** | la vista o la pagina di sistema aperta |
 | **Barra allarmi** | in basso: allarme più recente, numero di allarmi attivi e da riconoscere, link alla pagina Allarmi |
@@ -97,3 +97,73 @@ Stato dei driver PLC (connessione, tempi di ciclo, letture, scritture, errori), 
 
 ### WCS
 Gestione dei magazzini automatici: vedi [WCS magazzini automatici](wcs.md).
+
+## Sequenze
+
+Menu **Processo**: una scheda per ogni sequenza con stato, passo corrente, tempo nel passo e avanzamento.
+
+| Stato | Significato |
+|---|---|
+| inattiva | mai avviata o dopo un reset |
+| in esecuzione | sta eseguendo i passi |
+| in pausa | le transizioni e i timeout sono sospesi |
+| completata | ha raggiunto la FINE |
+| arrestata | fermata dall'operatore (azioni di arresto eseguite) |
+| in errore | timeout o azione fallita: c'è l'allarme `SEQ.<nome>` |
+
+Comandi (permesso `seq.operate`):
+
+| Comando | Effetto |
+|---|---|
+| **▶ Avvia** | chiede i parametri di avvio (es. la **ricetta**) e, facoltativamente, il passo da cui partire |
+| **❚❚ Pausa / ▶ Riprendi** | sospende e riprende; il tempo in pausa non conta per timeout e `@elapsed` |
+| **✓ Conferma** | compare nei passi che attendono la conferma dell'operatore (es. controllo qualità) |
+| **⏭ Avanti** | forza il passo successivo senza attendere la transizione |
+| **↪** (sul diagramma) | salta a un passo qualsiasi |
+| **■ Arresta** | ferma la sequenza ed esegue le azioni di arresto (stato sicuro) |
+| **↺ Reset** | riporta a *inattiva* una sequenza conclusa, arrestata o in errore, e fa rientrare l'allarme |
+
+Una sequenza può partire anche dal PLC, con il tag di avvio configurato nel Designer.
+
+Il **diagramma dei passi** mostra azioni e transizioni di ogni passo: il passo corrente è evidenziato in verde con il suo tempo, quelli già eseguiti hanno la durata. A destra ci sono l'**esecuzione corrente** (chi l'ha avviata, parametri, storico dei passi con durate e motivo di uscita) e le **ultime esecuzioni** con esito e durata.
+
+## Ricette
+
+**Processo → 🧪 Ricette**: scegli il tipo di ricetta; a sinistra ci sono le ricette e la **ricetta attiva** di ogni unità (ultima caricata).
+
+| Azione | Permesso | Effetto |
+|---|---|---|
+| **+ Nuova** | `recipe.edit` | nuova ricetta con i valori predefiniti |
+| **Salva** / **Salva come…** | `recipe.edit` | registra i valori: limiti min/max verificati; la versione aumenta se i valori cambiano |
+| **Elimina** | `recipe.edit` | elimina la ricetta |
+| **⇩ Leggi dal PLC** | `recipe.edit` | copia nei campi i valori attuali dell'unità (poi *Salva* per registrarli) |
+| **⇄ Confronta** | — | mostra accanto a ogni parametro il valore sul PLC; ⚠ = diverso |
+| **⬆ Carica su …** | `recipe.load` | scrive tutti i parametri sull'unità scelta (con conferma) |
+
+Ogni salvataggio, eliminazione e caricamento finisce nell'audit trail con i valori prima e dopo.
+
+## Audit trail
+
+Menu **Audit** (permesso `audit.view`): il registro di chi ha fatto cosa, quando e da dove.
+
+| Colonna | Contenuto |
+|---|---|
+| **Data e ora** | al millisecondo |
+| **Utente** | utente autenticato e origine (hmi, designer, ricette, sequenza, auth…) |
+| **Categoria** | 🖱 comandi, ⚙ configurazione, 🔐 sicurezza, 🔔 allarmi, 🧪 ricette, 🔁 sequenze, 🏬 wcs |
+| **Azione** | es. Scrittura tag, Riconoscimento allarmi, Progetto salvato, Ricetta caricata, Avvio sequenza, Accesso fallito |
+| **Oggetto** | tag, ricetta, sequenza, vista… |
+| **Valore precedente / nuovo** | per le scritture: valore prima e dopo; per le ricette: i parametri cambiati |
+| **Dettaglio** | es. per il progetto le sezioni modificate (`tags: +R1.Level ~CV1.Speed −OLD`) |
+| **Client** | indirizzo IP del posto operatore (o `X-Forwarded-For` dietro reverse proxy) |
+
+- **Filtri**: periodo (dal/al), utente, categoria, azione e testo libero (tag, valori, dettagli).
+- **Pagine**: ◀ ▶ scorrono a pagine di 100 righe.
+- **Aggiornamento in tempo reale**: le nuove registrazioni compaiono in cima appena avvengono.
+- **⬇ CSV**: esporta con i filtri correnti (fino a 100 000 righe), nel formato per Excel con `;` come separatore. Anche l'esportazione viene registrata.
+
+L'audit non viene mai cancellato automaticamente.
+
+## Tema chiaro e scuro
+
+Il pulsante **☀ / 🌙** in alto (anche nel Designer e nel manuale, o con il tasto destro → *Tema chiaro/scuro*) cambia il tema dell'interfaccia. La scelta viene ricordata dal browser; al primo accesso segue il tema del sistema operativo. Le viste grafiche mantengono i colori di sfondo scelti nel Designer.

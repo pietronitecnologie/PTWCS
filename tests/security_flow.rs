@@ -116,3 +116,30 @@ async fn login_roles_views_and_tag_write_permissions() {
     assert_eq!(st, 401);
     assert!(e["error"].as_str().unwrap().contains("troppi tentativi"), "{e}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn designer_cannot_change_security_without_users_manage() {
+    let dir = std::env::temp_dir().join(format!("wcs_sec2_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("plant.yaml"), "plant: { name: T }\nserver: { database: t.db, web_root: . }\ndrivers: [ { name: SIM, protocol: sim, poll_ms: 20 } ]\n").unwrap();
+    std::fs::write(dir.join("project.yaml"), "security: { enabled: true }\n").unwrap();
+    let path = dir.join("plant.yaml");
+    let a = app::start(Config::load_base(&path).unwrap(), Config::load(&path).unwrap()).await.unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, web::router(a)).await.unwrap() });
+    let mut c = Client { base, http: reqwest::Client::new(), cookie: None };
+    assert_eq!(c.post("/api/auth/login", json!({"username": "admin", "password": "admin"})).await.0, 200);
+    assert_eq!(c.post("/api/auth/password", json!({"old": "admin", "new": "Adm1n-nuova"})).await.0, 200);
+    c.put("/api/users/pro", json!({"roles": ["progettista"], "password": "pro123", "must_change": false})).await;
+    c.post("/api/auth/logout", json!({})).await;
+    c.post("/api/auth/login", json!({"username": "pro", "password": "pro123"})).await;
+    let (_, mut p) = c.get("/api/project").await;
+    // modifica normale: consentita
+    assert_eq!(c.put("/api/project", p["project"].clone()).await.0, 200);
+    // auto-promozione: aggiungere users.manage al proprio ruolo è vietato
+    p["project"]["security"]["roles"][1]["permissions"].as_array_mut().unwrap().push(json!("users.manage"));
+    let (st, e) = c.put("/api/project", p["project"].clone()).await;
+    assert_eq!(st, 403, "{e}");
+}

@@ -258,9 +258,9 @@ export async function showWcs(page, whName, params, setTimer) {
           svg += `<rect x="${x}" y="${y}" width="${cw - 1}" height="${ch - 1}" fill="${st === 4 ? '#7f1d1d' : ZONE_BG[z]}" data-c="${c + 1}" data-l="${l + 1}"><title>${r.lus[l][c] || 'libera'} · zona ${'ABC'[z]}${k != null ? ` · classe ${'ABC'[k]}` : ''}</title></rect>`;
           if (st && st !== 4) svg += `<circle cx="${x + cw / 2 - 0.5}" cy="${y + ch / 2 - 0.5}" r="${Math.min(cw, ch) / 2 - 2.5}" fill="${k != null ? CLS_COLOR['ABC'[k]] : '#94a3b8'}" opacity="${st === 1 ? 1 : 0.45}" ${k != null && k !== z ? 'stroke="#fbbf24" stroke-width="1.5"' : ''} pointer-events="none"/>`;
         }
-        svg += `<text x="24" y="${(r.levels - 1 - l) * ch + 10}" fill="#8b9bb8" font-size="9" text-anchor="end">${l + 1}</text>`;
+        svg += `<text x="24" y="${(r.levels - 1 - l) * ch + 10}" style="fill:var(--muted)" font-size="9" text-anchor="end">${l + 1}</text>`;
       }
-      svg += `<text x="30" y="${r.levels * ch + 11}" fill="#8b9bb8" font-size="9">P&D ← col. 1</text><text x="${30 + r.columns * cw}" y="${r.levels * ch + 11}" fill="#8b9bb8" font-size="9" text-anchor="end">col. ${r.columns}</text>`;
+      svg += `<text x="30" y="${r.levels * ch + 11}" style="fill:var(--muted)" font-size="9">P&D ← col. 1</text><text x="${30 + r.columns * cw}" y="${r.levels * ch + 11}" style="fill:var(--muted)" font-size="9" text-anchor="end">col. ${r.columns}</text>`;
       el.innerHTML = `<svg width="${40 + r.columns * cw}" height="${r.levels * ch + 16}" style="display:block">${svg}</svg>
         <div class="row" style="gap:12px;margin-top:6px;font-size:12px">${['A', 'B', 'C'].map((c, i) => `<span class="row" style="gap:4px"><span style="width:14px;height:12px;background:${ZONE_BG[i]};border:1px solid #334155"></span>zona ${c}</span><span class="row" style="gap:4px"><span class="wcs-dot" style="background:${CLS_COLOR[c]}"></span>classe ${c}</span>`).join('')}<span class="row" style="gap:4px"><span class="wcs-dot" style="background:#64748b;outline:1.5px solid #fbbf24"></span>fuori zona</span></div>`;
       el.querySelectorAll('rect[data-c]').forEach((rc) => (rc.onclick = () => whCellDialog(wh, { aisle: +a, side: +sd, col: +rc.dataset.c, lvl: +rc.dataset.l }, { api, toast })));
@@ -291,14 +291,14 @@ export async function showWcs(page, whName, params, setTimer) {
           <div><label>In coda</label><b>${c.queued}</b></div></div></div>`).join('');
       const S = k.series, max = Math.max(4, ...S.map((b) => b[0] + b[1] + b[2]));
       const col = ['#22c55e', '#3b82f6', '#a855f7'];
-      let svg = `<rect width="760" height="200" fill="#0a1120"/>`;
-      for (let i = 0; i <= 4; i++) svg += `<line x1="40" x2="750" y1="${10 + i * 40}" y2="${10 + i * 40}" stroke="#1e293b"/><text x="34" y="${14 + i * 40}" fill="#8b9bb8" font-size="10" text-anchor="end">${Math.round(max * (1 - i / 4))}</text>`;
+      let svg = `<rect width="760" height="200" style="fill:var(--chart-bg)"/>`;
+      for (let i = 0; i <= 4; i++) svg += `<line x1="40" x2="750" y1="${10 + i * 40}" y2="${10 + i * 40}" style="stroke:var(--chart-grid)"/><text x="34" y="${14 + i * 40}" style="fill:var(--muted)" font-size="10" text-anchor="end">${Math.round(max * (1 - i / 4))}</text>`;
       S.forEach((b, i) => {
         let y = 170;
         b.forEach((v, j) => { const h = (v / max) * 160; y -= h; svg += `<rect x="${46 + i * 59}" y="${y}" width="48" height="${h}" fill="${col[j]}"><title>${['depositi', 'prelievi', 'movimentazioni'][j]}: ${v}</title></rect>`; });
-        svg += `<text x="${70 + i * 59}" y="188" fill="#8b9bb8" font-size="10" text-anchor="middle">−${(12 - i) * 5}′</text>`;
+        svg += `<text x="${70 + i * 59}" y="188" style="fill:var(--muted)" font-size="10" text-anchor="middle">−${(12 - i) * 5}′</text>`;
       });
-      svg += ['Depositi', 'Prelievi', 'Movimentazioni'].map((l, j) => `<rect x="${560 + j * 0}" y="${14 + j * 14}" width="10" height="10" fill="${col[j]}"/><text x="${575}" y="${23 + j * 14}" fill="#cbd5e1" font-size="11">${l}</text>`).join('');
+      svg += ['Depositi', 'Prelievi', 'Movimentazioni'].map((l, j) => `<rect x="${560 + j * 0}" y="${14 + j * 14}" width="10" height="10" fill="${col[j]}"/><text x="${575}" y="${23 + j * 14}" style="fill:var(--text)" font-size="11">${l}</text>`).join('');
       body.querySelector('#kS').innerHTML = svg;
     };
     await draw();

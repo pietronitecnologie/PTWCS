@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
     let state = app::start(base, cfg).await?;
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("HMI: http://{bind}/   Designer: http://{bind}/designer.html");
-    axum::serve(listener, web::router(state))
+    axum::serve(listener, web::router(state).into_make_service_with_connect_info::<std::net::SocketAddr>())
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
             tracing::info!("arresto");

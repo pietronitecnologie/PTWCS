@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Manuale PTWCS</title>
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('ptwcs.theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark')}catch(e){}</script>
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body class="manual">
@@ -11,6 +12,7 @@
     <span class="brand">📖 Manuale PTWCS</span>
     <input id="mSearch" placeholder="Cerca nel manuale…" style="width:280px">
     <span class="grow"></span>
+    <button id="themeBtn"></button>
     <a href="index.html" style="color:var(--muted)">Runtime ↗</a>
     <a href="designer.html" style="color:var(--muted)">Designer ↗</a>
   </header>
@@ -23,6 +25,8 @@
     import { esc } from './js/core.js';
     import { MANUAL_PAGES, renderMarkdown, manualLink, loadPage, setCurrentPage } from './js/markdown.js';
     import { installDefaultMenu, clipWrite } from './js/ctxmenu.js';
+    import { mountThemeButton, themeMenuItem } from './js/theme.js';
+    mountThemeButton(document.getElementById('themeBtn'));
     installDefaultMenu((e) => {
       const h = e.target.closest('h1, h2, h3, h4');
       return [
@@ -34,6 +38,7 @@
         { label: 'Pagine', icon: '☰', sub: MANUAL_PAGES.map(([p, t]) => ({ label: t, checked: p === page, action: () => (location.hash = p) })) },
         { label: 'Cerca nel manuale', icon: '🔍', action: () => search.focus() },
         { label: 'Stampa pagina', icon: '🖨', action: () => window.print() },
+        themeMenuItem(),
         { sep: true },
         { label: 'Apri il runtime', icon: '↗', action: () => window.open('index.html', '_blank') },
         { label: 'Apri il Designer', icon: '✎', action: () => window.open('designer.html', '_blank') },

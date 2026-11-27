@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WCS-SCADA Designer</title>
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('ptwcs.theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark')}catch(e){}</script>
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/designer.css">
 </head>
@@ -16,6 +17,7 @@
       <button data-ws="tags">🏷 Tag e UDT</button>
       <button data-ws="sort">🔀 Smistamento</button>
       <button data-ws="project">⚙ Progetto</button>
+      <button data-ws="process">⚗ Processo</button>
       <button data-ws="scripts">🐍 Script</button>
     </nav>
     <span class="sep"></span>
@@ -31,6 +33,7 @@
     </span>
     <span class="grow"></span>
     <button id="btnSaveProject" data-perm="designer.project" title="Valida, salva e applica a caldo il progetto (tag, UDT, aree, protocollo, classi…)">Salva progetto<span id="projDirty" class="dirty" hidden> ●</span></button>
+    <button id="themeBtn"></button>
     <span id="userChip" data-compact="1"></span>
     <a href="manual.html#designer" target="_blank" title="Manuale utente (aiuto contestuale: pulsanti ? accanto a sezioni e campi)"><button>📖</button></a>
     <a id="btnRuntime" href="index.html" target="_blank"><button title="Apri il runtime">Runtime ↗</button></a>
@@ -80,6 +83,7 @@
   <div class="ws" id="ws-sort" hidden></div>
   <div class="ws" id="ws-project" hidden></div>
   <div class="ws" id="ws-scripts" hidden></div>
+  <div class="ws" id="ws-process" hidden></div>
 </div>
 <datalist id="tagNames"></datalist>
 <datalist id="instNames"></datalist>

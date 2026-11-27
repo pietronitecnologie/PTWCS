@@ -146,12 +146,16 @@ La tabella ha una colonna per ruolo e una riga per permesso: spunta i permessi d
 | `script.call` | eseguire script Python dai pulsanti delle viste |
 | `wh.operate` | WCS: missioni, ordini, prelievi, depositi, movimentazioni, blocco celle |
 | `wh.config` | WCS: riorganizzazione automatica e rettifiche dell'anagrafica UdC |
+| `seq.operate` | sequenze: avvio, arresto, pausa, ripresa, reset, avanzamento manuale, conferma |
+| `recipe.load` | caricare una ricetta sul PLC |
+| `recipe.edit` | creare, modificare, eliminare ricette e leggerle dal PLC |
+| `audit.view` | consultare ed esportare l'audit trail |
 | `designer` | aprire il Designer in consultazione |
 | `designer.views` | modificare viste, faceplate e simboli |
 | `designer.project` | modificare e salvare il progetto (tag, UDT, aree, protocollo, classi, WMS, magazzini) |
 | `rules.edit` | modificare le regole di smistamento |
 | `scripts.edit` | modificare, testare e ricaricare gli script Python |
-| `users.manage` | gestire utenti, ruoli e impostazioni di sicurezza |
+| `users.manage` | gestire utenti, ruoli e impostazioni di sicurezza; solo con questo permesso si possono modificare ruoli e permessi nel progetto |
 
 Ruoli predefiniti:
 

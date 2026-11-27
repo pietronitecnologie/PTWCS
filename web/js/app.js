@@ -3,12 +3,14 @@ import { api, Live, esc, fmtTs, toast } from './core.js';
 import { ViewRenderer, runActions, createPopup, compileSymbol, invalidateView, whCellDialog, scopeFor, subst } from './render.js';
 import { showMenu, editItems } from './ctxmenu.js';
 import { initAuth, mountUserChip, can, AUTH } from './auth.js';
+import { mountThemeButton, themeMenuItem } from './theme.js';
 import { showWcs } from './wcs.js';
+import { showSequences, showRecipes, showAudit } from './process.js';
 
 const live = new Live();
 const page = document.getElementById('page');
 let info = null, views = [], symbols = [], current = null, renderer = null, refresh = null;
-let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '', routeParams = {}, timers = [], hasWh = false;
+let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '', routeParams = {}, timers = [], hasWh = false, hasProc = false;
 const setTimer = (fn, ms) => timers.push(setInterval(() => fn().catch?.(() => {}), ms));
 
 // ------------------------------------------------------------ routing
@@ -31,6 +33,8 @@ function route() {
   if (kind === 'tags') return showTags();
   if (kind === 'trend') return showTrend();
   if (kind === 'diag') return showDiag();
+  if (kind === 'process') return (routeParams.tab === 'recipes' ? showRecipes : showSequences)(page, routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
+  if (kind === 'audit') return showAudit(page, routeParams, live).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   if (kind === 'wcs') return showWcs(page, arg ? decodeURIComponent(arg) : '', routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   const home = views.find((v) => v.home) || views[0];
   location.hash = home ? `#/view/${home.id}` : '#/tags';
@@ -40,15 +44,16 @@ function buildNav() {
   const n = live.alarms.filter((a) => !a.acked).length;
   document.getElementById('nav').innerHTML =
     views.filter((v) => !v.faceplate && v.menu !== false && !v.area).map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
-    (hasWh ? '<a href="#/wcs">WCS</a>' : '') + `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
-     <a href="#/decisions">Decisioni</a><a href="#/tags">Tag</a><a href="#/trend">Trend</a><a href="#/diag">Diagnostica</a>`;
+    (hasWh ? '<a href="#/wcs">WCS</a>' : '') + (hasProc ? '<a href="#/process">Processo</a>' : '') + `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
+     <a href="#/decisions">Decisioni</a><a href="#/tags">Tag</a><a href="#/trend">Trend</a><a href="#/diag">Diagnostica</a>${can('audit.view') ? '<a href="#/audit">Audit</a>' : ''}`;
   markNav();
 }
 
 function markNav() {
   document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === location.hash.split('?')[0]
     || (location.hash.startsWith('#/areas') && a.getAttribute('href') === '#/areas')
-    || (location.hash.startsWith('#/wcs') && a.getAttribute('href') === '#/wcs')));
+    || (location.hash.startsWith('#/wcs') && a.getAttribute('href') === '#/wcs')
+    || (location.hash.startsWith('#/process') && a.getAttribute('href') === '#/process')));
 }
 
 // ------------------------------------------------------------ viste
@@ -153,11 +158,15 @@ function runtimeMenu(e) {
       { label: 'Panoramica aree', icon: '🗺', action: () => (location.hash = '#/areas') },
       { label: 'Allarmi', icon: '🔔', action: () => { areaFilter = ''; location.hash = '#/alarms'; } },
       hasWh ? { label: 'WCS magazzini', icon: '🏬', action: () => (location.hash = '#/wcs') } : null,
+      hasProc ? { label: 'Sequenze', icon: '🔁', action: () => (location.hash = '#/process') } : null,
+      hasProc ? { label: 'Ricette', icon: '🧪', action: () => (location.hash = '#/process?tab=recipes') } : null,
+      can('audit.view') ? { label: 'Audit trail', icon: '📜', action: () => (location.hash = '#/audit') } : null,
       { label: 'Decisioni', icon: '🔀', action: () => (location.hash = '#/decisions') },
       { label: 'Tag', icon: '🏷', action: () => (location.hash = '#/tags') },
       { label: 'Trend', icon: '📈', action: () => (location.hash = '#/trend') },
       { label: 'Diagnostica', icon: '🩺', action: () => (location.hash = '#/diag') }].filter(Boolean) },
     { label: 'Aggiorna pagina', icon: '⟳', key: 'F5', action: () => route() },
+    themeMenuItem(),
     { label: 'Manuale utente', icon: '📖', key: 'F1', action: () => window.open(`manual.html#${location.hash.startsWith('#/wcs') ? 'wcs' : 'runtime'}`, '_blank') },
     { label: document.fullscreenElement ? 'Esci da schermo intero' : 'Schermo intero', icon: '⛶', key: 'F11', action: () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()) },
     info?.designer ? { label: location.hash.startsWith('#/view/') ? 'Modifica vista nel Designer' : 'Apri il Designer', icon: '✎', action: () => {
@@ -411,10 +420,10 @@ async function showTrend() {
     const svg = page.querySelector('#chart');
     if (!svg) return;
     const W = 1000, H = 380, L = 60, B = 30;
-    let html = `<rect width="${W}" height="${H}" fill="#0a1120"/>`;
+    let html = `<rect width="${W}" height="${H}" style="fill:var(--chart-bg)"/>`;
     for (let i = 0; i <= 5; i++) {
       const x = L + (W - L - 10) * i / 5;
-      html += `<line x1="${x}" y1="10" x2="${x}" y2="${H - B}" stroke="#1e293b"/><text x="${x}" y="${H - 10}" fill="#8b9bb8" font-size="11" text-anchor="middle">${new Date(from + range * i / 5).toLocaleTimeString()}</text>`;
+      html += `<line x1="${x}" y1="10" x2="${x}" y2="${H - B}" style="stroke:var(--chart-grid)"/><text x="${x}" y="${H - 10}" style="fill:var(--muted)" font-size="11" text-anchor="middle">${new Date(from + range * i / 5).toLocaleTimeString()}</text>`;
     }
     series.forEach((s, k) => {
       if (!s.d.length) return;
@@ -490,9 +499,12 @@ async function init() {
   document.title = info.plant.name;
   await initAuth('runtime.view');
   mountUserChip(document.getElementById('userChip'));
+  mountThemeButton(document.getElementById('themeBtn'));
   [views, symbols] = await Promise.all([api.get('/api/views'), api.get('/api/symbols')]);
   AUTH.viewOps = Object.fromEntries(views.map((v) => [v.id, v.can_operate !== false]));
   hasWh = (await api.get('/api/wh').catch(() => [])).length > 0;
+  const [sq, rc] = await Promise.all([api.get('/api/seq').catch(() => []), api.get('/api/recipes').catch(() => [])]);
+  hasProc = sq.length + rc.length > 0;
   for (const s of symbols) { try { compiled[s.id] = compileSymbol(s.svg); } catch { /* simbolo non valido */ } }
   document.getElementById('plant').textContent = info.plant.name;
   document.title = info.plant.name;

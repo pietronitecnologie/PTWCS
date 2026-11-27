@@ -15,6 +15,22 @@ use crate::value::Value;
 tokio::task_local! {
     /// Utente autenticato della richiesta in corso (per l'audit).
     pub static AUDIT_USER: String;
+    /// Indirizzo del client della richiesta in corso.
+    pub static AUDIT_CLIENT: String;
+}
+
+/// Categoria dell'audit trail.
+pub fn audit_category(source: &str, action: &str) -> &'static str {
+    match (source, action) {
+        ("auth", _) | ("admin", _) => "sicurezza",
+        (_, a) if a.starts_with("recipe") => "ricette",
+        (_, a) if a.starts_with("seq") => "sequenze",
+        (_, a) if a.starts_with("wh_") => "wcs",
+        (_, "ack") => "allarmi",
+        ("designer", _) => "configurazione",
+        (_, "write") | (_, "script_call") => "comandi",
+        _ => "altro",
+    }
 }
 use anyhow::{Result, bail};
 use serde::Serialize;
@@ -33,6 +49,8 @@ pub enum Event {
     Log { ts: i64, level: String, source: String, message: String },
     /// Il progetto è cambiato (le pagine ricaricano tag/aree).
     Project,
+    /// Nuova riga di audit (inviata solo a chi ha `audit.view`).
+    Audit { rec: crate::store::AuditRec },
 }
 
 struct Task {
@@ -52,6 +70,8 @@ pub struct AppState {
     /// Processo Python separato per gli eventi HMI.
     pub hmi_scripts: Arc<ScriptHost>,
     pub security: crate::security::Security,
+    pub recipes: crate::recipes::Recipes,
+    pub sequencer: crate::sequences::Sequencer,
     pub store: Store,
     pub alarms: AlarmManager,
     pub board: StatusBoard,
@@ -92,16 +112,35 @@ impl AppState {
     }
 
     pub fn audit(&self, user: &str, action: &str, detail: String) {
+        self.audit_ext(user, action, "", None, None, detail);
+    }
+
+    /// Audit con oggetto e valori prima/dopo. `source` = origine (hmi, designer, auth…):
+    /// l'utente autenticato e il client della richiesta HTTP in corso vengono aggiunti.
+    pub fn audit_ext(&self, source: &str, action: &str, target: &str, old: Option<String>, new: Option<String>, detail: String) {
         let s = self.store.clone();
         // utente della richiesta HTTP in corso (se c'è login): "mario (hmi)"
         let who = AUDIT_USER.try_with(|u| u.clone()).ok().filter(|u| !u.is_empty());
         let user = match who {
-            Some(w) if w != user => format!("{w} ({user})"),
-            _ => user.to_string(),
+            Some(w) if w != source => format!("{w} ({source})"),
+            _ => source.to_string(),
         };
-        let (u, a) = (user, action.to_string());
+        let client = AUDIT_CLIENT.try_with(|c| c.clone()).unwrap_or_default();
+        let rec = crate::store::AuditRec {
+            ts: now_ms(),
+            user,
+            action: action.to_string(),
+            detail,
+            category: audit_category(source, action).into(),
+            target: target.to_string(),
+            old_value: old,
+            new_value: new,
+            client,
+        };
+        let ev = self.events.clone();
+        let _ = ev.send(Event::Audit { rec: rec.clone() });
         tokio::spawn(async move {
-            let _ = s.audit(now_ms(), u, a, detail).await;
+            let _ = s.audit_rec(rec).await;
         });
     }
 
@@ -299,6 +338,7 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
 
     let store = Store::open(&cfg.resolve(&cfg.server.database))?;
     let security = crate::security::Security::open(store.clone()).await?;
+    let recipes = crate::recipes::Recipes::open(store.clone()).await?;
     let (events, _) = broadcast::channel(1024);
     let views_dir = cfg.resolve(&cfg.server.views_dir);
     let symbols_dir = cfg.resolve(&cfg.server.symbols_dir);
@@ -319,6 +359,8 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
         scripts,
         hmi_scripts,
         security,
+        recipes,
+        sequencer: Default::default(),
         store,
         alarms: AlarmManager::default(),
         board: Default::default(),
@@ -342,6 +384,7 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
     app.sync_timers(&cfg.timer_scripts);
     app.sync_warehouses(&cfg.warehouses).await;
     tokio::spawn(alarms::run(app.clone()));
+    tokio::spawn(crate::sequences::run(app.clone()));
     tokio::spawn(historian(app.clone()));
     tokio::spawn(housekeeping(app.clone()));
     tokio::spawn(crate::sorting::sync_task(sorting));

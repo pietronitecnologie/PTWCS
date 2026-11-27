@@ -6,7 +6,7 @@ import { esc } from './core.js';
 export const MANUAL_PAGES = [
   ['index', 'Introduzione'], ['runtime', 'Runtime'], ['wcs', 'WCS magazzini'],
   ['designer', 'Designer – Viste'], ['designer-tag', 'Designer – Tag e UDT'], ['designer-smistamento', 'Designer – Smistamento'],
-  ['designer-progetto', 'Designer – Progetto'], ['designer-script', 'Designer – Script'],
+  ['designer-progetto', 'Designer – Progetto'], ['designer-processo', 'Designer – Processo'], ['designer-script', 'Designer – Script'],
 ];
 
 /** Ancora di un titolo (come GitHub: minuscolo, senza accenti e punteggiatura, spazi → -). */

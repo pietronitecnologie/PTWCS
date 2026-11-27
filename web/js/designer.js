@@ -10,6 +10,7 @@ import { kvEditor, makeSplitter } from './forms.js';
 import { showMenu, installDefaultMenu } from './ctxmenu.js';
 import { helpBtn, openHelp } from './markdown.js';
 import { initAuth, mountUserChip } from './auth.js';
+import { mountThemeButton, themeMenuItem } from './theme.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
@@ -1019,7 +1020,7 @@ async function showWorkspace(ws) {
   $('#viewTools').style.display = ws === 'views' ? '' : 'none';
   localStorage.setItem('designer.ws', ws);
   if (ws === 'views') { renderProps(); return; }
-  const mod = { tags: './ws_tags.js', sort: './ws_sort.js', project: './ws_project.js', scripts: './ws_scripts.js' }[ws];
+  const mod = { tags: './ws_tags.js', sort: './ws_sort.js', project: './ws_project.js', scripts: './ws_scripts.js', process: './ws_process.js' }[ws];
   if (!wsLoaded[ws]) {
     wsLoaded[ws] = (await import(mod)).mount($(`#ws-${ws}`), { live, S, toast });
     // separatore del pannello laterale del workspace
@@ -1038,7 +1039,7 @@ document.querySelectorAll('.wstabs [data-ws]').forEach((b) => (b.onclick = () =>
 
 // ---------------------------------------------------------------- menu tasto destro predefinito (tutte le sezioni)
 const WS_LIST = [['views', '🖼 Viste', 'designer'], ['tags', '🏷 Tag e UDT', 'designer-tag'], ['sort', '🔀 Smistamento', 'designer-smistamento'],
-  ['project', '⚙ Progetto', 'designer-progetto'], ['scripts', '🐍 Script', 'designer-script']];
+  ['project', '⚙ Progetto', 'designer-progetto'], ['process', '⚗ Processo', 'designer-processo'], ['scripts', '🐍 Script', 'designer-script']];
 const curWs = () => localStorage.getItem('designer.ws') || 'views';
 async function refreshSection() {
   const ws = curWs();
@@ -1073,6 +1074,7 @@ installDefaultMenu((e) => {
     { label: `Guida di ${wsLabel.slice(2).trim()}`, icon: '📖', key: 'F1', action: () => openHelp(page) },
     { label: 'Manuale completo', icon: '📚', action: () => window.open(`manual.html#${page}`, '_blank') },
     { label: 'Apri il runtime', icon: '↗', action: () => window.open('index.html', '_blank') },
+    themeMenuItem(),
     { label: document.fullscreenElement ? 'Esci da schermo intero' : 'Schermo intero', icon: '⛶', action: () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()) },
   ];
 });
@@ -1095,6 +1097,7 @@ async function init() {
   document.title = `Designer – ${info.plant.name}`;
   await initAuth('designer');
   mountUserChip($('#userChip'));
+  mountThemeButton($('#themeBtn'));
   S.scripts = info.scripts;
   await Promise.all([loadViews(), loadSymbols(), loadTags(), loadProject()]);
   live.connect();

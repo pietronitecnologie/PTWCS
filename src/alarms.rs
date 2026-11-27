@@ -168,6 +168,13 @@ impl AlarmManager {
         self.publish(app, id, area, ev, msg, sev, value, None);
     }
 
+    /// Allarme generato da un modulo (sequenze…): attiva o rientra.
+    pub fn raise(&self, app: &AppState, id: &str, area: &str, msg: &str, sev: Severity, active: bool) {
+        let cur = self.states.read().unwrap().get(id).map(|s| s.message.clone());
+        let msg = if active { msg.to_string() } else { cur.unwrap_or_default() };
+        self.set(app, id, area, &msg, sev, active, String::new());
+    }
+
     /// Riconoscimento operatore: un allarme, un'area (con sotto-aree) o tutti.
     pub fn ack(&self, app: &AppState, id: Option<&str>, area: Option<&str>, user: &str) -> usize {
         let cfg = app.cfg();

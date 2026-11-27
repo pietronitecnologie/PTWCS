@@ -1402,6 +1402,208 @@ tags:
   type: bool
   description: P&D uscita corsia 3 occupato
   area: MP-Trasli
+- name: R1.Level
+  driver: WCS_INTERNO
+  address: r1_level
+  type: f32
+  description: R1 – livello
+  unit: '%'
+  historize: true
+  area: Processo
+- name: R1.Temp
+  driver: WCS_INTERNO
+  address: r1_temp
+  type: f32
+  description: R1 – temperatura
+  unit: °C
+  historize: true
+  area: Processo
+- name: R1.AgitSpeed
+  driver: WCS_INTERNO
+  address: r1_agitspeed
+  type: f32
+  description: R1 – velocità agitatore
+  unit: rpm
+  area: Processo
+- name: R1.FillValve
+  driver: WCS_INTERNO
+  address: r1_fillvalve
+  type: bool
+  writable: true
+  description: R1 – valvola di carico
+  area: Processo
+- name: R1.DrainValve
+  driver: WCS_INTERNO
+  address: r1_drainvalve
+  type: bool
+  writable: true
+  description: R1 – valvola di scarico
+  area: Processo
+- name: R1.Heater
+  driver: WCS_INTERNO
+  address: r1_heater
+  type: bool
+  writable: true
+  description: R1 – riscaldatore
+  area: Processo
+- name: R1.Agitator
+  driver: WCS_INTERNO
+  address: r1_agitator
+  type: bool
+  writable: true
+  description: R1 – agitatore
+  area: Processo
+- name: R1.Start
+  driver: WCS_INTERNO
+  address: r1_start
+  type: bool
+  writable: true
+  description: R1 – avvio batch da PLC
+  area: Processo
+- name: R1.SP_Level
+  driver: WCS_INTERNO
+  address: r1_sp_level
+  type: f32
+  writable: true
+  description: R1 – setpoint livello
+  unit: '%'
+  initial: 70
+  area: Processo
+- name: R1.SP_Temp
+  driver: WCS_INTERNO
+  address: r1_sp_temp
+  type: f32
+  writable: true
+  description: R1 – setpoint temperatura
+  unit: °C
+  initial: 60
+  area: Processo
+- name: R1.SP_MixTime
+  driver: WCS_INTERNO
+  address: r1_sp_mixtime
+  type: f32
+  writable: true
+  description: R1 – tempo di mantenimento
+  unit: s
+  initial: 30
+  area: Processo
+- name: R1.SP_AgitSpeed
+  driver: WCS_INTERNO
+  address: r1_sp_agitspeed
+  type: f32
+  writable: true
+  description: R1 – velocità agitatore
+  unit: rpm
+  initial: 120
+  area: Processo
+- name: R1.Product
+  driver: WCS_INTERNO
+  address: r1_product
+  type: string
+  writable: true
+  description: R1 – prodotto
+  area: Processo
+- name: R2.Level
+  driver: WCS_INTERNO
+  address: r2_level
+  type: f32
+  description: R2 – livello
+  unit: '%'
+  historize: true
+  area: Processo
+- name: R2.Temp
+  driver: WCS_INTERNO
+  address: r2_temp
+  type: f32
+  description: R2 – temperatura
+  unit: °C
+  historize: true
+  area: Processo
+- name: R2.AgitSpeed
+  driver: WCS_INTERNO
+  address: r2_agitspeed
+  type: f32
+  description: R2 – velocità agitatore
+  unit: rpm
+  area: Processo
+- name: R2.FillValve
+  driver: WCS_INTERNO
+  address: r2_fillvalve
+  type: bool
+  writable: true
+  description: R2 – valvola di carico
+  area: Processo
+- name: R2.DrainValve
+  driver: WCS_INTERNO
+  address: r2_drainvalve
+  type: bool
+  writable: true
+  description: R2 – valvola di scarico
+  area: Processo
+- name: R2.Heater
+  driver: WCS_INTERNO
+  address: r2_heater
+  type: bool
+  writable: true
+  description: R2 – riscaldatore
+  area: Processo
+- name: R2.Agitator
+  driver: WCS_INTERNO
+  address: r2_agitator
+  type: bool
+  writable: true
+  description: R2 – agitatore
+  area: Processo
+- name: R2.Start
+  driver: WCS_INTERNO
+  address: r2_start
+  type: bool
+  writable: true
+  description: R2 – avvio batch da PLC
+  area: Processo
+- name: R2.SP_Level
+  driver: WCS_INTERNO
+  address: r2_sp_level
+  type: f32
+  writable: true
+  description: R2 – setpoint livello
+  unit: '%'
+  initial: 70
+  area: Processo
+- name: R2.SP_Temp
+  driver: WCS_INTERNO
+  address: r2_sp_temp
+  type: f32
+  writable: true
+  description: R2 – setpoint temperatura
+  unit: °C
+  initial: 60
+  area: Processo
+- name: R2.SP_MixTime
+  driver: WCS_INTERNO
+  address: r2_sp_mixtime
+  type: f32
+  writable: true
+  description: R2 – tempo di mantenimento
+  unit: s
+  initial: 30
+  area: Processo
+- name: R2.SP_AgitSpeed
+  driver: WCS_INTERNO
+  address: r2_sp_agitspeed
+  type: f32
+  writable: true
+  description: R2 – velocità agitatore
+  unit: rpm
+  initial: 120
+  area: Processo
+- name: R2.Product
+  driver: WCS_INTERNO
+  address: r2_product
+  type: string
+  writable: true
+  description: R2 – prodotto
+  area: Processo
 decision_points:
 - name: SC1
   description: Scanner barcode – scelta uscita del collo
@@ -1478,6 +1680,10 @@ timer_scripts:
 - name: sim_pallet
   function: sim_pallet
   interval_ms: 200
+  enabled: true
+- name: sim_reactor
+  function: sim_reactor
+  interval_ms: 500
   enabled: true
 warehouses:
 - name: MP1
@@ -1561,6 +1767,10 @@ security:
     - designer.project
     - rules.edit
     - scripts.edit
+    - seq.operate
+    - recipe.load
+    - recipe.edit
+    - audit.view
   - name: manutentore
     description: Runtime completo e WCS, Designer in sola lettura
     permissions:
@@ -1571,6 +1781,10 @@ security:
     - wh.operate
     - wh.config
     - designer
+    - seq.operate
+    - recipe.load
+    - recipe.edit
+    - audit.view
   - name: operatore
     description: 'Conduzione impianto: comandi, allarmi, missioni'
     permissions:
@@ -1579,7 +1793,254 @@ security:
     - alarm.ack
     - script.call
     - wh.operate
+    - seq.operate
+    - recipe.load
   - name: visualizzatore
     description: Sola visualizzazione
     permissions:
     - runtime.view
+recipe_types:
+- name: Batch
+  description: 'Ricetta del reattore batch: livello di carico, temperatura, tempo di mantenimento, agitazione'
+  area: Processo
+  units:
+  - R1
+  - R2
+  parameters:
+  - name: Prodotto
+    tag: '{unit}.Product'
+    default: Base
+    description: Codice prodotto
+  - name: Livello
+    tag: '{unit}.SP_Level'
+    unit: '%'
+    min: 10.0
+    max: 95.0
+    default: 70
+    description: Livello di carico
+  - name: Temperatura
+    tag: '{unit}.SP_Temp'
+    unit: °C
+    min: 25.0
+    max: 90.0
+    default: 60
+    description: Temperatura di processo
+  - name: Mantenimento
+    tag: '{unit}.SP_MixTime'
+    unit: s
+    min: 5.0
+    max: 600.0
+    default: 30
+    description: Tempo di mantenimento in temperatura
+  - name: Agitazione
+    tag: '{unit}.SP_AgitSpeed'
+    unit: rpm
+    min: 40.0
+    max: 200.0
+    default: 120
+    description: Velocità dell'agitatore
+sequences:
+- name: Batch_R1
+  description: Ciclo batch del reattore R1
+  area: Processo
+  unit: R1
+  start_tag: R1.Start
+  params:
+    recipe: Standard
+  steps:
+  - name: Carico ricetta
+    description: Scrive i setpoint della ricetta scelta all'avvio
+    actions:
+    - kind: recipe
+      recipe_type: Batch
+      recipe: '{recipe}'
+    - kind: log
+      text: 'batch {unit}: ricetta {recipe}'
+    transitions:
+    - {}
+  - name: Riempimento
+    actions:
+    - kind: write
+      tag: '{unit}.FillValve'
+      value: true
+    transitions:
+    - when:
+      - tag: '{unit}.Level'
+        op: '>='
+        value: tag:{unit}.SP_Level
+      label: livello raggiunto
+    timeout_s: 180.0
+  - name: Riscaldamento
+    actions:
+    - kind: write
+      tag: '{unit}.FillValve'
+      value: false
+    - kind: write
+      tag: '{unit}.Heater'
+      value: true
+    - kind: write
+      tag: '{unit}.Agitator'
+      value: true
+    transitions:
+    - when:
+      - tag: '{unit}.Temp'
+        op: '>='
+        value: tag:{unit}.SP_Temp
+      label: temperatura raggiunta
+    timeout_s: 600.0
+  - name: Mantenimento
+    transitions:
+    - when:
+      - tag: '@elapsed'
+        op: '>='
+        value: tag:{unit}.SP_MixTime
+      label: tempo trascorso
+  - name: Controllo qualità
+    description: 'Prelievo del campione: l''operatore conferma l''esito'
+    actions:
+    - kind: write
+      tag: '{unit}.Heater'
+      value: false
+    transitions:
+    - when:
+      - tag: '@confirm'
+        op: ==
+        value: true
+      label: campione conforme
+  - name: Scarico
+    actions:
+    - kind: write
+      tag: '{unit}.Agitator'
+      value: false
+    - kind: write
+      tag: '{unit}.DrainValve'
+      value: true
+    transitions:
+    - when:
+      - tag: '{unit}.Level'
+        op: <=
+        value: 1
+      label: reattore vuoto
+    timeout_s: 180.0
+  - name: Fine
+    actions:
+    - kind: write
+      tag: '{unit}.DrainValve'
+      value: false
+    transitions:
+    - next: END
+  stop_actions:
+  - kind: write
+    tag: '{unit}.FillValve'
+    value: false
+  - kind: write
+    tag: '{unit}.Heater'
+    value: false
+  - kind: write
+    tag: '{unit}.Agitator'
+    value: false
+  - kind: write
+    tag: '{unit}.DrainValve'
+    value: false
+- name: Batch_R2
+  description: Ciclo batch del reattore R2
+  area: Processo
+  unit: R2
+  start_tag: R2.Start
+  params:
+    recipe: Standard
+  steps:
+  - name: Carico ricetta
+    description: Scrive i setpoint della ricetta scelta all'avvio
+    actions:
+    - kind: recipe
+      recipe_type: Batch
+      recipe: '{recipe}'
+    - kind: log
+      text: 'batch {unit}: ricetta {recipe}'
+    transitions:
+    - {}
+  - name: Riempimento
+    actions:
+    - kind: write
+      tag: '{unit}.FillValve'
+      value: true
+    transitions:
+    - when:
+      - tag: '{unit}.Level'
+        op: '>='
+        value: tag:{unit}.SP_Level
+      label: livello raggiunto
+    timeout_s: 180.0
+  - name: Riscaldamento
+    actions:
+    - kind: write
+      tag: '{unit}.FillValve'
+      value: false
+    - kind: write
+      tag: '{unit}.Heater'
+      value: true
+    - kind: write
+      tag: '{unit}.Agitator'
+      value: true
+    transitions:
+    - when:
+      - tag: '{unit}.Temp'
+        op: '>='
+        value: tag:{unit}.SP_Temp
+      label: temperatura raggiunta
+    timeout_s: 600.0
+  - name: Mantenimento
+    transitions:
+    - when:
+      - tag: '@elapsed'
+        op: '>='
+        value: tag:{unit}.SP_MixTime
+      label: tempo trascorso
+  - name: Controllo qualità
+    description: 'Prelievo del campione: l''operatore conferma l''esito'
+    actions:
+    - kind: write
+      tag: '{unit}.Heater'
+      value: false
+    transitions:
+    - when:
+      - tag: '@confirm'
+        op: ==
+        value: true
+      label: campione conforme
+  - name: Scarico
+    actions:
+    - kind: write
+      tag: '{unit}.Agitator'
+      value: false
+    - kind: write
+      tag: '{unit}.DrainValve'
+      value: true
+    transitions:
+    - when:
+      - tag: '{unit}.Level'
+        op: <=
+        value: 1
+      label: reattore vuoto
+    timeout_s: 180.0
+  - name: Fine
+    actions:
+    - kind: write
+      tag: '{unit}.DrainValve'
+      value: false
+    transitions:
+    - next: END
+  stop_actions:
+  - kind: write
+    tag: '{unit}.FillValve'
+    value: false
+  - kind: write
+    tag: '{unit}.Heater'
+    value: false
+  - kind: write
+    tag: '{unit}.Agitator'
+    value: false
+  - kind: write
+    tag: '{unit}.DrainValve'
+    value: false

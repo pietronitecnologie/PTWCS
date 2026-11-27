@@ -27,6 +27,10 @@ pub const PERMISSIONS: &[(&str, &str, &str)] = &[
     ("script.call", "Runtime", "Eseguire script Python da pulsanti delle viste"),
     ("wh.operate", "WCS", "Missioni, ordini, prelievi, depositi, movimentazioni, blocco celle"),
     ("wh.config", "WCS", "Riorganizzazione automatica e rettifiche dell'anagrafica UdC"),
+    ("seq.operate", "Processo", "Sequenze: avvio, arresto, pausa, ripresa, reset, avanzamento manuale"),
+    ("recipe.load", "Processo", "Ricette: caricare una ricetta sul PLC (scrittura dei parametri)"),
+    ("recipe.edit", "Processo", "Ricette: creare, modificare, eliminare e leggere dal PLC"),
+    ("audit.view", "Amministrazione", "Consultare ed esportare l'audit trail"),
     ("designer", "Designer", "Aprire il Designer (consultazione)"),
     ("designer.views", "Designer", "Modificare viste, faceplate e simboli"),
     ("designer.project", "Designer", "Modificare e salvare il progetto: tag, UDT, aree, protocollo, classi, WMS, magazzini"),
@@ -142,12 +146,12 @@ impl Security {
     /// da `PTWCS_ADMIN_PASSWORD`, altrimenti "admin" con cambio obbligatorio).
     pub async fn open(store: Store) -> Result<Self> {
         let me = Self::default();
-        for (k, d) in store.sec_load("sec_users").await? {
+        for (k, d) in store.kv_load("sec_users").await? {
             if let Ok(u) = serde_json::from_str::<User>(&d) {
                 me.users.write().unwrap().insert(k, u);
             }
         }
-        for (k, d) in store.sec_load("sec_sessions").await? {
+        for (k, d) in store.kv_load("sec_sessions").await? {
             if let Ok(s) = serde_json::from_str::<Session>(&d) {
                 me.sessions.write().unwrap().insert(k, s);
             }
@@ -170,7 +174,7 @@ impl Security {
         if let Some(s) = self.store.read().unwrap().clone() {
             let (k, d) = (u.username.clone(), serde_json::to_string(u).ok());
             tokio::spawn(async move {
-                let _ = s.sec_put("sec_users", k, d).await;
+                let _ = s.kv_put("sec_users", k, d).await;
             });
         }
     }
@@ -178,7 +182,7 @@ impl Security {
         if let Some(st) = self.store.read().unwrap().clone() {
             let (k, d) = (key.to_string(), s.and_then(|x| serde_json::to_string(x).ok()));
             tokio::spawn(async move {
-                let _ = st.sec_put("sec_sessions", k, d).await;
+                let _ = st.kv_put("sec_sessions", k, d).await;
             });
         }
     }
@@ -357,7 +361,7 @@ impl Security {
         if let Some(s) = self.store.read().unwrap().clone() {
             let k = username.to_string();
             tokio::spawn(async move {
-                let _ = s.sec_put("sec_users", k, None).await;
+                let _ = s.kv_put("sec_users", k, None).await;
             });
         }
         self.drop_sessions_of(username, None);

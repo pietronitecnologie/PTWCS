@@ -98,6 +98,143 @@ pub struct Project {
     /// Login, ruoli e permessi.
     #[serde(default)]
     pub security: SecurityDef,
+    /// Tipi di ricetta (parametri → tag); le ricette (valori) sono nel database.
+    #[serde(default)]
+    pub recipe_types: Vec<RecipeType>,
+    /// Sequenze di processo a passi (stile SFC).
+    #[serde(default)]
+    pub sequences: Vec<SequenceDef>,
+}
+
+/// Tipo di ricetta: elenco di parametri, ognuno scritto su un tag. Con `units`
+/// la stessa ricetta si carica su più unità identiche: `{unit}` nei tag.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct RecipeType {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub area: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub units: Vec<String>,
+    #[serde(default)]
+    pub parameters: Vec<RecipeParam>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct RecipeParam {
+    pub name: String,
+    /// Tag di destinazione (può contenere `{unit}`).
+    pub tag: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub unit: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default: Option<Value>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+}
+
+/// Sequenza a passi: ogni passo esegue azioni all'ingresso e attende una
+/// transizione (condizioni sui tag) verso il passo successivo.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct SequenceDef {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub area: Option<String>,
+    /// Unità su cui lavora (sostituisce `{unit}` in tag, valori e ricette).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub unit: String,
+    /// Avvio dal PLC: fronte di salita di questo tag.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub start_tag: String,
+    /// Parametri di avvio con default (es. `recipe`), usabili come `{nome}`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub params: BTreeMap<String, String>,
+    #[serde(default)]
+    pub steps: Vec<StepDef>,
+    /// Azioni all'arresto (stato sicuro).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stop_actions: Vec<SeqAction>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct StepDef {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    /// Azioni eseguite all'ingresso nel passo.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub actions: Vec<SeqAction>,
+    /// Transizioni valutate in ordine: la prima vera porta al passo `next`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transitions: Vec<Transition>,
+    /// Tempo minimo nel passo prima di valutare le transizioni (s).
+    #[serde(default, skip_serializing_if = "is_zero_f")]
+    pub min_time_s: f64,
+    /// Tempo massimo nel passo (s, 0 = nessuno).
+    #[serde(default, skip_serializing_if = "is_zero_f")]
+    pub timeout_s: f64,
+    /// Passo a cui andare in timeout (vuoto = sequenza in errore con allarme).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub on_timeout: String,
+}
+fn is_zero_f(v: &f64) -> bool {
+    *v == 0.0
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct Transition {
+    /// Condizioni; pseudo-tag: `@elapsed` (s nel passo), `@confirm` (conferma operatore).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub when: Vec<SeqCond>,
+    /// "all" (tutte) oppure "any" (almeno una).
+    #[serde(default = "all_mode", skip_serializing_if = "is_all")]
+    pub mode: String,
+    /// Passo successivo: nome, vuoto = il seguente in elenco, "END" = fine.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub next: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub label: String,
+}
+fn all_mode() -> String {
+    "all".into()
+}
+fn is_all(s: &String) -> bool {
+    s == "all"
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct SeqCond {
+    pub tag: String,
+    /// ==, !=, >, >=, <, <=
+    pub op: String,
+    /// Costante o "tag:Nome" (valore di un altro tag).
+    pub value: Value,
+}
+
+/// Azione di un passo: `write` (tag, value), `recipe` (recipe_type, recipe),
+/// `script` (fn), `log` (text).
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct SeqAction {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub tag: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<Value>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub recipe_type: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub recipe: String,
+    #[serde(default, rename = "fn", skip_serializing_if = "String::is_empty")]
+    pub func: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub text: String,
 }
 
 /// Sicurezza: i ruoli e i loro permessi sono nel progetto; gli utenti (con le
@@ -143,9 +280,9 @@ pub fn default_roles() -> Vec<RoleDef> {
     let r = |n: &str, d: &str, p: &[&str]| RoleDef { name: n.into(), description: d.into(), permissions: p.iter().map(|x| x.to_string()).collect() };
     vec![
         r("amministratore", "Accesso completo, gestione utenti e sicurezza", &["*"]),
-        r("progettista", "Designer completo (viste, progetto, regole, script)", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "designer.views", "designer.project", "rules.edit", "scripts.edit"]),
-        r("manutentore", "Runtime completo e WCS, Designer in sola lettura", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer"]),
-        r("operatore", "Conduzione impianto: comandi, allarmi, missioni", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate"]),
+        r("progettista", "Designer completo (viste, progetto, regole, script)", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "designer.views", "designer.project", "rules.edit", "scripts.edit", "seq.operate", "recipe.load", "recipe.edit", "audit.view"]),
+        r("manutentore", "Runtime completo e WCS, Designer in sola lettura", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "wh.config", "designer", "seq.operate", "recipe.load", "recipe.edit", "audit.view"]),
+        r("operatore", "Conduzione impianto: comandi, allarmi, missioni, sequenze, ricette", &["runtime.view", "tag.write", "alarm.ack", "script.call", "wh.operate", "seq.operate", "recipe.load"]),
         r("visualizzatore", "Sola visualizzazione", &["runtime.view"]),
     ]
 }
@@ -1120,6 +1257,48 @@ impl Config {
         {
             if let Some(r) = wr.iter().find(|r| !roles.contains(*r)) {
                 bail!("{what} {name}: ruolo di scrittura '{r}' non definito");
+            }
+        }
+        // ricette e sequenze
+        let rtypes = uniq("tipo di ricetta", self.project.recipe_types.iter().map(|r| r.name.as_str()).collect())?;
+        for r in &self.project.recipe_types {
+            uniq(&format!("ricetta {}: parametro", r.name), r.parameters.iter().map(|p| p.name.as_str()).collect())?;
+            for p in &r.parameters {
+                if p.tag.trim().is_empty() {
+                    bail!("ricetta {}: parametro {} senza tag", r.name, p.name);
+                }
+                if let (Some(a), Some(b)) = (p.min, p.max)
+                    && a > b
+                {
+                    bail!("ricetta {}: parametro {}: min > max", r.name, p.name);
+                }
+            }
+        }
+        uniq("sequenza", self.project.sequences.iter().map(|s| s.name.as_str()).collect())?;
+        for sq in &self.project.sequences {
+            let steps = uniq(&format!("sequenza {}: passo", sq.name), sq.steps.iter().map(|s| s.name.as_str()).collect())?;
+            for st in &sq.steps {
+                for t in &st.transitions {
+                    if !t.next.is_empty() && t.next != "END" && !steps.contains(&t.next) {
+                        bail!("sequenza {} passo {}: transizione verso passo inesistente '{}'", sq.name, st.name, t.next);
+                    }
+                    for c in &t.when {
+                        if !["==", "!=", ">", ">=", "<", "<="].contains(&c.op.as_str()) {
+                            bail!("sequenza {} passo {}: operatore non valido '{}'", sq.name, st.name, c.op);
+                        }
+                    }
+                }
+                if !st.on_timeout.is_empty() && st.on_timeout != "END" && !steps.contains(&st.on_timeout) {
+                    bail!("sequenza {} passo {}: passo di timeout inesistente '{}'", sq.name, st.name, st.on_timeout);
+                }
+                for a in st.actions.iter().chain(sq.stop_actions.iter()) {
+                    match a.kind.as_str() {
+                        "write" if a.tag.is_empty() => bail!("sequenza {} passo {}: azione write senza tag", sq.name, st.name),
+                        "recipe" if !rtypes.contains(&a.recipe_type) => bail!("sequenza {} passo {}: tipo di ricetta '{}' inesistente", sq.name, st.name, a.recipe_type),
+                        "write" | "recipe" | "script" | "log" => {}
+                        k => bail!("sequenza {} passo {}: azione sconosciuta '{k}'", sq.name, st.name),
+                    }
+                }
             }
         }
         let drivers = uniq("driver", self.drivers.iter().map(|d| d.name.as_str()).collect())?;

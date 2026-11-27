@@ -1,6 +1,32 @@
 //! Persistenza su SQLite: log decisioni, eventi allarme, storico tag (trend),
 //! audit dei comandi operatore.
 
+/// Riga dell'audit trail: chi, quando, cosa, su quale oggetto, valore prima/dopo, da dove.
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct AuditRec {
+    pub ts: i64,
+    pub user: String,
+    pub action: String,
+    pub detail: String,
+    pub category: String,
+    pub target: String,
+    pub old_value: Option<String>,
+    pub new_value: Option<String>,
+    pub client: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AuditFilter {
+    pub from: i64,
+    pub to: i64,
+    pub user: String,
+    pub category: String,
+    pub action: String,
+    pub q: String,
+    pub limit: u32,
+    pub offset: u32,
+}
+
 use anyhow::Result;
 use crate::tagdb::now_ms;
 use rusqlite::{Connection, params};
@@ -59,6 +85,11 @@ impl Store {
              CREATE INDEX IF NOT EXISTS ix_hist ON history(tag, ts);
              CREATE TABLE IF NOT EXISTS audit(ts INTEGER, user TEXT, action TEXT, detail TEXT);",
         )?;
+        // audit esteso (migrazione: colonne aggiunte se mancano)
+        for col in ["category TEXT", "target TEXT", "old_value TEXT", "new_value TEXT", "client TEXT"] {
+            let _ = conn.execute(&format!("ALTER TABLE audit ADD COLUMN {col}"), []);
+        }
+        conn.execute_batch("CREATE INDEX IF NOT EXISTS ix_audit_ts ON audit(ts);")?;
         // migrazione: colonna 'rule' aggiunta in seguito (errore ignorato se esiste già)
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS wh_locations(wh TEXT, idx INTEGER, state TEXT, lu TEXT, ts INTEGER, PRIMARY KEY(wh, idx));
@@ -68,7 +99,10 @@ impl Store {
              CREATE TABLE IF NOT EXISTS wh_picks(wh TEXT, sku TEXT, ts INTEGER);
              CREATE INDEX IF NOT EXISTS ix_wh_picks ON wh_picks(wh, ts);
              CREATE TABLE IF NOT EXISTS sec_users(k TEXT PRIMARY KEY, data TEXT);
-             CREATE TABLE IF NOT EXISTS sec_sessions(k TEXT PRIMARY KEY, data TEXT);",
+             CREATE TABLE IF NOT EXISTS sec_sessions(k TEXT PRIMARY KEY, data TEXT);
+             CREATE TABLE IF NOT EXISTS recipes(k TEXT PRIMARY KEY, data TEXT);
+             CREATE TABLE IF NOT EXISTS recipe_active(k TEXT PRIMARY KEY, data TEXT);
+             CREATE TABLE IF NOT EXISTS seq_runs(k TEXT PRIMARY KEY, data TEXT);",
         )?;
         let _ = conn.execute("ALTER TABLE decisions ADD COLUMN rule TEXT", []);
         let _ = conn.execute("ALTER TABLE alarm_events ADD COLUMN area TEXT", []);
@@ -166,8 +200,83 @@ impl Store {
     }
 
     pub async fn audit(&self, ts: i64, user: String, action: String, detail: String) -> Result<()> {
-        self.run(move |c| c.execute("INSERT INTO audit VALUES(?1,?2,?3,?4)", params![ts, user, action, detail])).await?;
+        self.audit_rec(AuditRec { ts, user, action, detail, ..Default::default() }).await
+    }
+
+    pub async fn audit_rec(&self, r: AuditRec) -> Result<()> {
+        self.run(move |c| {
+            c.execute(
+                "INSERT INTO audit(ts,user,action,detail,category,target,old_value,new_value,client) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+                params![r.ts, r.user, r.action, r.detail, r.category, r.target, r.old_value, r.new_value, r.client],
+            )
+        })
+        .await?;
         Ok(())
+    }
+
+    /// Ricerca nell'audit (più recenti prima). Ritorna (righe, totale).
+    pub async fn audit_query(&self, f: AuditFilter) -> Result<(Vec<AuditRec>, u64)> {
+        self.run(move |c| {
+            let mut w = vec!["ts >= ?1 AND ts <= ?2".to_string()];
+            let mut args: Vec<rusqlite::types::Value> = vec![f.from.into(), f.to.into()];
+            let mut add = |cond: &str, v: String| {
+                args.push(v.into());
+                w.push(cond.replace('?', &format!("?{}", args.len())));
+            };
+            if !f.user.is_empty() {
+                add("user LIKE ?", format!("%{}%", f.user));
+            }
+            if !f.category.is_empty() {
+                add("category = ?", f.category.clone());
+            }
+            if !f.action.is_empty() {
+                add("action = ?", f.action.clone());
+            }
+            if !f.q.is_empty() {
+                let q = format!("%{}%", f.q);
+                args.push(q.into());
+                let n = args.len();
+                w.push(format!("(detail LIKE ?{n} OR target LIKE ?{n} OR action LIKE ?{n} OR user LIKE ?{n} OR new_value LIKE ?{n} OR old_value LIKE ?{n})"));
+            }
+            let wh = w.join(" AND ");
+            let total: i64 = c.query_row(&format!("SELECT COUNT(*) FROM audit WHERE {wh}"), rusqlite::params_from_iter(args.iter()), |r| r.get(0))?;
+            let total = total as u64;
+            let sql = format!(
+                "SELECT ts,user,action,detail,COALESCE(category,''),COALESCE(target,''),old_value,new_value,COALESCE(client,'') FROM audit WHERE {wh} ORDER BY ts DESC LIMIT {} OFFSET {}",
+                f.limit.min(100_000),
+                f.offset
+            );
+            let mut st = c.prepare(&sql)?;
+            let rows = st
+                .query_map(rusqlite::params_from_iter(args.iter()), |r| {
+                    Ok(AuditRec {
+                        ts: r.get(0)?,
+                        user: r.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                        action: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                        detail: r.get::<_, Option<String>>(3)?.unwrap_or_default(),
+                        category: r.get(4)?,
+                        target: r.get(5)?,
+                        old_value: r.get(6)?,
+                        new_value: r.get(7)?,
+                        client: r.get(8)?,
+                    })
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok((rows, total))
+        })
+        .await
+    }
+
+    /// Utenti e azioni presenti (filtri della pagina audit).
+    pub async fn audit_facets(&self) -> Result<(Vec<String>, Vec<String>)> {
+        self.run(|c| {
+            let col = |sql: &str| -> rusqlite::Result<Vec<String>> {
+                let mut st = c.prepare(sql)?;
+                st.query_map([], |r| r.get::<_, Option<String>>(0))?.map(|x| x.map(|v| v.unwrap_or_default())).collect()
+            };
+            Ok((col("SELECT DISTINCT action FROM audit ORDER BY action")?, col("SELECT DISTINCT category FROM audit WHERE category IS NOT NULL ORDER BY category")?))
+        })
+        .await
     }
 
     // ---------------------------------------------------------------- magazzino
@@ -300,8 +409,8 @@ impl Store {
         .await
     }
 
-    /// Tabelle chiave/valore della sicurezza (`sec_users`, `sec_sessions`).
-    pub async fn sec_load(&self, table: &'static str) -> Result<Vec<(String, String)>> {
+    /// Tabelle chiave/valore (sicurezza, ricette, esecuzioni delle sequenze).
+    pub async fn kv_load(&self, table: &'static str) -> Result<Vec<(String, String)>> {
         self.run(move |c| {
             let mut st = c.prepare(&format!("SELECT k, data FROM {table}"))?;
             st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()
@@ -309,13 +418,22 @@ impl Store {
         .await
     }
 
-    pub async fn sec_put(&self, table: &'static str, key: String, data: Option<String>) -> Result<()> {
+    pub async fn kv_put(&self, table: &'static str, key: String, data: Option<String>) -> Result<()> {
         self.run(move |c| match data {
             Some(d) => c.execute(&format!("INSERT OR REPLACE INTO {table} VALUES(?1,?2)"), params![key, d]),
             None => c.execute(&format!("DELETE FROM {table} WHERE k=?1"), params![key]),
         })
         .await?;
         Ok(())
+    }
+
+    /// Ultime N righe di una tabella chiave/valore con chiave ordinabile (es. `seq/timestamp`).
+    pub async fn kv_recent(&self, table: &'static str, prefix: String, limit: u32) -> Result<Vec<(String, String)>> {
+        self.run(move |c| {
+            let mut st = c.prepare(&format!("SELECT k, data FROM {table} WHERE k LIKE ?1 ORDER BY k DESC LIMIT ?2"))?;
+            st.query_map(params![format!("{prefix}%"), limit], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()
+        })
+        .await
     }
 
     pub async fn wh_max_mission(&self, wh: String) -> Result<u32> {

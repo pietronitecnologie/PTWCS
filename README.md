@@ -44,6 +44,12 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - 12 permessi per runtime, WCS, Designer e amministrazione;
   - ruoli per vista (accesso e comandi), per tag e UDT (scrittura) e per singola azione;
   - utenti con password Argon2, sessioni, blocco dopo tentativi errati, audit con l'utente.
+- **Audit trail**:
+  - chi, quando, cosa e da quale client, con valori prima/dopo;
+  - riepilogo delle modifiche al progetto;
+  - consultazione con filtri e aggiornamento in tempo reale, esportazione CSV.
+- **Processo**: ricette (tipi con parametri → tag, unità multiple, limiti, versioni, confronto con il PLC) e sequenze a passi stile SFC (azioni, transizioni, timeout, pausa, conferma operatore, avvio da PLC, storico delle esecuzioni).
+- **Tema chiaro e scuro** per runtime, Designer e manuale.
 - **Menu tasto destro** al posto di quello del browser, ovunque:
   - Designer: modifica delle viste (copia, incolla, elimina, ordine, allineamento…), editor degli script, campi e tabelle (taglia/copia/incolla), aggiorna sezione, vai a workspace, salva, guida del riquadro;
   - runtime: navigazione tra viste e aree;
@@ -359,8 +365,9 @@ Si attivano in **Designer → ⚙ Progetto → 🔐 Sicurezza**. Dettagli nel [m
   |---|---|
   | Runtime | `runtime.view`, `tag.write`, `alarm.ack`, `script.call` |
   | WCS | `wh.operate`, `wh.config` |
+  | Processo | `seq.operate`, `recipe.load`, `recipe.edit` |
   | Designer | `designer`, `designer.views`, `designer.project`, `rules.edit`, `scripts.edit` |
-  | Amministrazione | `users.manage` |
+  | Amministrazione | `users.manage`, `audit.view` |
 
   Ruoli predefiniti: amministratore, progettista, manutentore, operatore, visualizzatore.
 - **Utenti** stanno nel database del server (password Argon2, mai nel progetto).
@@ -390,6 +397,62 @@ Si attivano in **Designer → ⚙ Progetto → 🔐 Sicurezza**. Dettagli nel [m
 Gli script `tools/build_demo_*.py` usano le credenziali `PTWCS_USER`/`PTWCS_PASSWORD` quando la sicurezza è attiva.
 
 API: `GET /api/auth/me`, `POST /api/auth/login|logout|password`, `GET /api/security`, `GET /api/users`, `PUT|DELETE /api/users/{utente}`.
+
+## Audit trail
+
+Ogni azione registra:
+- data e ora;
+- utente autenticato e origine;
+- categoria (comandi, configurazione, sicurezza, allarmi, ricette, sequenze, wcs);
+- azione e oggetto;
+- **valore precedente e nuovo** (scritture tag, ricette);
+- dettaglio: per il salvataggio del progetto, l'elenco degli elementi aggiunti, modificati e rimossi per sezione;
+- indirizzo del client.
+
+Pagina runtime **Audit** (permesso `audit.view`):
+- filtri per periodo, utente, categoria, azione e testo;
+- aggiornamento in tempo reale;
+- esportazione **CSV** per Excel.
+
+API: `GET /api/audit?from=&to=&user=&category=&action=&q=&limit=&offset=` e `&format=csv`.
+
+## Ricette e sequenze di processo
+
+**Tipi di ricetta** (Designer → ⚗ Processo):
+- parametri con tag di destinazione, unità di misura, min/max e default;
+- `units` per caricare la stessa ricetta su unità identiche (`{unit}` nei tag).
+
+**Ricette** (runtime → Processo → Ricette, nel database):
+- creazione, modifica con versioni;
+- caricamento su un'unità (`recipe.load`);
+- lettura dei valori attuali dal PLC;
+- confronto ricetta ↔ PLC;
+- ricetta attiva per unità.
+
+Ogni operazione va nell'audit con i valori.
+
+**Sequenze** (motore in Rust, ciclo di 200 ms):
+- passi con azioni all'ingresso: scrittura tag, caricamento ricetta, script Python, log;
+- transizioni con condizioni sui tag (anche `tag:Nome` come confronto) e gli pseudo-tag `@elapsed` e `@confirm`;
+- tempo minimo, timeout con passo alternativo o errore e allarme `SEQ.<nome>`;
+- parametri di avvio (es. `{recipe}`), unità (`{unit}`), avvio da PLC sul fronte di un tag;
+- azioni di arresto per lo stato sicuro.
+
+Comandi (`seq.operate`): avvia, pausa, riprendi, conferma, avanti, vai a passo, arresta, reset. Il runtime mostra il diagramma dei passi con il passo attivo e i tempi, lo storico e le ultime esecuzioni.
+
+Demo: `python3 tools/build_demo_process.py` crea due reattori batch simulati (R1, R2), il tipo di ricetta `Batch` con tre ricette e le sequenze `Batch_R1` e `Batch_R2`.
+
+API:
+- `GET /api/recipes`;
+- `GET|PUT|DELETE /api/recipes/{tipo}/{nome}`;
+- `POST .../load {unit}`;
+- `GET .../compare?unit=` e `GET /api/recipes/{tipo}/read?unit=`;
+- `GET /api/seq`, `GET /api/seq/{nome}` e `.../runs`;
+- `POST /api/seq/{nome}/{start|stop|pause|resume|reset|next|goto|confirm}`.
+
+## Tema chiaro e scuro
+
+Pulsante ☀/🌙 nell'intestazione di runtime, Designer e manuale (anche dal tasto destro). La scelta è salvata nel browser; al primo accesso segue il tema del sistema operativo.
 
 ## Manuale utente
 

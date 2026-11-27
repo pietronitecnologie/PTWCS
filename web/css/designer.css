@@ -173,3 +173,38 @@ body.resizing iframe, body.resizing svg { pointer-events: none; }
 table.permtbl th, table.permtbl td { padding: 4px 8px; }
 table.permtbl td.rc, table.permtbl th.rc { text-align: center; }
 table.permtbl tr.pg td { background: var(--panel2); font-weight: 700; color: #cbd5e1; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+/* processo: editor sequenze */
+.pr-step { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--panel2); }
+.pr-step.open { border-color: var(--accent); }
+.pr-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; }
+.pr-body { padding: 4px 12px 10px; border-top: 1px solid var(--border); }
+.pr-body h5 { margin: 10px 0 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.pr-row { display: flex; gap: 5px; align-items: center; margin: 3px 0; }
+.pr-row input { min-width: 0; }
+.pr-tr { border-left: 3px solid var(--accent); padding: 4px 0 4px 8px; margin: 6px 0; }
+
+/* tema chiaro – Designer */
+[data-theme="light"] .center { background: repeating-conic-gradient(#e7ecf3 0% 25%, #dfe5ee 0% 50%) 50% / 20px 20px; }
+[data-theme="light"] #stage { box-shadow: 0 0 0 1px var(--border), 0 10px 40px #0f172a33; }
+[data-theme="light"] ul.list li.on { background: var(--sel-bg); }
+[data-theme="light"] .bound-info { background: #dcfce7; border-color: #86efac; }
+[data-theme="light"] .bound-info .lv { color: #15803d; }
+[data-theme="light"] .bindbtn.bound { background: #dcfce7; }
+[data-theme="light"] .preview-val, [data-theme="light"] .sc-issues, [data-theme="light"] .t-pre { background: #f8fafc; }
+[data-theme="light"] .sc-issues .iss.err, [data-theme="light"] .t-pre.err { color: #b91c1c; } [data-theme="light"] .sc-issues .iss.warn { color: #b45309; } [data-theme="light"] .sc-issues .iss.ok { color: #15803d; }
+[data-theme="light"] details.cat > summary { color: #334155; }
+[data-theme="light"] table.permtbl tr.pg td { color: #334155; }
+[data-theme="light"] .rule.hit { box-shadow: 0 0 0 2px #16a34a55; }
+/* editor Python chiaro */
+[data-theme="light"] .pyed { background: #fbfcfe; }
+[data-theme="light"] .pyed-gutter { background: #f1f5f9; color: #94a3b8; }
+[data-theme="light"] .pyed-nums > div.cur { color: #0f172a; }
+[data-theme="light"] .pyed-hl { color: #0f172a; }
+[data-theme="light"] .pyed-hl .ln.cur { background: #0f172a08; }
+[data-theme="light"] .pyed-hl .ln.err { background: #fee2e2; } [data-theme="light"] .pyed-hl .ln.warn { background: #fef3c7; }
+[data-theme="light"] .pyed-ta { caret-color: #0f172a; }
+[data-theme="light"] .pyed-ta::selection { background: #93c5fd88; }
+[data-theme="light"] .t-kw { color: #7c3aed; } [data-theme="light"] .t-const { color: #be185d; } [data-theme="light"] .t-str { color: #15803d; }
+[data-theme="light"] .t-fstr { color: #4d7c0f; } [data-theme="light"] .t-com { color: #94a3b8; } [data-theme="light"] .t-num { color: #b45309; }
+[data-theme="light"] .t-def { color: #1d4ed8; } [data-theme="light"] .t-bi { color: #0e7490; } [data-theme="light"] .t-call { color: #2563eb; }
+[data-theme="light"] .t-dec { color: #c2410c; } [data-theme="light"] .t-ctx { color: #c2410c; } [data-theme="light"] .t-op { color: #64748b; }

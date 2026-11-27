@@ -94,6 +94,16 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/scripts/check", post(script_check))
         .route("/api/scripts/test", post(script_test))
         .route("/api/scripts/call", post(script_call))
+        .route("/api/audit", get(audit_list))
+        .route("/api/recipes", get(recipes_list))
+        .route("/api/recipes/{rtype}/{name}", get(recipe_get).put(recipe_put).delete(recipe_del))
+        .route("/api/recipes/{rtype}/{name}/load", post(recipe_load))
+        .route("/api/recipes/{rtype}/{name}/compare", get(recipe_compare))
+        .route("/api/recipes/{rtype}/read", get(recipe_read))
+        .route("/api/seq", get(seq_list))
+        .route("/api/seq/{name}", get(seq_get))
+        .route("/api/seq/{name}/runs", get(seq_runs))
+        .route("/api/seq/{name}/{cmd}", post(seq_cmd))
         .route("/api/auth/me", get(auth_me))
         .route("/api/auth/login", post(auth_login))
         .route("/api/auth/logout", post(auth_logout))
@@ -138,6 +148,10 @@ pub fn required_perm(method: &axum::http::Method, path: &str) -> Option<&'static
     let area = path.split('/').nth(2).unwrap_or("");
     Some(match (area, get) {
         ("security", _) | ("users", _) => "users.manage",
+        ("audit", _) => "audit.view",
+        ("recipes", false) if path.ends_with("/load") => "recipe.load",
+        ("recipes", false) => "recipe.edit",
+        ("seq", false) => "seq.operate",
         ("project", true) => "runtime.view",
         ("project", false) if path.ends_with("/check") || path.ends_with("/udt_preview") => "designer",
         ("tags", false) if path == "/api/tags/write" => "tag.write",
@@ -153,6 +167,7 @@ pub fn required_perm(method: &axum::http::Method, path: &str) -> Option<&'static
         ("rules", false) => "rules.edit",
         ("wh", false) if path.ends_with("/reorg") || path.contains("/lu/") => "wh.config",
         ("wh", false) => "wh.operate",
+        ("recipes", true) if path.ends_with("/read") => "recipe.edit",
         (_, true) => "runtime.view",
         (_, false) => "designer.project",
     })
@@ -175,8 +190,17 @@ async fn auth_layer(State(app): S, mut req: axum::extract::Request, next: axum::
         }
     }
     let name = p.name();
+    // client: X-Forwarded-For (reverse proxy) o indirizzo della connessione
+    let client = req
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(',').next())
+        .map(|v| v.trim().to_string())
+        .or_else(|| req.extensions().get::<axum::extract::ConnectInfo<std::net::SocketAddr>>().map(|c| c.0.ip().to_string()))
+        .unwrap_or_default();
     req.extensions_mut().insert(p);
-    crate::app::AUDIT_USER.scope(name, next.run(req)).await
+    crate::app::AUDIT_CLIENT.scope(client, crate::app::AUDIT_USER.scope(name, next.run(req))).await
 }
 
 fn me_json(app: &AppState, p: &crate::security::Principal) -> J {
@@ -421,11 +445,17 @@ async fn project_get(State(app): S) -> Json<J> {
     }))
 }
 
-async fn project_put(State(app): S, Json(p): Json<crate::config::Project>) -> R<Json<J>> {
+async fn project_put(State(app): S, axum::Extension(me): Who, Json(p): Json<crate::config::Project>) -> R<Json<J>> {
     require_designer(&app)?;
     let _g = app.edit_lock.lock().await;
+    let before = app.cfg().project.clone();
+    // ruoli, permessi e impostazioni di sicurezza: solo con users.manage
+    if before.security != p.security && !me.can("users.manage") {
+        return Err(ApiError(StatusCode::FORBIDDEN, "permesso negato: per modificare la sicurezza serve users.manage".into()));
+    }
+    let diff = project_diff(&before, &p);
     app.apply_project(p)?;
-    app.audit("designer", "save_project", String::new());
+    app.audit_ext("designer", "save_project", "progetto", None, None, if diff.is_empty() { "nessuna modifica".into() } else { diff });
     let cfg = app.cfg();
     Ok(Json(json!({"ok": true, "tags": cfg.tags.len()})))
 }
@@ -875,9 +905,229 @@ fn check_write(app: &AppState, me: &crate::security::Principal, tag: &str, view:
 async fn write_tag(State(app): S, axum::Extension(me): Who, Json(r): Json<WriteReq>) -> R<Json<J>> {
     check_write(&app, &me, &r.tag, r.view.as_deref())?;
     let user = r.user.unwrap_or_else(|| "hmi".into());
+    let old = value_to_json(&app.db.value(&r.tag));
     app.db.write(&r.tag, json_to_value(&r.value)).await?;
-    app.audit(&user, "write", format!("{}={}", r.tag, r.value));
+    app.audit_ext(&user, "write", &r.tag, Some(old.to_string()), Some(r.value.to_string()), r.view.map(|v| format!("vista {v}")).unwrap_or_default());
     Ok(Json(json!({"ok": true})))
+}
+
+#[derive(Deserialize)]
+struct AuditQ {
+    from: Option<i64>,
+    to: Option<i64>,
+    #[serde(default)]
+    user: String,
+    #[serde(default)]
+    category: String,
+    #[serde(default)]
+    action: String,
+    #[serde(default)]
+    q: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
+    #[serde(default)]
+    format: String,
+}
+
+/// Audit trail con filtri; `format=csv` esporta (fino a 100000 righe).
+async fn audit_list(State(app): S, Query(q): Query<AuditQ>) -> R<Response> {
+    let csv = q.format == "csv";
+    let f = crate::store::AuditFilter {
+        from: q.from.unwrap_or(0),
+        to: q.to.unwrap_or(i64::MAX),
+        user: q.user.trim().into(),
+        category: q.category.trim().into(),
+        action: q.action.trim().into(),
+        q: q.q.trim().into(),
+        limit: if csv { 100_000 } else { q.limit.unwrap_or(200).min(2000) },
+        offset: if csv { 0 } else { q.offset.unwrap_or(0) },
+    };
+    let (rows, total) = app.store.audit_query(f).await?;
+    if csv {
+        let esc = |s: &str| format!("\"{}\"", s.replace('"', "\"\""));
+        let mut out = String::from("\u{feff}data;ora;utente;categoria;azione;oggetto;valore_precedente;valore_nuovo;dettaglio;client\r\n");
+        for r in &rows {
+            let t = chrono::DateTime::from_timestamp_millis(r.ts).map(|d| d.with_timezone(&chrono::Local)).unwrap_or_default();
+            out += &[t.format("%Y-%m-%d").to_string(), t.format("%H:%M:%S%.3f").to_string(), r.user.clone(), r.category.clone(), r.action.clone(), r.target.clone(),
+                r.old_value.clone().unwrap_or_default(), r.new_value.clone().unwrap_or_default(), r.detail.clone(), r.client.clone()]
+                .iter().map(|x| esc(x)).collect::<Vec<_>>().join(";");
+            out += "\r\n";
+        }
+        app.audit("admin", "audit_export", format!("{} righe", rows.len()));
+        return Ok((
+            [(header::CONTENT_TYPE, "text/csv; charset=utf-8".to_string()), (header::CONTENT_DISPOSITION, format!("attachment; filename=\"audit_{}.csv\"", chrono::Local::now().format("%Y%m%d_%H%M")))],
+            out,
+        )
+            .into_response());
+    }
+    let (actions, categories) = app.store.audit_facets().await?;
+    Ok(Json(json!({"rows": rows, "total": total, "actions": actions, "categories": categories})).into_response())
+}
+
+// ---------------------------------------------------------------- ricette
+
+/// Nome dell'utente per registri e ricette ("hmi" se la sicurezza è disattivata).
+fn who(me: &crate::security::Principal) -> String {
+    let n = me.name();
+    if n.is_empty() { "hmi".into() } else { n }
+}
+
+fn recipe_type(app: &AppState, t: &str) -> R<crate::config::RecipeType> {
+    app.cfg().project.recipe_types.iter().find(|r| r.name == t).cloned().ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("tipo di ricetta {t} non trovato")))
+}
+
+async fn recipes_list(State(app): S) -> Json<J> {
+    let cfg = app.cfg();
+    Json(json!(cfg.project.recipe_types.iter().map(|t| json!({
+        "type": t, "recipes": app.recipes.list(&t.name), "active": app.recipes.active(&t.name),
+    })).collect::<Vec<_>>()))
+}
+
+async fn recipe_get(State(app): S, Path((t, n)): Path<(String, String)>) -> R<Json<J>> {
+    recipe_type(&app, &t)?;
+    Ok(Json(json!(app.recipes.get(&t, &n).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("ricetta {n} non trovata")))?)))
+}
+
+#[derive(Deserialize)]
+struct RecipeBody {
+    #[serde(default)]
+    description: String,
+    values: std::collections::BTreeMap<String, crate::value::Value>,
+}
+
+async fn recipe_put(State(app): S, axum::Extension(me): Who, Path((t, n)): Path<(String, String)>, Json(b): Json<RecipeBody>) -> R<Json<J>> {
+    let def = recipe_type(&app, &t)?;
+    let (r, changes) = app.recipes.save(&def, &n, b.description, &b.values, &who(&me))?;
+    let old: std::collections::BTreeMap<_, _> = changes.iter().map(|(p, o, _)| (p.clone(), o.clone())).collect();
+    let new: std::collections::BTreeMap<_, _> = changes.iter().map(|(p, _, v)| (p.clone(), v.clone())).collect();
+    let created = old.values().all(Option::is_none);
+    app.audit_ext("ricette", if created { "recipe_create" } else { "recipe_save" }, &format!("{t}/{n}"), (!created).then(|| serde_json::to_string(&old).unwrap_or_default()), Some(serde_json::to_string(&new).unwrap_or_default()),
+        format!("versione {}{}", r.version, if changes.is_empty() { " (nessuna modifica ai valori)" } else { "" }));
+    Ok(Json(json!(r)))
+}
+
+async fn recipe_del(State(app): S, Path((t, n)): Path<(String, String)>) -> R<Json<J>> {
+    recipe_type(&app, &t)?;
+    let r = app.recipes.delete(&t, &n)?;
+    app.audit_ext("ricette", "recipe_delete", &format!("{t}/{n}"), Some(serde_json::to_string(&r.values).unwrap_or_default()), None, format!("versione {}", r.version));
+    Ok(Json(json!({"ok": true})))
+}
+
+#[derive(Deserialize, Default)]
+struct UnitQ {
+    #[serde(default)]
+    unit: String,
+}
+
+async fn recipe_load(State(app): S, axum::Extension(me): Who, Path((t, n)): Path<(String, String)>, body: Option<Json<UnitQ>>) -> R<Json<J>> {
+    let unit = body.map(|b| b.0.unit).unwrap_or_default();
+    let def = recipe_type(&app, &t)?;
+    // ruoli di scrittura dei tag dei parametri
+    for p in &def.parameters {
+        check_write(&app, &me, &crate::recipes::param_tag(&p.tag, &unit), None)?;
+    }
+    let res = app.recipes.load(&app.cfg(), &app.db, &t, &n, &unit, &who(&me)).await?;
+    let ok = res.iter().all(|r| r.ok);
+    let vals: std::collections::BTreeMap<_, _> = res.iter().map(|r| (r.param.clone(), r.value.clone())).collect();
+    app.audit_ext("ricette", "recipe_load", &format!("{t}/{n}"), None, Some(serde_json::to_string(&vals).unwrap_or_default()),
+        format!("{}{}", if unit.is_empty() { String::new() } else { format!("unità {unit}") }, if ok { "" } else { " · ERRORI di scrittura" }));
+    Ok(Json(json!({"ok": ok, "results": res})))
+}
+
+/// Valori attuali sul PLC dei parametri (per creare una ricetta "dal PLC").
+async fn recipe_read(State(app): S, Path(t): Path<String>, Query(q): Query<UnitQ>) -> R<Json<J>> {
+    let def = recipe_type(&app, &t)?;
+    Ok(Json(json!(crate::recipes::Recipes::read(&def, &app.db, &q.unit)?)))
+}
+
+/// Confronto ricetta ↔ valori attuali sul PLC.
+async fn recipe_compare(State(app): S, Path((t, n)): Path<(String, String)>, Query(q): Query<UnitQ>) -> R<Json<J>> {
+    let def = recipe_type(&app, &t)?;
+    let r = app.recipes.get(&t, &n).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("ricetta {n} non trovata")))?;
+    let cur = crate::recipes::Recipes::read(&def, &app.db, &q.unit)?;
+    Ok(Json(json!(def.parameters.iter().map(|p| {
+        let (a, b) = (r.values.get(&p.name).cloned().unwrap_or_default(), cur.get(&p.name).cloned().unwrap_or_default());
+        let eq = match (a.as_f64(), b.as_f64()) { (Some(x), Some(y)) => (x - y).abs() < 1e-6, _ => a.to_string() == b.to_string() };
+        json!({"param": p.name, "tag": crate::recipes::param_tag(&p.tag, &q.unit), "recipe": a, "plc": b, "equal": eq, "unit": p.unit})
+    }).collect::<Vec<_>>())))
+}
+
+// ---------------------------------------------------------------- sequenze
+
+async fn seq_list(State(app): S) -> Json<J> {
+    let cfg = app.cfg();
+    let states = app.sequencer.states(&app);
+    Json(json!(cfg.project.sequences.iter().map(|d| json!({"def": d, "state": states.iter().find(|s| s.name == d.name)})).collect::<Vec<_>>()))
+}
+
+async fn seq_get(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
+    let cfg = app.cfg();
+    let d = cfg.project.sequences.iter().find(|d| d.name == name).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, format!("sequenza {name} non trovata")))?;
+    Ok(Json(json!({"def": d, "state": app.sequencer.state(&app, &name)})))
+}
+
+async fn seq_runs(State(app): S, Path(name): Path<String>) -> R<Json<J>> {
+    let rows = app.store.kv_recent("seq_runs", format!("{name}/"), 50).await?;
+    Ok(Json(J::Array(rows.into_iter().filter_map(|(_, d)| serde_json::from_str(&d).ok()).collect())))
+}
+
+#[derive(Deserialize, Default)]
+struct SeqCmd {
+    #[serde(default)]
+    step: Option<String>,
+    #[serde(default)]
+    params: std::collections::BTreeMap<String, String>,
+}
+
+async fn seq_cmd(State(app): S, axum::Extension(me): Who, Path((name, cmd)): Path<(String, String)>, body: Option<Json<SeqCmd>>) -> R<Json<J>> {
+    let b = body.map(|b| b.0).unwrap_or_default();
+    let detail = format!("{}{}", b.step.as_ref().map(|s| format!("passo {s} ")).unwrap_or_default(), if b.params.is_empty() { String::new() } else { format!("parametri {:?}", b.params) });
+    let st = app.sequencer.command(&app, &name, &cmd, b.step.as_deref(), b.params, &who(&me)).await?;
+    app.audit_ext("hmi", &format!("seq_{cmd}"), &name, None, Some(st.step_name.clone()), detail);
+    Ok(Json(json!(st)))
+}
+
+/// Riepilogo delle differenze tra due progetti per l'audit: per ogni sezione
+/// gli elementi aggiunti (+), rimossi (−) e modificati (~), identificati per nome.
+fn project_diff(a: &crate::config::Project, b: &crate::config::Project) -> String {
+    let (ja, jb) = (serde_json::to_value(a).unwrap_or(J::Null), serde_json::to_value(b).unwrap_or(J::Null));
+    let (Some(ma), Some(mb)) = (ja.as_object(), jb.as_object()) else { return String::new() };
+    let mut out = vec![];
+    let keys: std::collections::BTreeSet<&String> = ma.keys().chain(mb.keys()).collect();
+    for k in keys {
+        let (x, y) = (ma.get(k).unwrap_or(&J::Null), mb.get(k).unwrap_or(&J::Null));
+        if x == y {
+            continue;
+        }
+        let named = |v: &J| -> Option<Vec<(String, J)>> {
+            v.as_array()?.iter().map(|e| Some((e.get("name")?.as_str()?.to_string(), e.clone()))).collect()
+        };
+        match (named(x), named(y)) {
+            (Some(xa), Some(ya)) => {
+                let mut parts = vec![];
+                for (n, v) in &ya {
+                    match xa.iter().find(|(m, _)| m == n) {
+                        None => parts.push(format!("+{n}")),
+                        Some((_, w)) if w != v => parts.push(format!("~{n}")),
+                        _ => {}
+                    }
+                }
+                for (n, _) in &xa {
+                    if !ya.iter().any(|(m, _)| m == n) {
+                        parts.push(format!("−{n}"));
+                    }
+                }
+                if parts.len() > 12 {
+                    let more = parts.len() - 12;
+                    parts.truncate(12);
+                    parts.push(format!("… (+{more})"));
+                }
+                out.push(format!("{k}: {}", parts.join(" ")));
+            }
+            _ => out.push(format!("{k}: modificato")),
+        }
+    }
+    out.join(" · ")
 }
 
 // ---------------------------------------------------------------- allarmi / log
@@ -897,6 +1147,10 @@ struct AckReq {
 async fn ack(State(app): S, Json(r): Json<AckReq>) -> Json<J> {
     let who = crate::app::AUDIT_USER.try_with(|u| u.clone()).ok().filter(|u| !u.is_empty());
     let n = app.alarms.ack(&app, r.id.as_deref(), r.area.as_deref(), who.as_deref().or(r.user.as_deref()).unwrap_or("hmi"));
+    if n > 0 {
+        let target = r.id.clone().or(r.area.as_ref().map(|a| format!("area {a}"))).unwrap_or_else(|| "tutti".into());
+        app.audit_ext("hmi", "ack", &target, None, None, format!("{n} allarmi riconosciuti"));
+    }
     Json(json!({"acked": n}))
 }
 
@@ -1522,12 +1776,13 @@ async fn script_call(State(app): S, axum::Extension(me): Who, Json(r): Json<Call
 
 // ---------------------------------------------------------------- websocket
 
-async fn ws(State(app): S, up: WebSocketUpgrade) -> Response {
-    up.on_upgrade(move |s| ws_session(app, s))
+async fn ws(State(app): S, axum::Extension(me): Who, up: WebSocketUpgrade) -> Response {
+    let audit = me.can("audit.view");
+    up.on_upgrade(move |s| ws_session(app, s, audit))
 }
 
 /// Invia snapshot iniziale e poi aggiornamenti tag a lotti (ogni 50 ms) + eventi.
-async fn ws_session(app: Arc<AppState>, mut sock: WebSocket) {
+async fn ws_session(app: Arc<AppState>, mut sock: WebSocket, audit: bool) {
     let mut tag_rx = app.db.subscribe();
     let mut ev_rx = app.events.subscribe();
     let snap: HashMap<_, _> = app.db.snapshot();
@@ -1548,7 +1803,11 @@ async fn ws_session(app: Arc<AppState>, mut sock: WebSocket) {
                 Err(_) => return,
             },
             r = ev_rx.recv() => if let Ok(ev) = r {
-                let msg = match &ev { Event::Project => json!({"type": "project"}), _ => json!(ev) };
+                let msg = match &ev {
+                    Event::Project => json!({"type": "project"}),
+                    Event::Audit { .. } if !audit => continue,
+                    _ => json!(ev),
+                };
                 if sock.send(Message::Text(msg.to_string().into())).await.is_err() { return; }
             },
             _ = flush.tick() => if !batch.is_empty() {
