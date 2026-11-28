@@ -117,7 +117,7 @@ Ogni batch attivo ha una scheda con:
 4. imposta i parametri, entro i limiti.
 
 Il dettaglio del batch selezionato mostra:
-- il **diagramma** della procedura, con i passi attivi in verde e le durate di quelli eseguiti;
+- il **diagramma SFC** della procedura (flowchart stile PCS7), con i passi attivi in verde e il tempo trascorso, e le durate di quelli eseguiti;
 - le **fasi** avviate, con stato, passo corrente e parametri ricevuti;
 - lo storico dei passi.
 
@@ -145,7 +145,10 @@ Elenco delle ricette con versione:
 - **✎ Modifica**, **⧉ Duplica**, **Elimina** (permesso `recipe.edit`);
 - **▶ Avvia batch**.
 
-L'editor comprende dispositivi richiesti, parametri, procedura (passi, rami paralleli, fasi con parametri, transizioni) e azioni di stato.
+L'editor comprende dispositivi richiesti, parametri, **procedura** e azioni di stato. La procedura si programma con l'editor SFC a flowchart (vedi [Designer – Processo](designer-processo.md#editor-sfc-a-flowchart)):
+- i passi avviano le fasi sui dispositivi con i loro parametri;
+- le transizioni attendono *fasi concluse*, condizioni o la conferma dell'operatore;
+- ci sono rami paralleli e salti.
 
 ### Dispositivi
 

@@ -73,9 +73,44 @@ Pseudo-tag:
 
 Senza transizioni il passo prosegue subito, oppure quando rami e fasi sono conclusi. Nei rami, *FINE* chiude il ramo.
 
-Gli strumenti sul passo:
-- **↑ ↓** spostano il passo; **+** inserisce un passo dopo; **✕** lo elimina; **▸** espande o chiude;
-- **◫ Diagramma** mostra l'SFC in sola lettura.
+### Editor SFC a flowchart
+
+Fasi e ricette si programmano con lo stesso editor grafico, nello stile del CFC/SFC di PCS7: l'SFC si legge dall'alto in basso.
+
+| Simbolo | Elemento |
+|---|---|
+| riquadro `S1`, `S2`… (il primo a doppio bordo = passo iniziale) | **passo**: nome, azioni all'ingresso (⚡ numero), rami (⫴), tempo minimo (⧗), timeout (⏱). Nei rami la numerazione segue il percorso: `S2.1.1` = passo 1 del ramo 1 del passo 2 |
+| barra orizzontale `T…` con la condizione a fianco | **transizione** verso il passo seguente. Grigia in corsivo = implicita (*subito*, *fasi concluse*, *rami conclusi*) |
+| diramazione viola con `↷ Passo` | **transizione alternativa**: salto a un altro passo (anche all'indietro, per i cicli) o a FINE. Le transizioni di un passo si valutano in ordine e vince la prima vera |
+| doppia linea con le etichette `ramo 1`, `ramo 2`… | **rami paralleli**: partono insieme; il passo prosegue quando tutti sono arrivati in fondo |
+| `◀ da …` accanto a un passo | il passo è destinazione di un salto |
+| `⏱ 600s → errore` a sinistra | timeout del passo e destinazione |
+
+Come si programma:
+- **clic** su un passo, una transizione o l'etichetta di un ramo: lo seleziona (bordo arancione) e apre le sue proprietà nel pannello a destra;
+- **+** azzurro sui collegamenti (visibile al passaggio del mouse): inserisce un passo in quel punto;
+- **barra strumenti**:
+  - **＋ Passo** inserisce dopo la selezione (o in fondo);
+  - **⫴ Ramo parallelo** aggiunge un ramo al passo selezionato;
+  - **↷ Alternativa** aggiunge una transizione con salto;
+  - **⏶ ⏷** spostano passo o transizione;
+  - **✕** elimina (anche il tasto Canc);
+  - **− / +** cambiano lo zoom;
+- **tasto destro**: menu con le stesse operazioni, più *Inserisci passo prima* e *Aggiungi condizione di transizione*.
+
+Nel pannello proprietà:
+
+| Selezione | Campi |
+|---|---|
+| **Passo** | nome (rinominando, i salti che lo citano si aggiornano), descrizione, tempo minimo, timeout e destinazione; azioni all'ingresso (scrittura tag, script, log; nelle ricette **Avvia fase** con dispositivo e valori dei parametri della fase) |
+| **Transizione** | etichetta, logica delle condizioni (*tutte* = E, *almeno una* = O), destinazione (*passo seguente*, un passo per nome o FINE), elenco delle condizioni |
+| **Ramo** | aggiungi un passo in fondo al ramo, nuovo ramo, elimina ramo |
+
+Nel runtime lo stesso disegno mostra l'esecuzione:
+- **passi attivi in verde** con il tempo trascorso;
+- passi già eseguiti con il bordo blu e la loro durata.
+
+Lo si vede nel dettaglio di batch e fasi e nell'anteprima delle ricette.
 
 ### Stati e azioni di stato
 

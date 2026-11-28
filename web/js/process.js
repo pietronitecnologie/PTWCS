@@ -3,7 +3,8 @@ import { api, esc, fmtTs, toast } from './core.js';
 import { modal } from './forms.js';
 import { can } from './auth.js';
 import { helpBtn } from './markdown.js';
-import { STATES, dur, sfcDiagram, runInfo, sfcEditor, stateActionsHtml, wireStateActions } from './sfc.js';
+import { STATES, dur, runInfo, stateActionsHtml, wireStateActions } from './sfc.js';
+import { sfcFlow, sfcFlowView } from './sfcflow.js';
 
 const TABS = [['batch', '🧾 Batch'], ['phases', '🔁 Fasi'], ['recipes', '🧪 Ricette'], ['devices', '🏭 Dispositivi'], ['history', '📚 Storico']];
 const chip = (s) => { const [l, c] = STATES[s] || [s, '']; return `<span class="chip ${c}">${l}</span>`; };
@@ -76,7 +77,7 @@ export async function showProcess(page, params, setTimer) {
     const phases = st.instances.filter((i) => i.owner === b.key);
     const det = body.querySelector('#bDet');
     det.innerHTML = `<div class="grid2" style="grid-template-columns:minmax(380px,1fr) minmax(380px,1fr)">
-      <div class="card"><h3>${esc(b.key)} – procedura ${esc(b.name)} v${b.version}${recipe && recipe.version !== b.version ? ` <span class="chip warn">ricetta ora v${recipe.version}</span>` : ''}</h3>${sfcDiagram(b.steps, runInfo(b))}</div>
+      <div class="card"><h3>${esc(b.key)} – procedura ${esc(b.name)} v${b.version}${recipe && recipe.version !== b.version ? ` <span class="chip warn">ricetta ora v${recipe.version}</span>` : ''}</h3>${sfcFlowView(b.steps, runInfo(b))}</div>
       <div class="card"><h3>Fasi del batch</h3>
         <table class="ph-list"><thead><tr><th>Fase</th><th>Stato</th><th>Passo</th><th>Parametri</th><th></th></tr></thead><tbody>${phases.map((p) => `<tr data-ph="${esc(p.key)}"><td><b>${esc(p.key)}</b></td><td>${chip(p.state)}</td><td>${activeTxt(p)}</td>
           <td class="mono" style="font-size:11.5px">${Object.entries(p.params).map(([k, v]) => `${esc(k)}=${esc(v)}`).join('<br>')}</td>
@@ -133,7 +134,7 @@ export async function showProcess(page, params, setTimer) {
     body.querySelectorAll('.ph-inst').forEach((r) => { wireCmds(r, r.dataset.k); r.querySelector('[data-show]').onclick = () => { sel = r.dataset.k; drawPhases(); }; });
     const i = insts.find((x) => x.key === sel);
     if (i) {
-      body.querySelector('#phDet').innerHTML = `<div class="card"><h3>${esc(i.key)} ${chip(i.state)}</h3>${sfcDiagram(i.steps, runInfo(i))}</div>`;
+      body.querySelector('#phDet').innerHTML = `<div class="card"><h3>${esc(i.key)} ${chip(i.state)}</h3>${sfcFlowView(i.steps, runInfo(i))}</div>`;
     }
   }
 
@@ -185,7 +186,7 @@ export async function showProcess(page, params, setTimer) {
       : `<p class="muted">${esc(r.description || '')}</p>
         <p>Dispositivi: ${r.devices.map((d) => `<span class="chip">{${esc(d.alias)}} ${esc(d.class)}${d.default ? ` → ${esc(d.default)}` : ''}</span>`).join('') || '—'}</p>
         <p>Parametri: ${r.parameters.map((p) => `<span class="chip">${esc(p.name)} = ${esc(p.default ?? '—')} ${esc(p.unit || '')}</span>`).join('') || '—'}</p>
-        ${sfcDiagram(r.steps, { subst: (t) => t })}`}`;
+        ${sfcFlowView(r.steps, { subst: (t) => t })}`}`;
     if (!isEdit) {
       ed.querySelector('#rEdit').onclick = () => { editing = structuredClone(r); rview = 'edit'; drawRecipes(); };
       ed.querySelector('#rCopy').onclick = () => { editing = { ...structuredClone(r), _new: true, version: 0 }; drawRecipes(); ed.querySelector('#rName') && (ed.querySelector('#rName').value = `${r.name}_copia`); };
@@ -213,7 +214,7 @@ export async function showProcess(page, params, setTimer) {
       tr.querySelector('[data-prdel]').onclick = () => { r.parameters.splice(+tr.dataset.pr, 1); redraw(); };
     });
     ed.querySelector('#prAdd').onclick = () => { r.parameters.push({ name: `P${r.parameters.length + 1}` }); redraw(); };
-    sfcEditor(ed.querySelector('#rSfc'), r.steps, { mode: 'recipe', ctx: { sequences: st.sequences, functions: [], aliases: () => r.devices.map((d) => d.alias), params: () => r.parameters.map((p) => p.name) } });
+    sfcFlow(ed.querySelector('#rSfc'), r.steps, { mode: 'recipe', ctx: { sequences: st.sequences, functions: [], aliases: () => r.devices.map((d) => d.alias), params: () => r.parameters.map((p) => p.name) } });
     wireStateActions(ed, r, (re) => re && redraw());
     ed.querySelector('#rSave').onclick = async () => {
       const name = r._new ? ed.querySelector('#rName').value.trim() : r.name;

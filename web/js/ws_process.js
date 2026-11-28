@@ -4,10 +4,11 @@ import { esc } from './core.js';
 import { P, markDirty, areaNames } from './project.js';
 import { tableEditor } from './forms.js';
 import { helpBtn } from './markdown.js';
-import { sfcEditor, sfcDiagram, stateActionsHtml, wireStateActions } from './sfc.js';
+import { stateActionsHtml, wireStateActions } from './sfc.js';
+import { sfcFlow } from './sfcflow.js';
 
 export function mount(root) {
-  let tab = 'seq', sel = 0, view = 'edit';
+  let tab = 'seq', sel = 0;
   root.innerHTML = `<div class="wsl"><div class="side" id="prSide"></div><div class="main" id="prMain"></div></div>`;
   const side = root.querySelector('#prSide'), main = root.querySelector('#prMain');
   const data = () => { P.data.devices ||= []; P.data.sequences ||= []; return P.data; };
@@ -50,7 +51,6 @@ export function mount(root) {
     s.parameters ||= [];
     const devs = data().devices.filter((d) => !s.device_class || d.class === s.device_class);
     main.innerHTML = `<div class="sec"><h3>Sequenza (fase) ${helpBtn('designer-processo#sequenze-fasi')}<span class="grow"></span>
-        <div class="seg" style="grid-template-columns:repeat(2,auto)"><button class="small ${view === 'edit' ? 'on' : ''}" data-view="edit">✎ Modifica</button><button class="small ${view === 'diag' ? 'on' : ''}" data-view="diag">◫ Diagramma</button></div>
         <button class="small" id="sDup">Duplica</button><button class="small danger" id="sDel">Elimina</button></h3>
       <div class="formgrid">
         <label>Nome</label><input data-f="name" value="${esc(s.name)}">
@@ -61,10 +61,9 @@ export function mount(root) {
         <label>Avvio da PLC</label><input data-f="start_tag" list="tagNames" value="${esc(s.start_tag || '')}" placeholder="tag bool (fronte di salita), sul dispositivo predefinito">
       </div></div>
       <div class="sec"><h3>Parametri ${helpBtn('designer-processo#parametri-della-sequenza')}</h3><p class="hint">Valori passati all'avvio (dalla ricetta o dall'operatore) e usati come <code>{nome}</code> in tag, valori e condizioni. Limiti verificati all'avvio.</p><div id="sPar"></div></div>
-      <div class="sec"><h3>Passi ${helpBtn('designer-processo#passi-rami-paralleli-e-transizioni')}</h3><div id="sSfc"></div></div>
+      <div class="sec"><h3>SFC della fase ${helpBtn('designer-processo#editor-sfc-a-flowchart')}</h3><div id="sSfc"></div></div>
       <div class="sec"><h3>Azioni di stato (ISA-88) ${helpBtn('designer-processo#stati-e-azioni-di-stato')}</h3>${stateActionsHtml(s)}</div>`;
     const redraw = () => { markDirty(); drawSeq(); };
-    main.querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => { view = b.dataset.view; drawSeq(); }));
     main.querySelectorAll('[data-f]').forEach((el) => (el.onchange = () => {
       const k = el.dataset.f;
       if (el.value === '' && k !== 'name') delete s[k]; else s[k] = el.value.trim();
@@ -84,9 +83,10 @@ export function mount(root) {
       }
       markDirty();
     }, newRow: () => ({ name: `P${s.parameters.length + 1}` }) });
-    const host = main.querySelector('#sSfc');
-    if (view === 'diag') host.innerHTML = sfcDiagram(s.steps, { subst: (t) => t.replaceAll('{unit}', s.unit || '{unit}') });
-    else sfcEditor(host, s.steps, { mode: 'sequence', onChange: markDirty, ctx: { functions: P.functions || [] } });
+    sfcFlow(main.querySelector('#sSfc'), s.steps, {
+      mode: 'sequence', onChange: markDirty,
+      ctx: { functions: P.functions || [], params: () => s.parameters.map((x) => x.name), tags: () => (P.data.tags || []).map((t) => t.name) },
+    });
     wireStateActions(main, s, (re) => (re ? redraw() : markDirty()));
   }
 

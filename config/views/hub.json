@@ -1129,7 +1129,7 @@
     }
   ],
   "height": 700,
-  "home": false,
+  "home": true,
   "physics": {
     "scale_mm": 10
   },

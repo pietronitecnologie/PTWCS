@@ -1,9 +1,9 @@
-# Impianto demo: linea di smistamento colli con scanner e deviatore.
-# Avviare il simulatore PLC:  cargo run --bin plc_sim   (hub: cargo run --bin plc_hub)
+# Impianto demo: hub di smistamento pacchi, magazzino pallet MP1, processo batch (reattori R1/R2).
+# Avviare il PLC dell'hub:     cargo run --release --bin plc_hub
 # Avviare il WCS:             cargo run -- config/plant.yaml
 plant:
-  name: Magazzino Demo
-  description: Linea smistamento colli – scanner SC1, deviatore DV1 a 3 uscite + scarto
+  name: Impianto Demo
+  description: Hub di smistamento pacchi, magazzino pallet MP1 e processo batch
 
 server:
   bind: 0.0.0.0:8080
@@ -19,14 +19,6 @@ scripting:
   module: ../scripts           # cartella: un file per funzione (nome.py → def nome(payload, ctx)), _modulo.py = codice condiviso
 
 drivers:
-  - name: PLC_LINEA
-    protocol: modbus
-    host: 127.0.0.1
-    port: 5020
-    unit_id: 1
-    poll_ms: 100
-    area: Linea
-
   # Hub di smistamento pacchi (demo grande): cargo run --release --bin plc_hub
   - name: PLC_HUB
     protocol: modbus
@@ -53,7 +45,6 @@ drivers:
   - name: WCS_INTERNO        # variabili interne (setpoint, modalità, ...)
     protocol: sim
     poll_ms: 250
-    area: Servizi
 
 # Il progetto (aree, scan class, UDT, tag, punti di decisione/protocollo,
 # classi di smistamento, WMS, allarmi) è in project.yaml ed è gestito dal Designer.

@@ -322,24 +322,6 @@ Istruzioni di compilazione e uso: `plc/plcsim-bridge/README.md`.
 
 ## Demo
 
-Ci sono due demo: la linea di smistamento (piccola) e l'hub di smistamento pacchi (grande).
-
-### Linea di smistamento
-
-`python3 tools/build_demo_physics.py` aggiunge il layer fisico alla linea di smistamento della demo:
-- **tag** `SimIO.*` sul PLC di linea;
-- **materiali**: collo, pacco, busta;
-- **vista Linea**: ingresso colli → CV1 → CV2 con scanner SC1 e fotocellula → CV3 con fotocellula → deviatore DV1 → uscite 1–3 e scarto, ciascuna con la fotocellula di fine.
-
-Il PLC simulato `plc_sim`, con la simulazione attiva, fa la stessa cosa di `FB_SimIO` con il watchdog ed esegue la logica vera:
-- a ogni lettura dello scanner manda la richiesta al WCS;
-- insegue i colli in una coda;
-- comanda il deviatore quando il collo arriva alla fotocellula;
-- conta i colli alle uscite;
-- va in guasto se un collo resta fermo su una fotocellula.
-
-WCS e regole di smistamento decidono le uscite come in produzione. Le prove si fanno da runtime → **Simulazione**.
-
 ### Hub di smistamento pacchi
 
 Si genera con `python3 tools/build_demo_hub.py` (server avviato), poi si avvia il suo PLC:

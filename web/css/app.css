@@ -337,3 +337,46 @@ body.manual { display: flex; flex-direction: column; height: 100%; }
 g.phys-flow > line { stroke-dasharray: 10 8; animation: flow 0.6s linear infinite; stroke: #38bdf8 !important; }
 .sim .lvl { display: inline-block; width: 60px; height: 8px; border-radius: 4px; background: var(--panel2); vertical-align: middle; overflow: hidden; }
 .sim .lvl i { display: block; height: 100%; background: #38bdf8; }
+
+/* ---------------------------------------------------------------- SFC a flowchart (stile PCS7) */
+.sfx { display: flex; flex-direction: column; gap: 6px; }
+.sfx-tb { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 6px; background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; }
+.sfx-body { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 10px; min-height: 420px; }
+.sfx-canvas, .sfx-view { overflow: auto; background: var(--sfx-bg, #0b1220); border: 1px solid var(--border); border-radius: 6px; outline: none; }
+.sfx-canvas { max-height: 72vh; }
+.sfx-view { max-height: 60vh; }
+.sfx-props { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow: auto; max-height: 72vh; }
+.sfx-props h4 { margin: 0 0 8px; } .sfx-props h5 { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+.sfx-props .fg { display: grid; grid-template-columns: 110px 1fr; gap: 6px 8px; align-items: center; }
+.sfx-props .row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+.sfx-act, .sfx-cond { border: 1px solid var(--border); border-radius: 6px; padding: 6px; margin: 4px 0; background: var(--panel2); }
+.sfx-cond { display: flex; gap: 4px; align-items: center; }
+.sfx-svg { display: block; font-family: inherit; }
+.sfx-svg .sfx-ln { stroke: #64748b; stroke-width: 2; } .sfx-svg .sfx-ln.dash { stroke-dasharray: 3 4; } .sfx-svg .sfx-ln.alt { stroke: #a78bfa; }
+.sfx-svg .sfx-dbl { stroke: #94a3b8; stroke-width: 2; }
+.sfx-svg .sfx-step rect { fill: #1e293b; stroke: #94a3b8; stroke-width: 2; cursor: pointer; }
+.sfx-svg .sfx-step rect.init { fill: none; stroke-width: 1.2; }
+.sfx-svg .sfx-step text { fill: #e2e8f0; font-size: 13px; pointer-events: none; }
+.sfx-svg .sfx-step .n { fill: #94a3b8; font-weight: 700; } .sfx-svg .sfx-step .nm { font-weight: 700; }
+.sfx-svg .sfx-step .inf, .sfx-svg .sfx-step .tm { font-size: 11px; fill: #94a3b8; }
+.sfx-svg .sfx-step.cur rect { fill: #14532d; stroke: #22c55e; } .sfx-svg .sfx-step.cur .tm { fill: #86efac; }
+.sfx-svg .sfx-step.past rect { stroke: #3b82f6; }
+.sfx-svg .sfx-step.sel rect:first-child { stroke: #f59e0b; stroke-width: 3; }
+.sfx-svg .sfx-tr { cursor: pointer; } .sfx-svg .sfx-tr .hit { fill: transparent; }
+.sfx-svg .sfx-tr .bar { stroke: #e2e8f0; stroke-width: 5; } .sfx-svg .sfx-tr.impl .bar { stroke: #64748b; }
+.sfx-svg .sfx-tr .lbl { fill: #cbd5e1; font-size: 12px; } .sfx-svg .sfx-tr.impl .lbl { fill: #64748b; font-style: italic; }
+.sfx-svg .sfx-tr .jmp { fill: #c4b5fd; font-weight: 700; }
+.sfx-svg .sfx-tr.sel .bar { stroke: #f59e0b; } .sfx-svg .sfx-tr.sel .hit { fill: #f59e0b22; }
+.sfx-svg .sfx-brh { cursor: pointer; } .sfx-svg .sfx-brh rect { fill: #312e81; stroke: #6366f1; } .sfx-svg .sfx-brh text { fill: #c7d2fe; font-size: 11px; pointer-events: none; }
+.sfx-svg .sfx-brh.sel rect { stroke: #f59e0b; stroke-width: 2; }
+.sfx-svg .sfx-ins { cursor: pointer; opacity: .35; } .sfx-svg .sfx-ins:hover { opacity: 1; }
+.sfx-svg .sfx-ins circle { fill: #0ea5e9; } .sfx-svg .sfx-ins text { fill: #fff; font-size: 13px; font-weight: 700; pointer-events: none; }
+.sfx-svg .sfx-end rect { fill: #334155; stroke: #94a3b8; } .sfx-svg .sfx-end text { fill: #e2e8f0; font-size: 12px; font-weight: 700; }
+.sfx-svg .sfx-jt { fill: #c4b5fd; font-size: 11px; } .sfx-svg .sfx-to { fill: #fbbf24; font-size: 11px; }
+[data-theme="light"] .sfx-canvas, [data-theme="light"] .sfx-view { --sfx-bg: #f8fafc; }
+[data-theme="light"] .sfx-svg .sfx-step rect { fill: #ffffff; stroke: #475569; } [data-theme="light"] .sfx-svg .sfx-step text { fill: #0f172a; }
+[data-theme="light"] .sfx-svg .sfx-step.cur rect { fill: #dcfce7; stroke: #16a34a; } [data-theme="light"] .sfx-svg .sfx-step.cur .tm { fill: #15803d; }
+[data-theme="light"] .sfx-svg .sfx-tr .bar { stroke: #0f172a; } [data-theme="light"] .sfx-svg .sfx-tr .lbl { fill: #334155; }
+[data-theme="light"] .sfx-svg .sfx-end rect { fill: #e2e8f0; stroke: #475569; } [data-theme="light"] .sfx-svg .sfx-end text { fill: #0f172a; }
+[data-theme="light"] .sfx-svg .sfx-brh rect { fill: #e0e7ff; } [data-theme="light"] .sfx-svg .sfx-brh text { fill: #3730a3; }
+@media (max-width: 1000px) { .sfx-body { grid-template-columns: 1fr; } }

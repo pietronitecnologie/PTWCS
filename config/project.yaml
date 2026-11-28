@@ -1,22 +1,7 @@
 # Progetto WCS-SCADA – gestito dal Designer (modificabile a mano a WCS fermo).
 areas:
-- name: Linea
-  description: Linea di smistamento colli
-- name: Carico
-  description: Nastro di carico CV1
-  parent: Linea
-- name: Scanner
-  description: Lettura barcode e pesatura
-  parent: Linea
-- name: Smistamento
-  description: Deviatore DV1 e uscite
-  parent: Linea
-- name: Servizi
-  description: Variabili interne WCS e simulazione
-- name: Magazzino
-  description: Magazzino automatico e movimentazione
 - name: Processo
-  description: Impianto di servizio (serbatoio acqua)
+  description: 'Processo batch ISA-88: reattori R1/R2, serbatoi, fluidi'
 - name: MagPallet
   description: Magazzino automatico pallet MP1
 - name: MP-Ingressi
@@ -1147,122 +1132,6 @@ udt_types:
     writable: true
     description: Reset guasti (fronte)
 udt_instances:
-- name: CV1
-  type: Nastro
-  driver: PLC_LINEA
-  area: Carico
-  scan_class: normale
-  params:
-    Idx: 0
-  description: Nastro carico
-- name: CV2
-  type: Nastro
-  driver: PLC_LINEA
-  area: Scanner
-  scan_class: normale
-  params:
-    Idx: 1
-  description: Nastro scanner
-- name: CV3
-  type: Nastro
-  driver: PLC_LINEA
-  area: Smistamento
-  scan_class: normale
-  params:
-    Idx: 2
-  description: Nastro smistamento
-- name: SC1
-  type: TelegrammaScanner
-  driver: PLC_LINEA
-  area: Scanner
-  scan_class: veloce
-  params:
-    Base: 0
-  description: Scanner SC1
-- name: CVM1
-  type: Trasporto
-  driver: WCS_INTERNO
-  area: Magazzino
-  params:
-    Base: 0
-    DB: 200
-- name: CVM2
-  type: Trasporto
-  driver: WCS_INTERNO
-  area: Magazzino
-  params:
-    Base: 0
-    DB: 201
-- name: LIFT1
-  type: Elevatore
-  driver: WCS_INTERNO
-  area: Magazzino
-  params:
-    Base: 0
-    DB: 202
-- name: DOOR1
-  type: Porta
-  driver: WCS_INTERNO
-  area: Magazzino
-  params:
-    Base: 0
-    DB: 203
-- name: DOCK1
-  type: Porta
-  driver: WCS_INTERNO
-  area: Magazzino
-  params:
-    Base: 0
-    DB: 204
-- name: CRANE1
-  type: Traslo
-  driver: WCS_INTERNO
-  area: Magazzino
-  params:
-    Base: 0
-    DB: 205
-- name: RACK1
-  type: Scaffale
-  driver: WCS_INTERNO
-  area: Magazzino
-  params:
-    Base: 0
-    DB: 206
-- name: AGV1
-  type: Veicolo
-  driver: WCS_INTERNO
-  area: Magazzino
-  params:
-    Base: 0
-    DB: 207
-- name: TK1
-  type: Serbatoio
-  driver: WCS_INTERNO
-  area: Processo
-  params:
-    Base: 0
-    DB: 210
-- name: P1
-  type: Motore
-  driver: WCS_INTERNO
-  area: Processo
-  params:
-    Base: 0
-    DB: 211
-- name: XV1
-  type: Valvola
-  driver: WCS_INTERNO
-  area: Processo
-  params:
-    Base: 0
-    DB: 212
-- name: LT1
-  type: Strumento
-  driver: WCS_INTERNO
-  area: Processo
-  params:
-    Base: 0
-    DB: 213
 - name: C1
   type: TrasloMissioni
   driver: WCS_INTERNO
@@ -1880,138 +1749,6 @@ udt_instances:
   params: {}
   description: Assi del traslo C3
 tags:
-- name: Line.ResetFaults
-  driver: PLC_LINEA
-  address: coil:30
-  type: bool
-  writable: true
-  area: Linea
-- name: Sim.InjectFault
-  driver: PLC_LINEA
-  address: coil:31
-  type: bool
-  writable: true
-  area: Servizi
-- name: Line.EStop
-  driver: PLC_LINEA
-  address: di:4
-  type: bool
-  description: Emergenza
-  area: Linea
-  scan_class: veloce
-  alarms:
-  - name: ESTOP
-    op: ==
-    value: true
-    message: Emergenza premuta
-    severity: critical
-- name: CV1.Speed
-  driver: PLC_LINEA
-  address: ir:5
-  type: u16
-  unit: m/min×10
-  historize: true
-  area: Carico
-  scan_class: normale
-- name: CV1.Current
-  driver: PLC_LINEA
-  address: ir:6
-  type: u16
-  unit: A×10
-  historize: true
-  area: Carico
-  scan_class: normale
-- name: CV1.Temp
-  driver: PLC_LINEA
-  address: ir:7
-  type: u16
-  unit: °C×10
-  historize: true
-  area: Carico
-  scan_class: lenta
-  alarms:
-  - name: TEMP
-    op: '>'
-    value: 450
-    message: CV1 – temperatura motore alta (>45 °C)
-    severity: warning
-- name: SC1.PhotoEye
-  driver: PLC_LINEA
-  address: di:3
-  type: bool
-  area: Scanner
-  scan_class: veloce
-- name: DV1.Position
-  driver: PLC_LINEA
-  address: hr:20
-  type: u16
-  area: Smistamento
-  scan_class: veloce
-- name: OUT1.Count
-  driver: PLC_LINEA
-  address: ir:0
-  type: u16
-  historize: true
-  area: Smistamento
-  scan_class: normale
-- name: OUT2.Count
-  driver: PLC_LINEA
-  address: ir:1
-  type: u16
-  historize: true
-  area: Smistamento
-  scan_class: normale
-- name: OUT3.Count
-  driver: PLC_LINEA
-  address: ir:2
-  type: u16
-  historize: true
-  area: Smistamento
-  scan_class: normale
-- name: REJECT.Count
-  driver: PLC_LINEA
-  address: ir:3
-  type: u16
-  historize: true
-  area: Smistamento
-  scan_class: normale
-- name: SC1.Timeouts
-  driver: PLC_LINEA
-  address: ir:4
-  type: u16
-  area: Scanner
-  scan_class: normale
-  alarms:
-  - name: TMO
-    op: '>'
-    value: 0
-    message: SC1 – il PLC ha registrato timeout di risposta WCS
-    severity: info
-- name: WCS.MaxWeight
-  driver: WCS_INTERNO
-  address: max_weight
-  type: u16
-  writable: true
-  description: Peso massimo accettato
-  unit: g×10
-  initial: 3000
-  area: Servizi
-  write_roles:
-  - manutentore
-  - progettista
-  - amministratore
-- name: WCS.Out3Enabled
-  driver: WCS_INTERNO
-  address: out3_enabled
-  type: bool
-  writable: true
-  description: Uscita 3 abilitata
-  initial: true
-  area: Servizi
-  write_roles:
-  - manutentore
-  - progettista
-  - amministratore
 - name: MP.MaxWeight
   driver: WCS_INTERNO
   address: mp_maxw
@@ -2066,7 +1803,7 @@ tags:
   type: bool
   writable: true
   description: Simula guasto traslo C2
-  area: Servizi
+  area: MP-Trasli
   write_roles:
   - manutentore
   - progettista
@@ -2245,92 +1982,6 @@ tags:
   unit: rpm
   initial: 120
   area: Processo
-- name: SimIO.Active
-  driver: PLC_LINEA
-  address: coil:99
-  type: bool
-  writable: true
-  description: Simulazione attiva (il PLC usa gli ingressi simulati)
-  area: Servizi
-- name: SimIO.Heartbeat
-  driver: PLC_LINEA
-  address: hr:99
-  type: u16
-  writable: true
-  description: Watchdog della simulazione
-  area: Servizi
-- name: SimIO.PE_SC
-  driver: PLC_LINEA
-  address: coil:100
-  type: bool
-  writable: true
-  description: 'Ingresso simulato: fotocellula scanner'
-  area: Servizi
-- name: SimIO.PE_DV
-  driver: PLC_LINEA
-  address: coil:101
-  type: bool
-  writable: true
-  description: 'Ingresso simulato: fotocellula prima del deviatore'
-  area: Servizi
-- name: SimIO.PE_OUT1
-  driver: PLC_LINEA
-  address: coil:102
-  type: bool
-  writable: true
-  description: 'Ingresso simulato: fotocellula fine uscita 1'
-  area: Servizi
-- name: SimIO.PE_OUT2
-  driver: PLC_LINEA
-  address: coil:103
-  type: bool
-  writable: true
-  description: 'Ingresso simulato: fotocellula fine uscita 2'
-  area: Servizi
-- name: SimIO.PE_OUT3
-  driver: PLC_LINEA
-  address: coil:104
-  type: bool
-  writable: true
-  description: 'Ingresso simulato: fotocellula fine uscita 3'
-  area: Servizi
-- name: SimIO.PE_REJ
-  driver: PLC_LINEA
-  address: coil:105
-  type: bool
-  writable: true
-  description: 'Ingresso simulato: fotocellula fine scarto'
-  area: Servizi
-- name: SimIO.ScanCount
-  driver: PLC_LINEA
-  address: hr:100
-  type: u16
-  writable: true
-  description: 'Ingresso simulato: contatore letture scanner'
-  area: Servizi
-- name: SimIO.ScanCode
-  driver: PLC_LINEA
-  address: hr:101
-  type: string
-  writable: true
-  description: 'Ingresso simulato: barcode letto'
-  area: Servizi
-- name: SimIO.ScanWeight
-  driver: PLC_LINEA
-  address: hr:111
-  type: u16
-  writable: true
-  description: 'Ingresso simulato: peso'
-  unit: g×10
-  area: Servizi
-- name: SimIO.CV1_Speed
-  driver: PLC_LINEA
-  address: hr:112
-  type: u16
-  writable: true
-  description: 'Ingresso simulato: velocità reale CV1'
-  unit: m/min×10
-  area: Servizi
 - name: HUB.PE_B1_OUT
   driver: PLC_HUB
   address: coil:2000
@@ -3232,15 +2883,6 @@ tags:
   description: 'Layer fisico attivo: i trasli di MP1 si muovono con gli assi simulati'
   area: MP-Trasli
 decision_points:
-- name: SC1
-  description: Scanner barcode – scelta uscita del collo
-  telegram: SC1
-  handshake: counter
-  function: decide_sc1
-  timeout_ms: 300
-  fallback:
-    destination: 99
-    result: 9
 - name: IN1
   description: 'Ingresso 1: assegnazione corsia/cella'
   telegram: IN1
@@ -3289,51 +2931,9 @@ decision_points:
     destination: 99
     result: 9
   area: Hub-SorterSud
-sort_classes:
-- name: NORD
-  description: Nord Italia
-  destination: '1'
-  source: local
-  patterns:
-  - IT-MI*
-  - IT-TO*
-  - IT-BO*
-- name: CENTROSUD
-  description: Centro-Sud Italia
-  destination: '2'
-  source: local
-  patterns:
-  - IT-RM*
-  - IT-NA*
-  - IT-FI*
-- name: ESTERO
-  description: Spedizioni estere
-  destination: '3'
-  source: local
-  patterns:
-  - DE-*
-  - FR-*
-  - ES-*
-- name: PRIORITARI
-  description: Ordini prioritari (elenco barcode dal WMS)
-  destination: '1'
-  source: wms
-wms:
-  enabled: true
-  base_url: http://127.0.0.1:8090/api
-  destination_path: /parcels/{barcode}/destination
-  destination_field: destination
-  class_field: class
-  classes_path: /sort-classes
-  sync_interval_s: 30
-  timeout_ms: 250
-  cache_ttl_s: 300
+sort_classes: []
 alarms: []
 timer_scripts:
-- name: sim_magazzino
-  function: sim_magazzino
-  interval_ms: 200
-  enabled: true
 - name: sim_pallet
   function: sim_pallet
   interval_ms: 200
@@ -3657,9 +3257,8 @@ physics:
   scale_mm: 10.0
   drivers:
   - PLC_HUB
-  - PLC_LINEA
-  heartbeat_tag: SimIO.Heartbeat,HubSim.Heartbeat
-  active_tag: SimIO.Active,HubSim.Active,Proc.SimActive,MP.SimActive
+  heartbeat_tag: HubSim.Heartbeat
+  active_tag: HubSim.Active,Proc.SimActive,MP.SimActive
   materials:
   - name: Collo
     length_m: 0.4

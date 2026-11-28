@@ -82,5 +82,6 @@ fn demo_config_is_valid() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("config/plant.yaml");
     let cfg = Config::load(&path).expect("config demo valida");
     assert!(cfg.tags.len() > 20);
-    assert!(cfg.decision_points.iter().any(|d| d.name == "SC1" && d.request_tag == "SC1.ReqID"));
+    assert!(cfg.decision_points.iter().any(|d| d.name == "HSC0" && d.request_tag == "HSC0.ReqID"));
+    assert!(cfg.decision_points.iter().any(|d| d.name == "IN1"));
 }

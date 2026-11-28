@@ -50,7 +50,7 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - consultazione con filtri e aggiornamento in tempo reale, esportazione CSV.
 - **Processo (ISA-88, stile SIMATIC BATCH)**:
   - dispositivi con classe;
-  - sequenze SFC (fasi) con parametri propri;
+  - sequenze SFC (fasi) con parametri propri, programmate con un **editor SFC grafico stile PCS7** (flowchart interattivo: passi, transizioni, alternative con salti, rami paralleli);
   - ricette che schedulano le fasi, con rami paralleli, modello di stato hold/restart/stop/abort e versioni;
   - batch che allocano in esclusiva i dispositivi.
 - **Layer fisico per il collaudo virtuale**:
@@ -74,22 +74,10 @@ Servono Rust ≥ 1.85 e Python ≥ 3.9 (il runtime non richiede pacchetti Python
 cargo build --release
 ```
 
-PLC Modbus simulato (linea di smistamento):
-
-```bash
-./target/release/plc_sim 127.0.0.1:5020
-```
-
-PLC dell'hub di smistamento pacchi (demo grande, configurazione in `config/hub/plc_hub.json`):
+PLC dell'hub di smistamento pacchi (configurazione in `config/hub/plc_hub.json`):
 
 ```bash
 ./target/release/plc_hub
-```
-
-WMS di prova (facoltativo, per la demo delle classi WMS):
-
-```bash
-python3 tools/mock_wms.py 8090
 ```
 
 WCS:
@@ -98,9 +86,15 @@ WCS:
 ./target/release/wcs_scada config/plant.yaml
 ```
 
-Runtime su http://localhost:8080/ e Designer su http://localhost:8080/designer.html. La demo comprende:
-- la **Linea**: scanner con smistamento su 3 uscite più scarto, regole grafiche, WMS e classi;
-- il **Magazzino**: baia, porte, nastri, lift, traslo, scaffali, AGV e serbatoio, animati da uno script a timer; ogni elemento apre il suo faceplate.
+Runtime su http://localhost:8080/ e Designer su http://localhost:8080/designer.html. L'impianto demo ha tre aree:
+
+| Area | Contenuto |
+|---|---|
+| **Hub** | hub di smistamento pacchi: 3 baie di scarico, collettore, pre-smistatore Nord/Sud, due sorter ad anello (69 nastri, PLC `plc_hub`) |
+| **MagPallet** | magazzino automatico pallet MP1: 2 ingressi, 3 trasli (uno a doppia UdC), 3000 locazioni, 2 baie d'uscita |
+| **Processo** | processo batch ISA-88: reattori R1/R2, fasi SFC, ricette, impianto fluidi (serbatoi, pompe, valvole) |
+
+Il layer fisico (runtime → **Simulazione**) muove colli, pallet e fluidi su tutte e tre.
 
 ## Esempio: magazzino automatico pallet (MP1)
 
@@ -304,7 +298,7 @@ Se un valore `class:` o `wms:` non si risolve, la regola viene saltata e si prov
 - `GET {base}/parcels/{barcode}/destination` → `{"destination": "2", "class": "X"}` (un 404 significa collo sconosciuto);
 - `GET {base}/sort-classes` → `[{"name", "destination", "barcodes", "patterns"}]` per le classi con origine WMS.
 
-Le richieste hanno timeout breve e cache. Per i token negli header usa `${VARIABILE}`: il valore viene letto dall'ambiente del server. Un WMS di prova è in `tools/mock_wms.py`.
+Le richieste hanno timeout breve e cache. Per i token negli header usa `${VARIABILE}`: il valore viene letto dall'ambiente del server.
 
 ## UDT, tag, scan class, aree
 
@@ -353,10 +347,10 @@ stdlib/udts.json                   tipi UDT standard importabili
 ## Script Python (`scripts/`, un file per funzione)
 
 ```
-scripts/decide_sc1.py      def decide_sc1(req, ctx)      punto di decisione
-scripts/start_line.py      def start_line(payload, ctx)  evento HMI (pulsante)
+scripts/hub_presort.py     def hub_presort(req, ctx)     punto di decisione
+scripts/proc_logic.py      def proc_logic(payload, ctx)  script a timer (logica di servizio)
 scripts/sim_pallet.py      def sim_pallet(payload, ctx)  script a timer
-scripts/_linea.py          modulo condiviso: costanti, funzioni, stato comune (from _linea import stats)
+scripts/_hub.py            modulo condiviso: costanti, funzioni, stato comune (from _hub import stats)
 ```
 
 - **Cartella**: `scripting.module` in `plant.yaml` indica la cartella; per compatibilità accetta anche un singolo file `.py` con più funzioni.
@@ -537,12 +531,6 @@ Il programma PLC resta quello di produzione.
 - **Viste**: quattro, collegate tra loro: i nastri proseguono da una vista all'altra con `vista/id`.
 - **PLC `plc_hub`**: logica configurata da `config/hub/plc_hub.json` (merge, controllo motori, inseguimento FIFO, scivolo pieno → ricircolo, risincronizzazione).
 
-**Demo piccola:** `python3 tools/build_demo_physics.py`. Ridisegna la linea di smistamento con il layer fisico e i tag `SimIO.*`. Con la simulazione attiva, `plc_sim` esegue la logica vera sugli ingressi simulati:
-- richiesta al WCS a ogni lettura;
-- inseguimento FIFO dei colli;
-- deviatore all'arrivo del collo;
-- conteggi alle fotocellule;
-- rilevamento degli inceppamenti.
 
 API:
 - `GET /api/physics` (stato, modello, errori, unità);
