@@ -366,6 +366,8 @@ g.phys-flow > line { stroke-dasharray: 10 8; animation: flow 0.6s linear infinit
 .sfx-svg .sfx-tr .bar { stroke: #e2e8f0; stroke-width: 5; } .sfx-svg .sfx-tr.impl .bar { stroke: #64748b; }
 .sfx-svg .sfx-tr .lbl { fill: #cbd5e1; font-size: 12px; } .sfx-svg .sfx-tr.impl .lbl { fill: #64748b; font-style: italic; }
 .sfx-svg .sfx-tr .jmp { fill: #c4b5fd; font-weight: 700; }
+.sfx-svg .sfx-tr .lv { fill: #fbbf24; font-weight: 700; } .sfx-svg .sfx-tr.live-ok .bar { stroke: #22c55e; } .sfx-svg .sfx-tr.live-ok .lv { fill: #22c55e; }
+.sfx-svg .sfx-tr.live-no .bar { stroke: #f59e0b; }
 .sfx-svg .sfx-tr.sel .bar { stroke: #f59e0b; } .sfx-svg .sfx-tr.sel .hit { fill: #f59e0b22; }
 .sfx-svg .sfx-brh { cursor: pointer; } .sfx-svg .sfx-brh rect { fill: #312e81; stroke: #6366f1; } .sfx-svg .sfx-brh text { fill: #c7d2fe; font-size: 11px; pointer-events: none; }
 .sfx-svg .sfx-brh.sel rect { stroke: #f59e0b; stroke-width: 2; }
@@ -380,3 +382,15 @@ g.phys-flow > line { stroke-dasharray: 10 8; animation: flow 0.6s linear infinit
 [data-theme="light"] .sfx-svg .sfx-end rect { fill: #e2e8f0; stroke: #475569; } [data-theme="light"] .sfx-svg .sfx-end text { fill: #0f172a; }
 [data-theme="light"] .sfx-svg .sfx-brh rect { fill: #e0e7ff; } [data-theme="light"] .sfx-svg .sfx-brh text { fill: #3730a3; }
 @media (max-width: 1000px) { .sfx-body { grid-template-columns: 1fr; } }
+
+/* dati dal vivo di fasi e batch */
+.phase-live { grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr); margin-top: 12px; }
+.phase-live h4 { margin: 12px 0 6px; }
+.pl-info th { text-align: left; width: 130px; color: var(--muted, #94a3b8); font-weight: 500; }
+.pl-step { border: 1px solid #33415588; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.pl-tr { margin-top: 6px; padding: 4px 8px; border-left: 3px solid #f59e0b; }
+.pl-tr.ok { border-left-color: #22c55e; }
+.pl-c { font-size: 12.5px; margin: 2px 0 0 10px; } .pl-c.ok { color: #22c55e; } .pl-c.no { color: #f59e0b; }
+.pl-c b, .pl-c code { color: inherit; }
+.pl-tags td.r, .pl-tags th.r { text-align: right; white-space: nowrap; }
+.proc .ph-inst.sel { background: #3b82f61a; border-radius: 6px; }

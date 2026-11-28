@@ -5,6 +5,7 @@ import { can } from './auth.js';
 import { helpBtn } from './markdown.js';
 import { STATES, dur, runInfo, stateActionsHtml, wireStateActions } from './sfc.js';
 import { sfcFlow, sfcFlowView } from './sfcflow.js';
+import { liveHtml, liveRun } from './phaselive.js';
 
 const TABS = [['batch', '🧾 Batch'], ['phases', '🔁 Fasi'], ['recipes', '🧪 Ricette'], ['devices', '🏭 Dispositivi'], ['history', '📚 Storico']];
 const chip = (s) => { const [l, c] = STATES[s] || [s, '']; return `<span class="chip ${c}">${l}</span>`; };
@@ -39,7 +40,7 @@ function cmdButtons(i, allowed) {
   ].join('');
 }
 
-export async function showProcess(page, params, setTimer) {
+export async function showProcess(page, params, setTimer, live) {
   const tab = TABS.some(([k]) => k === params.tab) ? params.tab : 'batch';
   page.innerHTML = `<div class="proc"><div class="row" style="margin-bottom:10px;flex-wrap:wrap"><h2 style="margin:0 12px 0 0">Processo ${helpBtn('runtime#processo-batch-e-fasi')}</h2>
       <div class="subtabs" style="margin:0">${TABS.map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div></div><div id="prBody"></div></div>`;
@@ -77,14 +78,15 @@ export async function showProcess(page, params, setTimer) {
     const phases = st.instances.filter((i) => i.owner === b.key);
     const det = body.querySelector('#bDet');
     det.innerHTML = `<div class="grid2" style="grid-template-columns:minmax(380px,1fr) minmax(380px,1fr)">
-      <div class="card"><h3>${esc(b.key)} – procedura ${esc(b.name)} v${b.version}${recipe && recipe.version !== b.version ? ` <span class="chip warn">ricetta ora v${recipe.version}</span>` : ''}</h3>${sfcFlowView(b.steps, runInfo(b))}</div>
+      <div class="card"><h3>${esc(b.key)} – procedura ${esc(b.name)} v${b.version}${recipe && recipe.version !== b.version ? ` <span class="chip warn">ricetta ora v${recipe.version}</span>` : ''}</h3>${sfcFlowView(b.steps, live ? liveRun(b, live, phases) : runInfo(b))}</div>
       <div class="card"><h3>Fasi del batch</h3>
-        <table class="ph-list"><thead><tr><th>Fase</th><th>Stato</th><th>Passo</th><th>Parametri</th><th></th></tr></thead><tbody>${phases.map((p) => `<tr data-ph="${esc(p.key)}"><td><b>${esc(p.key)}</b></td><td>${chip(p.state)}</td><td>${activeTxt(p)}</td>
+        <table class="ph-list"><thead><tr><th>Fase</th><th>Stato</th><th>Passo</th><th>Parametri</th><th></th></tr></thead><tbody>${phases.map((p) => `<tr data-ph="${esc(p.key)}"><td><a href="#/process?tab=phases&sel=${encodeURIComponent(p.key)}"><b>${esc(p.key)}</b></a></td><td>${chip(p.state)}</td><td>${activeTxt(p)}</td>
           <td class="mono" style="font-size:11.5px">${Object.entries(p.params).map(([k, v]) => `${esc(k)}=${esc(v)}`).join('<br>')}</td>
           <td class="nowrap">${p.state === 'error' ? `<button class="small primary" data-cmd="restart" ${can('batch.operate') ? '' : 'disabled'}>▶ Riprova</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">nessuna fase avviata</td></tr>'}</tbody></table>
         <h3 style="margin-top:14px">Esecuzione</h3>
         <p>Avvio ${fmtTs(b.started)} da <b>${esc(b.user)}</b> · parametri ${Object.entries(b.params).map(([k, v]) => `<code>${esc(k)}=${esc(v)}</code>`).join(' ')}</p>
-        <table><thead><tr><th>Passo</th><th>Ingresso</th><th>Durata</th><th>Uscita</th></tr></thead><tbody>${b.history.map((h) => `<tr><td>${esc(h.path)} ${esc(h.step)}</td><td>${new Date(h.enter).toLocaleTimeString()}</td><td>${h.exit ? dur(h.exit - h.enter) : '…'}</td><td class="muted">${esc(h.reason)}</td></tr>`).join('')}</tbody></table></div></div>`;
+        <table><thead><tr><th>Passo</th><th>Ingresso</th><th>Durata</th><th>Uscita</th></tr></thead><tbody>${b.history.map((h) => `<tr><td>${esc(h.path)} ${esc(h.step)}</td><td>${new Date(h.enter).toLocaleTimeString()}</td><td>${h.exit ? dur(h.exit - h.enter) : '…'}</td><td class="muted">${esc(h.reason)}</td></tr>`).join('')}</tbody></table></div></div>
+      ${live ? liveHtml(b, { live, sequences: st.sequences, children: phases }) : ''}`;
     det.querySelectorAll('[data-ph]').forEach((r) => wireCmds(r, r.dataset.ph));
   }
 
@@ -132,9 +134,11 @@ export async function showProcess(page, params, setTimer) {
       }).join('') || '<p class="muted">Nessuna sequenza (Designer → ⚗ Processo).</p>'}</div><div id="phDet"></div>`;
     body.querySelectorAll('[data-start]').forEach((b) => (b.onclick = () => startPhase(st.sequences.find((s) => s.name === b.dataset.start))));
     body.querySelectorAll('.ph-inst').forEach((r) => { wireCmds(r, r.dataset.k); r.querySelector('[data-show]').onclick = () => { sel = r.dataset.k; drawPhases(); }; });
-    const i = insts.find((x) => x.key === sel);
+    const i = insts.find((x) => x.key === sel) || insts.find((x) => ['running', 'held', 'error'].includes(x.state));
     if (i) {
-      body.querySelector('#phDet').innerHTML = `<div class="card"><h3>${esc(i.key)} ${chip(i.state)}</h3>${sfcFlowView(i.steps, runInfo(i))}</div>`;
+      body.querySelectorAll('.ph-inst').forEach((r) => r.classList.toggle('sel', r.dataset.k === i.key));
+      body.querySelector('#phDet').innerHTML = `<div class="card"><h3>${esc(i.key)} ${chip(i.state)}${i.owner ? ` <span class="chip">batch ${esc(i.owner)}</span>` : ''}</h3>${sfcFlowView(i.steps, live ? liveRun(i, live) : runInfo(i))}</div>
+        ${live ? liveHtml(i, { live, sequences: st.sequences }) : ''}`;
     }
   }
 
@@ -251,7 +255,7 @@ export async function showProcess(page, params, setTimer) {
       body.querySelector('#hDet').innerHTML = `<div class="card"><h3>Report ${esc(b.key)} – ${esc(b.name)} v${b.version}</h3>
         <p>Parametri: ${Object.entries(b.params || {}).map(([k, v]) => `<code>${esc(k)}=${esc(v)}</code>`).join(' ')} · dispositivi ${Object.entries(b.devices || {}).map(([a, d]) => `${esc(a)}=${esc(d)}`).join(', ')}</p>
         <div class="grid2"><div><h4>Passi della procedura</h4><table><tbody>${(b.history || []).map((h) => `<tr><td>${esc(h.path)} ${esc(h.step)}</td><td>${new Date(h.enter).toLocaleTimeString()}</td><td>${h.exit ? dur(h.exit - h.enter) : ''}</td><td class="muted">${esc(h.reason)}</td></tr>`).join('')}</tbody></table></div>
-        <div><h4>Fasi</h4><table><tbody>${(b.phases || []).map((p) => `<tr><td><b>${esc(p.key)}</b></td><td>${chip(p.state)}</td><td class="mono" style="font-size:11.5px">${Object.entries(p.params || {}).map(([k, v]) => `${esc(k)}=${esc(v)}`).join(' ')}</td><td>${p.finished ? dur(p.finished - p.started) : ''}</td></tr>`).join('')}</tbody></table></div></div></div>`;
+        <div><h4>Fasi</h4><table><tbody>${(b.phases || []).map((p) => `<tr><td><a href="#/process?tab=phases&sel=${encodeURIComponent(p.key)}"><b>${esc(p.key)}</b></a></td><td>${chip(p.state)}</td><td class="mono" style="font-size:11.5px">${Object.entries(p.params || {}).map(([k, v]) => `${esc(k)}=${esc(v)}`).join(' ')}</td><td>${p.finished ? dur(p.finished - p.started) : ''}</td></tr>`).join('')}</tbody></table></div></div></div>`;
     }));
   }
 

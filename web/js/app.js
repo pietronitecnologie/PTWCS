@@ -36,7 +36,7 @@ function route() {
   if (kind === 'tags') return showTags();
   if (kind === 'trend') return showTrend();
   if (kind === 'diag') return showDiag();
-  if (kind === 'process') return showProcess(page, routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
+  if (kind === 'process') return showProcess(page, routeParams, setTimer, live).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   if (kind === 'sim') return showSim(page, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   if (kind === 'audit') return showAudit(page, routeParams, live).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   if (kind === 'wcs') return showWcs(page, arg ? decodeURIComponent(arg) : '', routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });

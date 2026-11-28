@@ -150,9 +150,21 @@ Il dettaglio del batch selezionato mostra:
 Le sequenze in **manuale** (permesso `seq.operate`):
 - **▶ Avvia…** chiede il dispositivo (quelli allocati a un batch non sono disponibili) e i parametri;
 - ogni istanza (`Sequenza@dispositivo`) ha i comandi hold, restart, stop, abort e reset;
-- **◫** mostra il diagramma con il passo attivo.
+- **◫** mostra il dettaglio della fase (senza selezione si apre la prima fase in esecuzione).
 
-Le fasi avviate da un batch compaiono con l'etichetta del batch e si comandano dal batch.
+Le fasi avviate da un batch compaiono con l'etichetta del batch e si comandano dal batch. Dalla tabella *Fasi del batch* il nome della fase apre il suo dettaglio.
+
+### Dati dal vivo di una fase o di un batch
+
+Il dettaglio si aggiorna ogni secondo e mostra:
+
+- **Diagramma SFC**: passo attivo in verde con il tempo trascorso. Sulle transizioni del passo attivo compare il **valore attuale** dei tag della condizione; la barra diventa **verde** quando la condizione è vera e **arancione** finché non lo è. Passando sopra la transizione si leggono tutti i valori.
+- **⏱ Dati runtime**:
+  - stato e messaggio, dispositivo (o dispositivi del batch), parametri, avvio con utente e durata, batch proprietario, tempo in hold, conferma dell'operatore;
+  - per ogni **passo attivo**: tempo nel passo, tempo minimo, **timeout residuo** con l'azione prevista;
+  - per ogni transizione del passo: ogni condizione con tag, operatore, valore richiesto (anche `tag:Altro` risolto) e **valore attuale**, ✓ vera o ✗ falsa. Le pseudo-condizioni sono mostrate come *tempo nel passo*, *conferma operatore*, *fasi concluse*;
+  - gli ultimi passi eseguiti con durata e motivo di uscita.
+- **🏷 Tag della fase**: tutti i tag che la fase scrive (azioni dei passi), legge (condizioni) o usa nelle azioni di stato (hold, restart, stop, abort), già sostituiti con dispositivo e parametri (`{unit}.Level` → `R1.Level`). Per ciascuno: valore con unità, qualità, uso e ora dell'ultimo aggiornamento. Nel batch la tabella raccoglie i tag delle fasi in corso, indicando quale fase li usa.
 
 ### Ricette
 

@@ -103,9 +103,10 @@ function draw(list, lp, x0, y, o, out, root) {
       const ts = o.sel?.type === 't' && o.sel.path === p && o.sel.ti === ti;
       const txt = t ? trText(t) : st.branches?.length ? 'rami conclusi' : (st.actions || []).some((a) => a.kind === 'phase') ? 'fasi concluse' : 'subito';
       const tgt = jump ? ` ↷ ${jump === 'END' ? 'FINE' : jump}` : '';
-      return `<g class="sfx-tr${ts ? ' sel' : ''}${t ? '' : ' impl'}" data-sel="t|${p}|${ti}"><rect x="${bx - 22}" y="${by - 10}" width="${LBL + 30}" height="20" class="hit"/>
+      const ev = t && o.run?.evalTr && o.run.active?.has(p) ? o.run.evalTr(t, p) : null;
+      return `<g class="sfx-tr${ts ? ' sel' : ''}${t ? '' : ' impl'}${ev ? (ev.ok ? ' live-ok' : ' live-no') : ''}" data-sel="t|${p}|${ti}">${ev ? `<title>valori attuali: ${esc(ev.vals)}</title>` : ''}<rect x="${bx - 22}" y="${by - 10}" width="${LBL + 30}" height="20" class="hit"/>
         <line x1="${bx - 16}" y1="${by}" x2="${bx + 16}" y2="${by}" class="bar"/>
-        <text x="${bx + 24}" y="${by + 4}" class="lbl">T${p.replaceAll('/', '.')}${ti >= 0 && trs.length > 1 ? `.${ti + 1}` : ''}  ${esc(short(sub(txt), 34))}<tspan class="jmp">${esc(tgt)}</tspan></text></g>`;
+        <text x="${bx + 24}" y="${by + 4}" class="lbl">T${p.replaceAll('/', '.')}${ti >= 0 && trs.length > 1 ? `.${ti + 1}` : ''}  ${esc(short(sub(txt), 34))}<tspan class="jmp">${esc(tgt)}</tspan>${ev?.vals ? `<tspan class="lv"> = ${esc(short(ev.vals, 28))}</tspan>` : ''}</text></g>`;
     };
     if (mainIdx >= 0 || !trs.length) out.push(bar(cx, ty, trs[mainIdx], mainIdx >= 0 ? mainIdx : -1, null));
     alts.forEach(([t, ti], k) => {
