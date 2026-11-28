@@ -230,6 +230,13 @@ impl RulesEngine {
         Ok(Self { dir, sets: RwLock::new(sets) })
     }
 
+    /// Ricarica tutte le regole dalla cartella (dopo l'importazione di un progetto).
+    pub fn reload(&self, points: &[DecisionPointDef]) -> Result<()> {
+        let fresh = Self::load(self.dir.clone(), points)?;
+        *self.sets.write().unwrap() = fresh.sets.into_inner().unwrap();
+        Ok(())
+    }
+
     pub fn get(&self, point: &str) -> Option<RuleSet> {
         self.sets.read().unwrap().get(point).map(|c| c.set.clone())
     }

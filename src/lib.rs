@@ -1,6 +1,7 @@
 //! WCS-SCADA: Warehouse Control System con funzioni SCADA.
 pub mod alarms;
 pub mod app;
+pub mod bundle;
 pub mod config;
 pub mod decision;
 pub mod drivers;

@@ -96,7 +96,12 @@ cargo build --release -p ptwcs-client
 ./target/release/ptwcs-client
 ```
 
-Il client ha un launcher con i server salvati e apre runtime e Designer in finestre native. Ha la modalità chiosco per le postazioni operatore, la riconnessione automatica e la sessione persistente. Su Linux richiede `libwebkit2gtk-4.1-dev`; vedi `client/README.md`. L'impianto demo ha tre aree:
+Il client ha un launcher con i server salvati e apre runtime e Designer in finestre native. Gestisce anche i progetti:
+- nuovo progetto, apri e salva su file `.ptwcs`;
+- backup e ripristino sul server, con backup automatico prima di ogni sostituzione;
+- API `GET /api/project/export`, `POST /api/project/import`, `POST /api/project/new`, `GET|POST /api/project/backups`, `POST /api/project/backups/{file}/restore`.
+
+ Ha la modalità chiosco per le postazioni operatore, la riconnessione automatica e la sessione persistente. Su Linux richiede `libwebkit2gtk-4.1-dev`; vedi `client/README.md`. L'impianto demo ha tre aree:
 
 | Area | Contenuto |
 |---|---|

@@ -15,3 +15,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dirs = "6"
 ureq = { version = "2", default-features = false }
+
+# dialoghi di file: GTK nativo sul thread principale su Linux (lo stesso di tao), rfd altrove
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+rfd = "0.15"

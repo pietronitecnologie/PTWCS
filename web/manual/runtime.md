@@ -13,6 +13,7 @@ Oltre che dal browser, runtime e Designer si aprono con il **PTWCS Client**, un'
 | **Avvio diretto** | il client può aprire subito il runtime dell'ultimo server. Da riga di comando: `ptwcs-client --server http://<server>:8080 --runtime --kiosk` |
 | **Riconnessione** | se il server non risponde la finestra attende e si ricollega da sola |
 | **Sessione** | il login vale per tutte le finestre e resta valido alla riapertura |
+| **📁 Progetto** | nuovo progetto, apri e salva su file `.ptwcs`, backup e ripristino sul server, progetti recenti. Prima di ogni sostituzione il server salva un backup automatico |
 
 Scorciatoie: `F5` aggiorna, `F11` schermo intero, `Ctrl`+`+`/`−`/`0` zoom, `Ctrl`+`L` launcher, `Ctrl`+`N` nuova finestra.
 

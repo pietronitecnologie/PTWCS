@@ -9,3 +9,4 @@ config/*.yaml.tmp
 config/rules/*.tmp
 scripts/.history/
 **/__pycache__/
+config/backups/

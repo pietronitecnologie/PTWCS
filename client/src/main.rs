@@ -12,6 +12,8 @@
 
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
+mod project;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -42,6 +44,20 @@ struct Config {
     kiosk: bool,
     #[serde(default)]
     autostart: bool,
+    /// File di progetto aperti o salvati di recente.
+    #[serde(default)]
+    recent: Vec<Recent>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct Recent {
+    path: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    server: String,
+    #[serde(default)]
+    ts: u64,
 }
 
 fn config_path() -> PathBuf {
@@ -117,6 +133,10 @@ enum Ev {
     Ipc { win: WindowId, msg: String },
     Eval { win: WindowId, js: String },
     Load { win: WindowId, url: String },
+    /// Il progetto del server è cambiato: ricarica le sue finestre.
+    Reload { base: String },
+    /// Aggiunge un file ai recenti.
+    Recent { path: String, name: String, server: String },
 }
 
 struct AppWin {
@@ -133,6 +153,7 @@ struct Client {
     ctx: WebContext,
     wins: HashMap<WindowId, AppWin>,
     cfg: Config,
+    sessions: project::Sessions,
 }
 
 impl Client {
@@ -259,6 +280,7 @@ impl Client {
                     let _ = w.webview.zoom(w.zoom);
                 }
             }
+            "proj" => self.project_cmd(win, &m),
             "close" => {
                 self.wins.remove(&win);
                 if self.wins.is_empty() {
@@ -267,6 +289,114 @@ impl Client {
             }
             _ => {}
         }
+    }
+}
+
+impl Client {
+    /// Comandi del menu Progetto del launcher. Risposta con `window.__res(id, risultato)`.
+    fn project_cmd(&mut self, win: WindowId, m: &serde_json::Value) {
+        let s = |k: &str| m.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let id = m.get("id").cloned().unwrap_or(serde_json::Value::Null);
+        let (url, op) = (s("url"), s("op"));
+        let (proxy, sess) = (self.proxy.clone(), self.sessions.clone());
+        let reply = move |proxy: &EventLoopProxy<Ev>, r: serde_json::Value| {
+            let _ = proxy.send_event(Ev::Eval { win, js: format!("window.__res({id}, {r})") });
+        };
+        // dialoghi di file nel thread principale (nativi), rete in un thread separato
+        match op.as_str() {
+            "save" => {
+                let name = s("name");
+                let def = project::default_file(&name);
+                let Some(path) = file_dialog(true, "Salva il progetto", &def) else {
+                    return reply(&proxy, serde_json::json!({"ok": false, "cancel": true}));
+                };
+                let path = if path.extension().is_none() { path.with_extension("ptwcs") } else { path };
+                std::thread::spawn(move || {
+                    let r = project::export(&sess, &url, &path);
+                    if r["ok"] == true {
+                        let _ = proxy.send_event(Ev::Recent { path: path.display().to_string(), name: r["name"].as_str().unwrap_or("").into(), server: url.clone() });
+                    }
+                    reply(&proxy, r);
+                });
+            }
+            "pick" => {
+                let path = if s("path").is_empty() {
+                    match file_dialog(false, "Apri un progetto", &project::default_file("")) {
+                        Some(p) => p,
+                        None => return reply(&proxy, serde_json::json!({"ok": false, "cancel": true})),
+                    }
+                } else {
+                    PathBuf::from(s("path"))
+                };
+                reply(&proxy, project::inspect(&path));
+            }
+            _ => {
+                let keep = m.get("keep_security").and_then(|v| v.as_bool()).unwrap_or(true);
+                let (user, pass, name, file, path) = (s("user"), s("pass"), s("name"), s("file"), s("path"));
+                std::thread::spawn(move || {
+                    let r = match op.as_str() {
+                        "auth" => project::auth(&sess, &url),
+                        "login" => project::login(&sess, &url, &user, &pass),
+                        "logout" => {
+                            project::logout(&sess, &url);
+                            project::auth(&sess, &url)
+                        }
+                        "open" => project::import(&sess, &url, std::path::Path::new(&path), keep),
+                        "new" => project::new_project(&sess, &url, &name),
+                        "backups" => project::backups(&sess, &url),
+                        "backup_now" => project::backup_now(&sess, &url),
+                        "restore" => project::restore(&sess, &url, &file),
+                        _ => serde_json::json!({"ok": false, "error": format!("operazione sconosciuta: {op}")}),
+                    };
+                    if r["ok"] == true && matches!(op.as_str(), "open" | "new" | "restore") {
+                        let _ = proxy.send_event(Ev::Reload { base: url.clone() });
+                        if op == "open" {
+                            let nm = r.pointer("/result/name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            let _ = proxy.send_event(Ev::Recent { path, name: nm, server: url.clone() });
+                        }
+                    }
+                    reply(&proxy, r);
+                });
+            }
+        }
+    }
+}
+
+/// Dialogo nativo per aprire o salvare un file .ptwcs (`def` = cartella e nome proposti).
+#[cfg(target_os = "linux")]
+fn file_dialog(save: bool, title: &str, def: &std::path::Path) -> Option<PathBuf> {
+    use gtk::prelude::*;
+    let action = if save { gtk::FileChooserAction::Save } else { gtk::FileChooserAction::Open };
+    let ok = if save { "Salva" } else { "Apri" };
+    let d = gtk::FileChooserDialog::with_buttons(Some(title), None::<&gtk::Window>, action, &[("Annulla", gtk::ResponseType::Cancel), (ok, gtk::ResponseType::Accept)]);
+    let f = gtk::FileFilter::new();
+    f.add_pattern("*.ptwcs");
+    f.set_name(Some("Progetto PTWCS (*.ptwcs)"));
+    d.add_filter(f);
+    if let Some(dir) = def.parent() {
+        let _ = std::fs::create_dir_all(dir);
+        d.set_current_folder(dir);
+    }
+    if save {
+        d.set_current_name(&def.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default());
+        d.set_do_overwrite_confirmation(true);
+    }
+    let r = d.run();
+    let path = if r == gtk::ResponseType::Accept { d.filename() } else { None };
+    d.close();
+    path
+}
+
+#[cfg(not(target_os = "linux"))]
+fn file_dialog(save: bool, title: &str, def: &std::path::Path) -> Option<PathBuf> {
+    let mut d = rfd::FileDialog::new().set_title(title).add_filter("Progetto PTWCS", &["ptwcs"]);
+    if let Some(dir) = def.parent() {
+        d = d.set_directory(dir);
+    }
+    if save {
+        d.set_file_name(def.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()).save_file()
+    } else {
+        d.pick_file()
     }
 }
 
@@ -292,7 +422,7 @@ fn main() {
     let proxy = event_loop.create_proxy();
     let data = dirs::data_local_dir().unwrap_or_else(std::env::temp_dir).join("ptwcs-client").join("webdata");
     let _ = std::fs::create_dir_all(&data);
-    let mut client = Client { proxy: proxy.clone(), ctx: WebContext::new(Some(data)), wins: HashMap::new(), cfg };
+    let mut client = Client { proxy: proxy.clone(), ctx: WebContext::new(Some(data)), wins: HashMap::new(), cfg, sessions: Default::default() };
 
     // cosa aprire all'avvio
     let first = match (&server, arg("--launcher")) {
@@ -319,6 +449,24 @@ fn main() {
                 Ev::Load { win, url } => {
                     if let Some(w) = client.wins.get(&win) {
                         let _ = w.webview.load_url(&url);
+                    }
+                }
+                Ev::Reload { base } => {
+                    for w in client.wins.values().filter(|w| w.target.as_deref().is_some_and(|t| base_of(t) == base)) {
+                        let _ = w.webview.evaluate_script("location.reload()");
+                    }
+                }
+                Ev::Recent { path, name, server } => {
+                    let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+                    client.cfg.recent.retain(|r| r.path != path);
+                    client.cfg.recent.insert(0, Recent { path, name, server, ts });
+                    client.cfg.recent.truncate(10);
+                    save_config(&client.cfg);
+                    let js = format!("window.__recent && window.__recent({})", serde_json::to_string(&client.cfg.recent).unwrap_or_default());
+                    for (id, w) in &client.wins {
+                        if w.target.is_none() {
+                            let _ = client.proxy.send_event(Ev::Eval { win: *id, js: js.clone() });
+                        }
                     }
                 }
             },

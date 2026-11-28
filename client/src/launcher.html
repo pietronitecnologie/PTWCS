@@ -28,13 +28,22 @@
   label.opt { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
   .empty { text-align: center; padding: 26px; }
   kbd { border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; font-size: 12px; background: var(--panel2); }
-  table { border-collapse: collapse; } td { padding: 2px 10px 2px 0; }
+  table { border-collapse: collapse; width: 100%; } td, th { padding: 5px 8px; text-align: left; border-bottom: 1px solid var(--border); } th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .modal-back { position: fixed; inset: 0; background: #0009; display: grid; place-items: center; z-index: 10; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; width: min(760px, 94vw); max-height: 90vh; overflow: auto; padding: 18px 20px; box-shadow: 0 20px 60px #0008; }
+  .modal h2 { margin: 0 0 4px; font-size: 18px; } .modal h4 { margin: 16px 0 8px; }
+  .acts { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; }
+  .acts button { text-align: left; padding: 10px 12px; } .acts button b { display: block; } .acts button span { font-size: 12px; color: var(--muted); }
+  .msg { margin-top: 10px; padding: 8px 10px; border-radius: 7px; font-size: 13px; } .msg.ok { background: #22c55e22; border: 1px solid var(--ok); } .msg.err { background: #ef444422; border: 1px solid var(--bad); }
+  .row { display: flex; gap: 8px; align-items: center; } .grow { flex: 1; }
+  input[type=password] { font: inherit; background: var(--panel2); color: var(--fg); border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; }
 </style>
 </head>
 <body>
 <header><h1>🏭 PTWCS Client</h1><span class="muted" id="ver"></span></header>
 <main>
   <div id="list"></div>
+  <div class="card" id="recentCard" hidden><h3 style="margin:0 0 8px">📂 Progetti recenti</h3><div id="recent"></div></div>
   <div class="card">
     <h3 style="margin:0 0 10px">Aggiungi un server</h3>
     <div class="form">
@@ -71,11 +80,12 @@
       return `<div class="card srv" data-i="${i}"><div><h3><span class="dot ${dot}"></span>${esc(s.name || s.url)}${S.last === s.url ? ' <span class="muted">(ultimo usato)</span>' : ''}</h3>
           <div class="muted">${esc(s.url)} · ${info}</div></div>
         <div class="btns"><button class="primary big" data-a="runtime">▶ Runtime</button><button class="big" data-a="designer" ${st && st.ok && !st.designer ? 'disabled' : ''}>✎ Designer</button>
-          <button data-a="test" title="Verifica la connessione">⟳</button><button class="danger" data-a="del" title="Rimuovi">✕</button></div></div>`;
+          <button data-a="proj" title="Nuovo, apri, salva, backup">📁 Progetto</button><button data-a="test" title="Verifica la connessione">⟳</button><button class="danger" data-a="del" title="Rimuovi">✕</button></div></div>`;
     }).join('');
     list.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => {
       const i = +b.closest('[data-i]').dataset.i, s = S.servers[i];
       if (b.dataset.a === 'del') { if (confirm(`Rimuovere ${s.name || s.url}?`)) { S.servers.splice(i, 1); save(); } return; }
+      if (b.dataset.a === 'proj') { projDialog(s); return; }
       if (b.dataset.a === 'test') { delete status[s.url]; draw(); send({ cmd: 'test', url: s.url }); return; }
       send({ cmd: 'open', url: s.url, app: b.dataset.a, kiosk: b.dataset.a === 'runtime' && !!S.kiosk });
     }));
@@ -84,6 +94,7 @@
 
   window.__state = (st, version) => {
     S = st;
+    drawRecent();
     document.getElementById('ver').textContent = `versione ${version}`;
     draw();
     for (const s of S.servers) send({ cmd: 'test', url: s.url });
@@ -104,6 +115,114 @@
   };
   document.getElementById('oKiosk').onchange = (e) => { S.kiosk = e.target.checked; save(); };
   document.getElementById('oAuto').onchange = (e) => { S.autostart = e.target.checked; save(); };
+  // ------------------------------------------------------------ progetti
+  let rid = 0; const pend = {};
+  const call = (url, op, extra = {}) => new Promise((res) => { const id = ++rid; pend[id] = res; send({ cmd: 'proj', id, url, op, ...extra }); });
+  window.__res = (id, r) => { pend[id]?.(r); delete pend[id]; };
+  window.__recent = (list) => { S.recent = list; drawRecent(); };
+  const when = (ms) => (ms ? new Date(ms).toLocaleString() : '—');
+  const fsize = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} kB`);
+
+  function drawRecent() {
+    const list = S.recent || [];
+    document.getElementById('recentCard').hidden = !list.length;
+    document.getElementById('recent').innerHTML = `<table><tr><th>Progetto</th><th>File</th><th>Server</th><th></th></tr>${list.map((r, i) => `<tr><td><b>${esc(r.name || '—')}</b><div class="muted">${r.ts ? new Date(r.ts * 1000).toLocaleString() : ''}</div></td>
+      <td class="muted" style="word-break:break-all">${esc(r.path)}</td><td class="muted">${esc(r.server)}</td>
+      <td><select data-rs="${i}">${S.servers.map((s) => `<option value="${esc(s.url)}" ${s.url === r.server ? 'selected' : ''}>${esc(s.name || s.url)}</option>`).join('')}</select> <button data-ro="${i}">Apri</button></td></tr>`).join('')}</table>`;
+    document.querySelectorAll('[data-ro]').forEach((b) => (b.onclick = () => {
+      const r = list[+b.dataset.ro];
+      const url = document.querySelector(`[data-rs="${b.dataset.ro}"]`).value;
+      const s = S.servers.find((x) => x.url === url);
+      if (s) projDialog(s, r.path);
+    }));
+  }
+
+  /** Finestra "Progetto" di un server: accesso, nuovo, apri, salva, backup. */
+  async function projDialog(srv, openPath) {
+    const back = document.createElement('div');
+    back.className = 'modal-back';
+    back.innerHTML = `<div class="modal"><div class="row"><h2 class="grow">📁 Progetto – ${esc(srv.name || srv.url)}</h2><button data-x>✕</button></div>
+      <div class="muted">${esc(srv.url)}</div><div id="pBody"><p class="muted">verifica accesso…</p></div><div id="pMsg"></div></div>`;
+    document.body.appendChild(back);
+    const $ = (q) => back.querySelector(q);
+    const close = () => back.remove();
+    $('[data-x]').onclick = close;
+    back.addEventListener('mousedown', (e) => { if (e.target === back) close(); });
+    const msg = (ok, html) => { $('#pMsg').innerHTML = `<div class="msg ${ok ? 'ok' : 'err'}">${html}</div>`; };
+    const result = (r, what) => {
+      if (r.cancel) return;
+      if (!r.ok) { msg(false, esc(r.error || 'errore')); return; }
+      const x = r.result || {};
+      msg(true, `${what}: <b>${esc(x.name || r.name || '')}</b>${x.tags !== undefined ? ` · ${x.tags} tag, ${x.views} viste, ${x.recipes} ricette` : ''}${x.backup ? `<br>Backup del progetto precedente: <code>${esc(x.backup)}</code>` : ''}${r.path ? `<br>File: <code>${esc(r.path)}</code> (${fsize(r.size || 0)})` : ''}${(x.warnings || []).length ? `<br>⚠ ${x.warnings.map(esc).join('<br>⚠ ')}` : ''}${x.security_kept === false || r.security_kept === false ? '<br>Ruoli e sicurezza importati dal file.' : ''}`);
+      if (what !== 'Salvato') loadBackups();
+    };
+    let me = await call(srv.url, 'auth');
+    function draw() {
+      if (!me.ok) { $('#pBody').innerHTML = `<div class="msg err">${esc(me.error)}</div>`; return; }
+      if (me.enabled && !me.user) {
+        $('#pBody').innerHTML = `<h4>Accesso</h4><p class="muted">Il server ha la sicurezza attiva: per gestire i progetti serve un utente con il permesso <b>designer.project</b>.</p>
+          <div class="row"><input type="text" id="lu" placeholder="Utente" style="width:200px"><input type="password" id="lp" placeholder="Password" style="width:200px"><button class="primary" id="lb">Accedi</button></div>`;
+        const go = async () => { me = await call(srv.url, 'login', { user: $('#lu').value, pass: $('#lp').value }); if (!me.ok) { msg(false, esc(me.error)); me = { ok: true, enabled: true }; } else $('#pMsg').innerHTML = ''; draw(); };
+        $('#lb').onclick = go; $('#lp').onkeydown = (e) => { if (e.key === 'Enter') go(); };
+        $('#lu').focus();
+        return;
+      }
+      const can = !me.enabled || me.project;
+      $('#pBody').innerHTML = `${me.enabled ? `<p class="muted">Utente <b>${esc(me.user)}</b> <button data-lo style="padding:2px 8px">Esci</button></p>` : ''}
+        ${can ? '' : '<div class="msg err">Questo utente non ha il permesso designer.project: può solo salvare il progetto su file.</div>'}
+        <h4>Progetto</h4><div class="acts">
+          <button data-op="new" ${can ? '' : 'disabled'}><b>🆕 Nuovo progetto…</b><span>progetto vuoto; ruoli e utenti restano</span></button>
+          <button data-op="open" ${can ? '' : 'disabled'}><b>📂 Apri da file…</b><span>sostituisce il progetto del server con un file .ptwcs</span></button>
+          <button data-op="save" ${me.designer || !me.enabled ? '' : 'disabled'}><b>💾 Salva su file…</b><span>tutto il progetto in un file .ptwcs</span></button>
+          <button data-op="backup" ${can ? '' : 'disabled'}><b>🗄 Crea backup</b><span>copia sul server, ripristinabile</span></button>
+        </div>
+        <h4>Backup sul server</h4><div id="pBk"><p class="muted">…</p></div>
+        <p class="muted">Il file .ptwcs contiene tag, UDT, aree, viste, regole, script, simboli, fasi, ricette, fisica e ruoli. Non contiene utenti e password né il file di impianto (driver, porte). Prima di ogni sostituzione il server salva un backup automatico.</p>`;
+      $('[data-lo]')?.addEventListener('click', async () => { me = await call(srv.url, 'logout'); draw(); });
+      $('[data-op="save"]').onclick = async () => { msg(true, 'salvataggio…'); result(await call(srv.url, 'save', { name: status[srv.url]?.plant || srv.name || '' }), 'Salvato'); };
+      $('[data-op="backup"]').onclick = async () => { const r = await call(srv.url, 'backup_now'); if (r.ok) { msg(true, `Backup creato: <code>${esc(r.file)}</code>`); loadBackups(); } else msg(false, esc(r.error)); };
+      $('[data-op="new"]').onclick = async () => {
+        const name = prompt('Nome del nuovo progetto:', 'Nuovo impianto');
+        if (!name) return;
+        if (!confirm(`Creare il progetto "${name}" su ${srv.url}?\n\nIl progetto attuale (tag, viste, regole, script, ricette…) viene sostituito da un progetto vuoto. Prima viene salvato un backup sul server.`)) return;
+        msg(true, 'creazione…');
+        result(await call(srv.url, 'new', { name }), 'Nuovo progetto creato');
+      };
+      $('[data-op="open"]').onclick = () => openFile();
+      loadBackups();
+      if (openPath) { const p = openPath; openPath = null; openFile(p); }
+    }
+    async function openFile(path) {
+      const info = await call(srv.url, 'pick', path ? { path } : {});
+      if (info.cancel) return;
+      if (!info.ok) { msg(false, esc(info.error)); return; }
+      $('#pMsg').innerHTML = `<div class="msg ok"><b>${esc(info.name || 'progetto')}</b> · salvato ${when(info.exported)}${info.exported_by ? ` da ${esc(info.exported_by)}` : ''}<br>
+        ${info.tags} tag · ${info.views} viste · ${info.rules} regole · ${info.scripts} script · ${info.recipes} ricette<br><code>${esc(info.path)}</code>
+        <label class="opt"><input type="checkbox" id="pSec"> importa anche ruoli e impostazioni di sicurezza (serve users.manage)</label>
+        <div class="row" style="margin-top:8px"><button class="primary" id="pGo">Apri e sostituisci il progetto del server</button><button id="pNo">Annulla</button></div></div>`;
+      $('#pNo').onclick = () => ($('#pMsg').innerHTML = '');
+      $('#pGo').onclick = async () => {
+        const keep = !$('#pSec').checked;
+        msg(true, 'apertura…');
+        result(await call(srv.url, 'open', { path: info.path, keep_security: keep }), 'Progetto aperto');
+      };
+    }
+    async function loadBackups() {
+      const host = $('#pBk');
+      if (!host) return;
+      const r = await call(srv.url, 'backups');
+      if (!r.ok) { host.innerHTML = `<p class="muted">${esc(r.error)}</p>`; return; }
+      const can = !me.enabled || me.project;
+      host.innerHTML = r.list.length ? `<table><tr><th>Backup</th><th>Progetto</th><th>Dimensione</th><th></th></tr>${r.list.slice(0, 12).map((b) => `<tr><td><code>${esc(b.file)}</code></td><td>${esc(b.name)}<div class="muted">${when(b.exported)}${b.exported_by ? ` · ${esc(b.exported_by)}` : ''}</div></td><td>${fsize(b.size)}</td>
+        <td><button data-rb="${esc(b.file)}" ${can ? '' : 'disabled'}>↺ Ripristina</button></td></tr>`).join('')}</table>` : '<p class="muted">Nessun backup.</p>';
+      host.querySelectorAll('[data-rb]').forEach((b) => (b.onclick = async () => {
+        if (!confirm(`Ripristinare il backup ${b.dataset.rb}?\nIl progetto attuale viene prima salvato in un nuovo backup.`)) return;
+        msg(true, 'ripristino…');
+        result(await call(srv.url, 'restore', { file: b.dataset.rb }), 'Backup ripristinato');
+      }));
+    }
+    draw();
+  }
   send({ cmd: 'state' });
 </script>
 </body>

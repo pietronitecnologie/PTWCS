@@ -50,6 +50,11 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/tags/def/{name}", axum::routing::put(update_tag).delete(delete_tag))
         .route("/api/project", get(project_get).put(project_put))
         .route("/api/project/check", post(project_check))
+        .route("/api/project/export", get(project_export))
+        .route("/api/project/import", post(project_import).layer(DefaultBodyLimit::max(64 * 1024 * 1024)))
+        .route("/api/project/new", post(project_new))
+        .route("/api/project/backups", get(project_backups).post(project_backup_now))
+        .route("/api/project/backups/{file}/restore", post(project_restore))
         .route("/api/project/udt_preview", post(udt_preview))
         .route("/api/areas", get(areas_summary))
         .route("/api/library", get(library))
@@ -155,6 +160,7 @@ pub fn required_perm(method: &axum::http::Method, path: &str) -> Option<&'static
         ("batches", false) => "batch.operate",
         ("inst", false) => "runtime.view",
         ("physics", false) => "sim.operate",
+        ("project", true) if path.starts_with("/api/project/export") || path.starts_with("/api/project/backups") => "designer",
         ("project", true) => "runtime.view",
         ("project", false) if path.ends_with("/check") || path.ends_with("/udt_preview") => "designer",
         ("tags", false) if path == "/api/tags/write" => "tag.write",
@@ -460,6 +466,77 @@ async fn project_put(State(app): S, axum::Extension(me): Who, Json(p): Json<crat
     app.audit_ext("designer", "save_project", "progetto", None, None, if diff.is_empty() { "nessuna modifica".into() } else { diff });
     let cfg = app.cfg();
     Ok(Json(json!({"ok": true, "tags": cfg.tags.len()})))
+}
+
+// ---------------------------------------------------------------- file di progetto (.ptwcs)
+
+#[derive(Deserialize)]
+struct ExportQ {
+    #[serde(default)]
+    name: String,
+}
+
+async fn project_export(State(app): S, axum::Extension(me): Who, Query(q): Query<ExportQ>) -> R<Response> {
+    let b = crate::bundle::export(&app, &q.name, &who(&me))?;
+    let fname: String = b.name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+    app.audit_ext("designer", "project_export", &b.name, None, None, format!("{} file, {} ricette", b.files.len(), b.recipes.len()));
+    let body = serde_json::to_string_pretty(&b).map_err(|e| bad(e.to_string()))?;
+    Ok((
+        [(axum::http::header::CONTENT_TYPE, "application/json".to_string()),
+         (axum::http::header::CONTENT_DISPOSITION, format!("attachment; filename=\"{fname}.ptwcs\""))],
+        body,
+    ).into_response())
+}
+
+#[derive(Deserialize)]
+struct ImportReq {
+    bundle: crate::bundle::Bundle,
+    /// Mantieni ruoli e sicurezza attuali (default: sì; serve users.manage per importarli).
+    #[serde(default = "yes")]
+    keep_security: bool,
+}
+fn yes() -> bool {
+    true
+}
+
+async fn project_import(State(app): S, axum::Extension(me): Who, Json(r): Json<ImportReq>) -> R<Json<J>> {
+    require_designer(&app)?;
+    let keep = r.keep_security || !me.can("users.manage");
+    let out = crate::bundle::import(&app, r.bundle, keep, &who(&me), "prima-di-apri").await.map_err(|e| bad(format!("{e:#}")))?;
+    Ok(Json(json!({"ok": true, "result": out, "security_kept": keep})))
+}
+
+#[derive(Deserialize)]
+struct NewReq {
+    name: String,
+}
+
+async fn project_new(State(app): S, axum::Extension(me): Who, Json(r): Json<NewReq>) -> R<Json<J>> {
+    require_designer(&app)?;
+    if r.name.trim().is_empty() {
+        return Err(bad("nome del progetto mancante"));
+    }
+    let b = crate::bundle::empty(&app, r.name.trim());
+    let out = crate::bundle::import(&app, b, true, &who(&me), "prima-di-nuovo").await.map_err(|e| bad(format!("{e:#}")))?;
+    Ok(Json(json!({"ok": true, "result": out})))
+}
+
+async fn project_backups(State(app): S) -> Json<J> {
+    Json(json!(crate::bundle::list_backups(&app)))
+}
+
+async fn project_backup_now(State(app): S, axum::Extension(me): Who) -> R<Json<J>> {
+    let f = crate::bundle::save_backup(&app, "manuale", &who(&me))?;
+    app.audit_ext("designer", "project_backup", &f, None, None, "backup manuale".into());
+    Ok(Json(json!({"ok": true, "file": f})))
+}
+
+async fn project_restore(State(app): S, axum::Extension(me): Who, Path(file): Path<String>) -> R<Json<J>> {
+    require_designer(&app)?;
+    let b = crate::bundle::read_backup(&app, &file).map_err(|e| bad(format!("{e:#}")))?;
+    let keep = !me.can("users.manage");
+    let out = crate::bundle::import(&app, b, keep, &who(&me), "prima-di-ripristino").await.map_err(|e| bad(format!("{e:#}")))?;
+    Ok(Json(json!({"ok": true, "result": out})))
 }
 
 /// Verifica un progetto senza salvarlo (errori di validazione e indirizzi).
