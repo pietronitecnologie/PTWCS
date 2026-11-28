@@ -72,3 +72,24 @@ async fn export_new_open_and_restore() {
     assert_eq!(a.cfg().project.tags.len(), 2, "il progetto non è cambiato");
     assert!(bundle::read_backup(&a, "../plant.yaml").is_err());
 }
+
+#[test]
+fn tag_library_text_and_std_library() {
+    use wcs_scada::taglib;
+    let dir = std::env::temp_dir().join(format!("wcs_taglib_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("udts.json"), r#"[{"name":"A","params":[{"name":"Base","default":0}],"members":[{"name":"X","type":"bool","address":"q{Base}"}]}]"#).unwrap();
+    let mut types = taglib::read_std(&dir).unwrap();
+    assert_eq!(types.len(), 1);
+    let lib = taglib::parse(&taglib::to_text(&taglib::TagLibrary { udt_types: types.clone(), ..Default::default() }).unwrap()).unwrap();
+    types.push(taglib::TagLibrary { ..lib }.udt_types[0].clone());
+    types[1].name = "B".into();
+    taglib::write_std(&dir, &types).unwrap();
+    assert_eq!(taglib::read_std(&dir).unwrap().len(), 2);
+    assert!(dir.join("udts.json.bak").exists());
+    types[1].name = "A".into();
+    assert!(taglib::write_std(&dir, &types).is_err(), "nomi ripetuti rifiutati");
+    assert_eq!(taglib::read_std(&dir).unwrap().len(), 2, "libreria invariata");
+    let _ = std::fs::remove_dir_all(dir);
+}

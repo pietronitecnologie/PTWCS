@@ -58,6 +58,9 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/api/project/udt_preview", post(udt_preview))
         .route("/api/areas", get(areas_summary))
         .route("/api/library", get(library))
+        .route("/api/library/udts", axum::routing::put(library_udts_put))
+        .route("/api/taglib/text", post(taglib_text))
+        .route("/api/taglib/parse", post(taglib_parse).layer(DefaultBodyLimit::max(32 * 1024 * 1024)))
         .route("/api/wh", get(wh_list))
         .route("/api/wh/{name}/summary", get(wh_summary))
         .route("/api/wh/{name}/side", get(wh_side))
@@ -171,7 +174,8 @@ pub fn required_perm(method: &axum::http::Method, path: &str) -> Option<&'static
         ("scripts", false) if path == "/api/scripts/call" => "script.call",
         ("scripts", false) if path == "/api/scripts/check" => "designer",
         ("scripts", false) => "scripts.edit",
-        ("rules", true) | ("sorting", true) | ("library", _) | ("drivers", _) => "designer",
+        ("library", false) => "designer.project",
+        ("rules", true) | ("sorting", true) | ("library", _) | ("drivers", _) | ("taglib", _) => "designer",
         ("rules", false) if path.ends_with("/test") => "designer",
         ("rules", false) => "rules.edit",
         ("wh", false) if path.ends_with("/reorg") || path.contains("/lu/") => "wh.config",
@@ -826,6 +830,35 @@ async fn library(State(app): S) -> Json<J> {
         std::fs::read_to_string(dir.join(f)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(J::Null)
     };
     Json(json!({"symbols": read("symbols.json"), "udts": read("udts.json")}))
+}
+
+/// Salva i tipi UDT della libreria standard (copia di sicurezza in `udts.json.bak`).
+async fn library_udts_put(State(app): S, Json(types): Json<Vec<crate::config::UdtType>>) -> R<Json<J>> {
+    require_designer(&app)?;
+    let old = crate::taglib::read_std(&app.library_dir).unwrap_or_default();
+    crate::taglib::write_std(&app.library_dir, &types).map_err(|e| bad(format!("{e:#}")))?;
+    let names = |l: &[crate::config::UdtType]| l.iter().map(|t| t.name.clone()).collect::<Vec<_>>().join(", ");
+    app.audit_ext("designer", "library_udts", "udts.json", Some(names(&old)), Some(names(&types)), format!("libreria standard: {} tipi UDT", types.len()));
+    Ok(Json(json!({"ok": true, "count": types.len()})))
+}
+
+/// Libreria di tag (JSON) → testo YAML da salvare su file.
+async fn taglib_text(Json(mut lib): Json<crate::taglib::TagLibrary>) -> R<Json<J>> {
+    if lib.exported.is_empty() {
+        lib.exported = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+    }
+    crate::taglib::validate(&lib).map_err(|e| bad(format!("{e:#}")))?;
+    Ok(Json(json!({"text": crate::taglib::to_text(&lib).map_err(|e| bad(format!("{e:#}")))?})))
+}
+
+#[derive(Deserialize)]
+struct TextReq {
+    text: String,
+}
+
+/// Testo (YAML/JSON) → libreria validata, da unire al progetto o alla libreria standard.
+async fn taglib_parse(Json(r): Json<TextReq>) -> R<Json<crate::taglib::TagLibrary>> {
+    crate::taglib::parse(&r.text).map(Json).map_err(|e| bad(format!("{e:#}")))
 }
 
 async fn areas_summary(State(app): S) -> Json<J> {

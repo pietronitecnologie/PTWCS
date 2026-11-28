@@ -394,3 +394,8 @@ g.phys-flow > line { stroke-dasharray: 10 8; animation: flow 0.6s linear infinit
 .pl-c b, .pl-c code { color: inherit; }
 .pl-tags td.r, .pl-tags th.r { text-align: right; white-space: nowrap; }
 .proc .ph-inst.sel { background: #3b82f61a; border-radius: 6px; }
+/* libreria tag: esporta/importa */
+.xl-list { max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; margin: 6px 0 10px; }
+.xl-list label, .modal .row label { gap: 6px; }
+.il-list { max-height: 240px; overflow: auto; list-style: none; padding: 0; margin: 6px 0; }
+.il-list li { padding: 2px 0; }

@@ -14,6 +14,7 @@ pub mod sequences;
 pub mod sorting;
 pub mod store;
 pub mod tagdb;
+pub mod taglib;
 pub mod value;
 pub mod warehouse;
 pub mod web;
