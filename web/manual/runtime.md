@@ -2,6 +2,20 @@
 
 Il runtime è l'interfaccia operatore: si apre con `http://<server>:8080/`.
 
+## PTWCS Client
+
+Oltre che dal browser, runtime e Designer si aprono con il **PTWCS Client**, un'applicazione desktop per Windows, Linux e macOS:
+
+| Funzione | Dettaglio |
+|---|---|
+| **Launcher** | server salvati con il loro stato; un clic su **▶ Runtime** o **✎ Designer** apre la finestra |
+| **Modalità chiosco** | runtime a schermo intero senza bordi per le postazioni operatore. Si esce con `Ctrl`+`Maiusc`+`Q` |
+| **Avvio diretto** | il client può aprire subito il runtime dell'ultimo server. Da riga di comando: `ptwcs-client --server http://<server>:8080 --runtime --kiosk` |
+| **Riconnessione** | se il server non risponde la finestra attende e si ricollega da sola |
+| **Sessione** | il login vale per tutte le finestre e resta valido alla riapertura |
+
+Scorciatoie: `F5` aggiorna, `F11` schermo intero, `Ctrl`+`+`/`−`/`0` zoom, `Ctrl`+`L` launcher, `Ctrl`+`N` nuova finestra.
+
 ## Accesso
 
 Se la sicurezza è attiva:

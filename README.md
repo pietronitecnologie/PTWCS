@@ -86,7 +86,17 @@ WCS:
 ./target/release/wcs_scada config/plant.yaml
 ```
 
-Runtime su http://localhost:8080/ e Designer su http://localhost:8080/designer.html. L'impianto demo ha tre aree:
+Runtime su http://localhost:8080/ e Designer su http://localhost:8080/designer.html, dal browser oppure con il **PTWCS Client** (applicazione desktop, cartella `client/`):
+
+```bash
+cargo build --release -p ptwcs-client
+```
+
+```bash
+./target/release/ptwcs-client
+```
+
+Il client ha un launcher con i server salvati e apre runtime e Designer in finestre native. Ha la modalità chiosco per le postazioni operatore, la riconnessione automatica e la sessione persistente. Su Linux richiede `libwebkit2gtk-4.1-dev`; vedi `client/README.md`. L'impianto demo ha tre aree:
 
 | Area | Contenuto |
 |---|---|

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=PTWCS Client
+Comment=Runtime e Designer PTWCS
+Exec=ptwcs-client
+Icon=applications-engineering
+Terminal=false
+Categories=Utility;Development;

@@ -1,0 +1,17 @@
+[package]
+name = "ptwcs-client"
+version = "0.1.0"
+edition = "2024"
+description = "PTWCS Client: launcher e finestre native per runtime e Designer"
+
+[[bin]]
+name = "ptwcs-client"
+path = "src/main.rs"
+
+[dependencies]
+wry = "0.47"
+tao = "0.30"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "6"
+ureq = { version = "2", default-features = false }

@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 default-run = "wcs_scada"
 
+[workspace]
+members = [".", "client"]
+
 [dependencies]
 anyhow = "1.0.105"
 argon2 = "0.5"
