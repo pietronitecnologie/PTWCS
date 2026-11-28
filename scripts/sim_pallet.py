@@ -58,12 +58,24 @@ def sim_pallet(payload, ctx):
         w(f"PD{a}.In", len(s["pd_in"][a]) > 0)
 
     # --- trasli (singola o doppia UdC: campi con suffisso "2" per il secondo posto)
+    # Con il layer fisico attivo (MP.SimActive) gli assi X/Y/Z li muove la fisica: questo
+    # script fa il PLC di corsia (quote obiettivo, forche, sollevamento) e legge le posizioni reali.
+    phys = bool(g("MP.SimActive"))
     for a in (1, 2, 3):
         c = f"C{a}"
+        if phys:
+            _mirror_axes(a, c, g, w)
         slots = 2 if g(f"{c}.Mission2") is not None else 1
         st = s["crane"].setdefault(a, {"phase": "idle"})
         if g(f"{c}.Cmd_Reset"):
             w(f"{c}.Fault", False); w(f"{c}.Cmd_Reset", False)
+            if phys:
+                w(f"AX{a}.Reset", True)
+                st["ph"] = "retract"
+        elif phys and g(f"AX{a}.Reset"):
+            w(f"AX{a}.Reset", False)
+        if phys and g(f"AX{a}.Fault") and not g(f"{c}.Fault"):
+            w(f"{c}.Fault", True)   # guasto rilevato dalla fisica (interblocco, azionamento)
         w(f"{c}.Auto", True)
         x0, y0 = g(f"{c}.PctX") or 0.0, g(f"{c}.PctY") or 0.0
         if g(f"{c}.Fault"):
@@ -100,6 +112,9 @@ def sim_pallet(payload, ctx):
             w(f"{c}.Busy", True)
         kind, j = st["stops"][st["i"]]
         side, col, lvl = j["src"] if kind == "pick" else j["dst"]
+        if phys:
+            _physical_stop(a, c, st, kind, j, side, col, lvl, s, g, w, t)
+            continue
         tx, ty = _mp_target(col, lvl)
         x, y = _approach(x0, tx, 2.2), _approach(y0, ty, 3.5)
         w(f"{c}.PctX", x); w(f"{c}.PctY", y)
@@ -160,3 +175,76 @@ def sim_pallet(payload, ctx):
     if g("SimMP.FaultC2"):
         w("C2.Fault", True); w("SimMP.FaultC2", False)
     return None
+
+
+# ------------------------------------------------------------------ traslo con assi (layer fisico)
+PITCH_X, PITCH_Y, Y0, LIFT, REACH = 1240.0, 1778.0, 100.0, 50.0, 1300.0
+
+
+def _mirror_axes(a, c, g, w):
+    """Posizioni reali degli assi → tag del telegramma e della grafica esistente."""
+    x, y, z = g(f"AX{a}.ActX") or 0.0, g(f"AX{a}.ActY") or Y0, g(f"AX{a}.ActZ") or 0.0
+    w(f"{c}.PosX", round(x / 1000.0, 2)); w(f"{c}.PosY", round((y - Y0) / 1000.0, 2))
+    w(f"{c}.PctX", round(x / (50 * PITCH_X) * 100.0, 2)); w(f"{c}.PctY", round(max(0.0, y - Y0) / (9 * PITCH_Y) * 100.0, 2))
+    w(f"{c}.Moving", bool(g(f"AX{a}.Moving")))
+
+
+def _physical_stop(a, c, st, kind, j, side, col, lvl, s, g, w, t):
+    """Una fermata (presa o deposito) eseguita comandando gli assi:
+    forche dentro → X/Y alla cella (sotto per prendere, sopra per depositare) → forche fuori →
+    sollevamento / abbassamento → forche dentro → verifica del carico con il sensore del carro."""
+    ax = f"AX{a}"
+    pick = kind == "pick"
+    xc, yc = col * PITCH_X, Y0 + max(lvl - 1, 0) * PITCH_Y
+    y_a, y_b = (yc - LIFT, yc + LIFT) if pick else (yc + LIFT, yc - LIFT)
+    zs = (-1.0 if side == 1 else 1.0) if col > 0 else (-1.0 if pick else 1.0)
+    inpos = lambda *axes: all(g(f"{ax}.InPos{x}") for x in axes)
+    ph = st.setdefault("ph", "retract")
+    if g(f"{c}.Fault"):
+        return
+    if ph == "retract":
+        w(f"{ax}.TgtZ", 0.0)
+        if inpos("Z") and abs(g(f"{ax}.ActZ") or 0.0) < 2:
+            st["ph"] = "move"
+    elif ph == "move":
+        w(f"{ax}.TgtX", xc); w(f"{ax}.TgtY", y_a); w(f"{ax}.TgtZ", 0.0)
+        if inpos("X", "Y") and abs((g(f"{ax}.ActX") or 0) - xc) < 2 and abs((g(f"{ax}.ActY") or 0) - y_a) < 2:
+            # presa al P&D di ingresso: attende il pallet (max 60 s)
+            if pick and j["type"] == 1 and col == 0 and not s["pd_in"][a]:
+                st["wait"] = st.get("wait", 0) + 1
+                if st["wait"] < 300:
+                    return
+            st["wait"] = 0
+            st["ph"] = "out"
+    elif ph == "out":
+        w(f"{ax}.TgtZ", zs * REACH)
+        if inpos("Z") and abs(abs(g(f"{ax}.ActZ") or 0.0) - REACH) < 2:
+            st["ph"] = "lift"
+    elif ph == "lift":
+        w(f"{ax}.TgtY", y_b)
+        if inpos("Y") and abs((g(f"{ax}.ActY") or 0) - y_b) < 2:
+            st["ph"] = "in"
+    elif ph == "in":
+        w(f"{ax}.TgtZ", 0.0)
+        if inpos("Z") and abs(g(f"{ax}.ActZ") or 0.0) < 2:
+            st["ph"] = "move"
+            loaded = bool(g(f"{ax}.Load"))
+            if pick:
+                if not loaded:
+                    w(f"{c}.Fault", True)   # cella vuota: il WCS segnala il guasto, l'operatore verifica
+                    st["ph"] = "retract"
+                    return
+                w(f"{c}.Loaded{j['sfx']}", True)
+                if j["type"] == 1 and col == 0 and s["pd_in"][a]:
+                    s["pd_in"][a].pop(0)
+            else:
+                w(f"{c}.Loaded{j['sfx']}", False)
+                if j["type"] == 2:
+                    s["out_transit"].append({"aisle": a, "bay": f"BU{j['out']}", "eta": t + 20, "mission": j["mission"]})
+                w(f"{c}.Done{j['sfx']}", j["mission"])
+                w(f"{c}.Missions", int(g(f"{c}.Missions") or 0) + 1)
+            st["i"] += 1
+            if st["i"] >= len(st["stops"]):
+                w(f"{c}.Busy", False)
+                st["phase"] = "idle"
+    w(f"{c}.Fork{j['sfx']}", round((g(f"{ax}.ActZ") or 0.0) / REACH * 100.0, 1))

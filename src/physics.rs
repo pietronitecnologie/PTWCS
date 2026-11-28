@@ -11,6 +11,7 @@
 //! carico hanno posizione e lunghezza, si accumulano senza sovrapporsi e passano al
 //! componente successivo (nastro, deviatore, pozzo) quando questo può accettarle.
 
+mod crane;
 mod fluids;
 
 use crate::app::{AppState, Event};
@@ -134,6 +135,44 @@ pub struct PhysDef {
     pub hysteresis: Option<f64>,
     /// Motore / agitatore: velocità massima (es. giri/min).
     pub rpm: Option<f64>,
+    // --- trasloelevatore (vedi physics/crane.rs); quote in mm, velocità in m/s, accelerazioni in m/s²
+    pub cols: Option<u64>,
+    pub levels: Option<u64>,
+    pub pitch_x_mm: Option<f64>,
+    pub pitch_y_mm: Option<f64>,
+    pub x0_mm: Option<f64>,
+    pub y0_mm: Option<f64>,
+    pub x_max_mm: Option<f64>,
+    pub y_max_mm: Option<f64>,
+    pub z_reach_mm: Option<f64>,
+    pub lift_mm: Option<f64>,
+    pub x_target: String,
+    pub y_target: String,
+    pub z_target: String,
+    pub x_pos: String,
+    pub y_pos: String,
+    pub z_pos: String,
+    pub x_inpos: String,
+    pub y_inpos: String,
+    pub z_inpos: String,
+    pub x_vmax: Option<f64>,
+    pub y_vmax: Option<f64>,
+    pub z_vmax: Option<f64>,
+    pub x_acc: Option<f64>,
+    pub y_acc: Option<f64>,
+    pub z_acc: Option<f64>,
+    pub load_tag: String,
+    pub fault_tag: String,
+    pub moving_tag: String,
+    pub reset_tag: String,
+    /// Occupazione delle celle tracciata dalla fisica (doppio deposito, cella vuota).
+    pub track: bool,
+    pub init_fill_pct: Option<f64>,
+    /// Carichi trasportabili insieme (2 = traslo a doppia UdC).
+    pub capacity: Option<u64>,
+    /// Nastri dei P&D (colonna 0): lato 1 = ingresso, lato 2 = uscita.
+    pub pd_in: String,
+    pub pd_out: String,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -326,6 +365,8 @@ struct Model {
     errors: Vec<String>,
     /// Rete dei fluidi (serbatoi, valvole, pompe, tubazioni…).
     fl: fluids::Fluids,
+    /// Trasloelevatori con assi.
+    cranes: Vec<crane::Crane>,
 }
 
 fn default_material() -> Material {
@@ -592,7 +633,7 @@ impl Model {
             let n0 = errs.len();
             match d.kind.as_str() {
                 "conveyor" | "diverter" | "sink" => {}
-                k if fluids::KINDS.contains(&k) => {}
+                k if fluids::KINDS.contains(&k) || k == "crane" => {}
                 "photocell" => {
                     let tag = sensor(&k, "segnale", &d.tag, &mut errs);
                     if tag.is_empty() {
@@ -668,6 +709,7 @@ impl Model {
             }
         }
         m.fl = fluids::Fluids::build(&raw, ph.density, ph.cp, ph.ambient_c, &actuator, &sensor, &mut errs);
+        m.cranes = crane::Crane::build(&raw, &actuator, &sensor, &|v, id| conv_idx.get(&full_key(v, id)).copied(), &mut errs);
         m.photos = photos;
         m.scanners = scanners;
         m.sources = sources;
@@ -765,6 +807,11 @@ impl Sim {
         self.items = items;
         let mut model = model;
         model.fl.carry_from(&self.model.fl);
+        for c in &mut model.cranes {
+            if let Some(o) = self.model.cranes.iter().find(|o| o.key == c.key) {
+                c.carry_from(o);
+            }
+        }
         self.model = model;
         for c in &mut self.model.convs {
             if let Some((v, f)) = speeds.get(&c.key) {
@@ -777,6 +824,9 @@ impl Sim {
     fn reset_items(&mut self) {
         self.items.clear();
         self.model.fl.reset();
+        for c in &mut self.model.cranes {
+            c.reset();
+        }
         self.t = 0.0;
         self.stats = Stats::default();
         for c in &mut self.model.convs {
@@ -1054,7 +1104,50 @@ impl Sim {
         for (tg, v) in self.model.fl.step(dt, read) {
             self.put(&mut out, &tg, v);
         }
+        // --- trasloelevatori
+        for ci in 0..self.model.cranes.len() {
+            let mut w = vec![];
+            if let Some(tr) = self.model.cranes[ci].step(ci, dt, read, &mut w) {
+                self.crane_transfer(tr);
+            }
+            for (tg, v) in w {
+                self.put(&mut out, &tg, v);
+            }
+        }
         out
+    }
+
+    /// Prelievo o deposito di un traslo al P&D: prende l'unità in fondo al nastro, o la
+    /// mette all'inizio del nastro (lato 1 = nastro di ingresso, lato 2 = di uscita).
+    fn crane_transfer(&mut self, tr: crane::Transfer) {
+        let c = &self.model.cranes[tr.crane];
+        let Some(conv) = (if tr.side == 0 { c.pd_in } else { c.pd_out }) else { return };
+        let len = self.model.convs[conv].len;
+        if tr.pick {
+            let at_end = self.items.iter().position(|i| i.conv == conv && i.front >= len - 0.05 && !i.jammed);
+            match at_end {
+                Some(k) => {
+                    let it = self.items.remove(k);
+                    let cr = &mut self.model.cranes[tr.crane];
+                    cr.load_dims = (it.len, it.width, it.color.clone(), it.material.clone(), it.weight);
+                    cr.complete(true, true, it.code, "");
+                }
+                None => self.model.cranes[tr.crane].complete(true, false, String::new(), ""),
+            }
+        } else {
+            let (l, w, color, material, weight) = self.model.cranes[tr.crane].load_dims.clone();
+            let free = self.items.iter().filter(|i| i.conv == conv).map(|i| i.front - i.len).fold(f64::INFINITY, f64::min);
+            if free < l {
+                self.model.cranes[tr.crane].complete(false, false, String::new(), "deposito sul P&D di uscita occupato");
+                return;
+            }
+            let code = self.model.cranes[tr.crane].load_code.clone();
+            let id = self.next_id;
+            self.next_id += 1;
+            self.items.push(Item { id, conv, front: l, len: l, width: w, code, weight, material, color, prev: None, jammed: false, born: self.t });
+            self.model.cranes[tr.crane].complete(false, true, String::new(), "");
+        }
+        let _ = tr.col;
     }
 
     /// Un punto del nastro `c` è occupato da un'unità (anche a cavallo con il successivo)?
@@ -1088,7 +1181,11 @@ impl Sim {
         }
         let mut flows: BTreeMap<String, Vec<J>> = BTreeMap::new();
         self.model.fl.flows(&mut flows);
-        json!({"running": self.running, "paused": self.paused, "t": (self.t * 10.0).round() / 10.0, "views": views, "flows": flows})
+        let mut cranes: BTreeMap<String, Vec<J>> = BTreeMap::new();
+        for c in &self.model.cranes {
+            c.frame(&mut cranes);
+        }
+        json!({"running": self.running, "paused": self.paused, "t": (self.t * 10.0).round() / 10.0, "views": views, "flows": flows, "cranes": cranes})
     }
 
     fn status(&self) -> J {
@@ -1127,6 +1224,9 @@ impl Sim {
             comps.push(json!({"key": s.key, "kind": "stopper", "on": conv_key(s.conv), "at": s.at, "pos": s.pos, "stuck": s.stuck}));
         }
         m.fl.status(&mut comps);
+        for c in &m.cranes {
+            c.status(&mut comps);
+        }
         let items: Vec<J> = self
             .items
             .iter()
@@ -1201,7 +1301,7 @@ impl Physics {
         let s = g.as_mut().unwrap();
         let msg = match cmd {
             "start" => {
-                if !s.model.errors.is_empty() && s.model.convs.is_empty() && s.model.fl.is_empty() {
+                if !s.model.errors.is_empty() && s.model.convs.is_empty() && s.model.fl.is_empty() && s.model.cranes.is_empty() {
                     anyhow::bail!("modello fisico vuoto o non valido: {}", s.model.errors.join("; "));
                 }
                 if s.running {
@@ -1332,6 +1432,10 @@ impl Physics {
             "clear" => {
                 s.reset_items();
                 "tutte le unità rimosse".into()
+            }
+            "crane" => {
+                let c = m.cranes.iter_mut().find(|c| c.key_matches(key)).ok_or_else(|| anyhow::anyhow!("traslo '{key}' non trovato"))?;
+                c.inject(req)?
             }
             other => match m.fl.inject(other, key, req) {
                 Some(r) => r?,

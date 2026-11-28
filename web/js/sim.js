@@ -76,6 +76,14 @@ export async function showSim(page, setTimer) {
         } else if (a === 'valve' || a === 'pump' || a === 'heater' || a === 'motor') {
           const k = { valve: 'stuck', pump: 'tripped', heater: 'failed', motor: 'failed' }[a];
           inject({ action: a, key, [k]: el.dataset.v === '1' });
+        } else if (a === 'craneaxis') {
+          if (!el.value) return;
+          const ax = st.components.find((x) => x.key === key).axes.find((x) => x.name === el.value);
+          inject({ action: 'crane', key, axis: el.value, fault: !ax.fault });
+        } else if (a === 'cranefail') {
+          inject({ action: 'crane', key, pick_fail: true });
+        } else if (a === 'cranereset') {
+          inject({ action: 'crane', key, reset: true });
         } else if (a === 'leak') {
           const c = st.components.find((x) => x.key === key);
           if (c.leak) inject({ action: 'tank', key, leak: 0 });
@@ -113,6 +121,7 @@ export async function showSim(page, setTimer) {
       case 'source': return `${c.spawned} generate su ${esc(short(c.on))} · ${c.materials.join(', ')}`;
       case 'sink': return `${c.received} ricevute`;
       case 'stopper': return `${c.pos >= 0.99 ? 'fuori' : c.pos <= 0.01 ? 'dentro' : 'in corsa'}${c.stuck ? ' <span class="chip err">bloccato</span>' : ''}`;
+      case 'crane': return `${c.fault ? `<span class="chip err">${esc(c.fault)}</span> ` : ''}${c.axes.map((a) => `${a.name} <b>${a.pos}</b>${a.fault ? '⚠' : ''}`).join(' · ')} mm${c.cell ? ` · col ${c.cell.col} liv ${c.cell.lvl}` : ''} · ${c.loaded ? `<span class="chip warn">carico${c.count > 1 ? ` ×${c.count}` : ''}</span> <code>${esc(c.load)}</code>` : 'vuoto'} · ${c.picks}↑ ${c.drops}↓${c.track ? ` · celle ${c.occupied}/${c.cells}` : ''}`;
       case 'tank': return `<span class="lvl"><i style="width:${Math.min(100, c.level)}%"></i></span> <b>${n2(c.level, 1)} %</b> · ${n2(c.volume)} / ${c.vol} m³ · ${n2(c.temp, 1)} °C · ${n2(c.pressure, 3)} bar${c.leak ? ` · <span class="chip err">perdita ${c.leak} m³/h</span>` : ''}${c.spilled > 0 ? ` · <span class="chip warn">troppo pieno ${n2(c.spilled)} m³</span>` : ''}`;
       case 'supply': return `${c.p} bar · ${c.t} °C`;
       case 'junction': return `${n2(c.p, 3)} bar`;
@@ -132,6 +141,8 @@ export async function showSim(page, setTimer) {
       case 'photocell': return `<select data-a="photocell" ${d}><option value="" ${c.stuck === null ? 'selected' : ''}>normale</option><option value="true" ${c.stuck === true ? 'selected' : ''}>bloccata occupata</option><option value="false" ${c.stuck === false ? 'selected' : ''}>bloccata libera</option></select>`;
       case 'scanner': return `<label class="muted">no-read % <input type="number" data-a="noread_pct" min="0" max="100" style="width:56px" value="${c.noread_pct}" ${d}></label> ${tog('scanner', c.noread, '⚡ Guasto', 'Ripristina')}`;
       case 'diverter': case 'stopper': return tog(c.kind, c.stuck, '⚡ Blocca', 'Sblocca');
+      case 'crane': return `<select data-a="craneaxis" ${d}><option value="">⚡ Guasto asse…</option>${c.axes.map((a) => `<option value="${a.name}">${a.fault ? 'Ripristina' : 'Guasto'} asse ${a.name}</option>`).join('')}</select>
+        <button class="small" data-a="cranefail" ${d} title="Il prossimo prelievo trova la cella vuota">⚡ Cella vuota</button>${c.fault ? ` <button class="small primary" data-a="cranereset" ${d}>↺ Reset</button>` : ''}`;
       case 'valve': return tog('valve', c.stuck, '⚡ Blocca', 'Sblocca');
       case 'pump': return tog('pump', c.tripped, '⚡ Scatto termico', 'Riarma');
       case 'heater': return tog('heater', c.failed, '⚡ Guasto', 'Ripristina');

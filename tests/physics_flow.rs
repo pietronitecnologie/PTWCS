@@ -164,3 +164,65 @@ async fn fluids_fill_heat_with_tags() {
     a.physics.inject(&a, &serde_json::json!({"action": "tank", "key": "f/T", "leak": 20.0})).unwrap();
     assert!(wait(|| v("T.Level") < l - 5.0).await, "la perdita fa scendere il livello");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn crane_axes_pick_and_drop_via_tags() {
+    let dir = std::env::temp_dir().join(format!("wcs_crane_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("views")).unwrap();
+    std::fs::write(dir.join("plant.yaml"), "plant: { name: T }\nserver: { database: t.db, web_root: . }\ndrivers: [ { name: SIM, protocol: sim, poll_ms: 20 } ]\n").unwrap();
+    let tags: String = ["TX:f32", "TY:f32", "TZ:f32", "AX:f32", "AY:f32", "AZ:f32", "IX:bool", "IY:bool", "IZ:bool", "LOAD:bool", "FLT:bool"]
+        .iter()
+        .map(|m| {
+            let (n, t) = m.split_once(':').unwrap();
+            format!("- {{ name: {n}, driver: SIM, address: {}, type: {t}, writable: true }}\n", n.to_lowercase())
+        })
+        .collect();
+    std::fs::write(dir.join("project.yaml"), format!("tags:\n{tags}")).unwrap();
+    std::fs::write(
+        dir.join("views/c.json"),
+        r#"{"title":"C","width":800,"height":300,"components":[{"id":"K","type":"rect","x":0,"y":0,"w":800,"h":300,
+          "physics":{"kind":"crane","cols":10,"levels":4,"pitch_x_mm":1000,"pitch_y_mm":1500,"y0_mm":100,"track":true,"init_fill_pct":100,
+            "x_target":"TX","y_target":"TY","z_target":"TZ","x_pos":"AX","y_pos":"AY","z_pos":"AZ","x_inpos":"IX","y_inpos":"IY","z_inpos":"IZ",
+            "load_tag":"LOAD","fault_tag":"FLT","x_vmax":3,"x_acc":2,"y_vmax":2,"y_acc":2,"z_vmax":1,"z_acc":3,"z_reach_mm":1200}}]}"#,
+    )
+    .unwrap();
+    let path = dir.join("plant.yaml");
+    let a = app::start(Config::load_base(&path).unwrap(), Config::load(&path).unwrap()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let st = a.physics.status(&a);
+    assert!(st["errors"].as_array().unwrap().is_empty(), "{}", st["errors"]);
+    a.physics.command(&a, "start", &serde_json::Value::Null).unwrap();
+    a.physics.command(&a, "speed", &serde_json::json!({"factor": 5})).unwrap();
+    let f = |n: &str| a.db.value(n).as_f64().unwrap_or(f64::NAN);
+    let on = |n: &str| a.db.value(n) == Value::Bool(true);
+    let goto = |x: f64, y: f64, z: f64| {
+        let db = a.db.clone();
+        async move {
+            db.write("TX", Value::Float(x)).await.unwrap();
+            db.write("TY", Value::Float(y)).await.unwrap();
+            db.write("TZ", Value::Float(z)).await.unwrap();
+        }
+    };
+    // prelievo dalla cella lato 1, colonna 4, livello 3 (piena): sotto, forche fuori, su, forche dentro
+    let (x, y) = (4000.0, 100.0 + 2.0 * 1500.0);
+    goto(x, y - 50.0, 0.0).await;
+    assert!(wait(|| on("IX") && on("IY") && (f("AX") - x).abs() < 1.0).await, "X/Y in posizione: X={} Y={}", f("AX"), f("AY"));
+    goto(x, y - 50.0, -1200.0).await;
+    assert!(wait(|| on("IZ") && (f("AZ") + 1200.0).abs() < 1.0).await, "forche fuori");
+    goto(x, y + 50.0, -1200.0).await;
+    assert!(wait(|| on("IY") && (f("AY") - (y + 50.0)).abs() < 1.0).await, "sollevamento");
+    goto(x, y + 50.0, 0.0).await;
+    assert!(wait(|| on("IZ") && f("AZ").abs() < 1.0).await, "forche dentro");
+    assert!(on("LOAD"), "carico preso");
+    // deposito in una cella piena (riempimento 100 %): doppio deposito → guasto
+    goto(6000.0, 150.0, 0.0).await;
+    assert!(wait(|| on("IX") && on("IY") && (f("AX") - 6000.0).abs() < 1.0).await);
+    goto(6000.0, 150.0, 1200.0).await;
+    assert!(wait(|| on("IZ") && (f("AZ") - 1200.0).abs() < 1.0).await, "forche fuori lato 2");
+    goto(6000.0, 50.0, 1200.0).await;
+    assert!(wait(|| on("FLT")).await, "doppio deposito rilevato");
+    let st = a.physics.status(&a);
+    let c = st["components"].as_array().unwrap().iter().find(|c| c["kind"] == "crane").unwrap().clone();
+    assert!(c["fault"].as_str().unwrap().contains("doppio deposito"), "{c}");
+}

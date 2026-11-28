@@ -52,6 +52,24 @@ export const KINDS = {
     fields: [['cmd', 'tag', 'Comando fuori (attuatore)'], ['invert', 'bool', 'Comando invertito'], ['time_s', 'num', 'Tempo di corsa (s)', '0,3'],
       ['fb_ext', 'stag', 'Finecorsa fuori (sensore)'], ['fb_ret', 'stag', 'Finecorsa dentro (sensore)'], ['on', 'comp:conveyor', 'Montato su'], ['at_m', 'num', 'Posizione (m)', 'vuoto = dal disegno']],
   },
+  crane: {
+    label: 'Trasloelevatore (assi)', icon: '🏗', color: '#facc15',
+    help: 'Corsia in elevazione: il riquadro è la corsia (X da sinistra a destra, Y dal basso in alto). Gli assi X, Y e forche Z seguono le quote obiettivo del PLC con un profilo trapezoidale. Prelievo: forche fuori, sollevamento della corsa di presa, forche dentro; deposito: forche fuori, abbassamento, forche dentro. Interblocchi: movimento con le forche fuori, doppio deposito.',
+    fields: [
+      ['x_target', 'tag', 'X quota obiettivo mm (attuatore)'], ['y_target', 'tag', 'Y quota obiettivo mm (attuatore)'], ['z_target', 'tag', 'Z forche quota mm (attuatore, − lato 1, + lato 2)'],
+      ['x_pos', 'stag', 'X posizione reale (sensore)'], ['y_pos', 'stag', 'Y posizione reale (sensore)'], ['z_pos', 'stag', 'Z posizione reale (sensore)'],
+      ['x_inpos', 'stag', 'X in posizione (sensore)'], ['y_inpos', 'stag', 'Y in posizione (sensore)'], ['z_inpos', 'stag', 'Z in posizione (sensore)'],
+      ['load_tag', 'stag', 'Carico sul carro (sensore)'], ['fault_tag', 'stag', 'Guasto (sensore)'], ['moving_tag', 'stag', 'In movimento (sensore)'],
+      ['enable', 'tag', 'Abilitazione azionamenti (attuatore)'], ['reset_tag', 'tag', 'Reset guasti (attuatore, fronte)'],
+      ['cols', 'num', 'Colonne', '20'], ['levels', 'num', 'Livelli', '5'], ['pitch_x_mm', 'num', 'Passo colonne (mm)', '1200'], ['pitch_y_mm', 'num', 'Passo livelli (mm)', '1500'],
+      ['x0_mm', 'num', 'X della colonna 0 / P&D (mm)', '0'], ['y0_mm', 'num', 'Y del livello 1 (mm)', '100'], ['x_max_mm', 'num', 'Corsa X (mm)', 'dalle colonne'], ['y_max_mm', 'num', 'Corsa Y (mm)', 'dai livelli'],
+      ['z_reach_mm', 'num', 'Corsa forche (mm)', '1300'], ['lift_mm', 'num', 'Corsa di presa (mm)', '100'],
+      ['x_vmax', 'num', 'X velocità (m/s)', '3'], ['x_acc', 'num', 'X accelerazione (m/s²)', '0,5'], ['y_vmax', 'num', 'Y velocità (m/s)', '1'], ['y_acc', 'num', 'Y accelerazione (m/s²)', '0,8'],
+      ['z_vmax', 'num', 'Z velocità (m/s)', '0,6'], ['z_acc', 'num', 'Z accelerazione (m/s²)', '1'], ['capacity', 'num', 'Carichi sul carro', '1'],
+      ['track', 'bool', 'Occupazione celle tracciata dalla fisica'], ['init_fill_pct', 'num', 'Riempimento iniziale %', '0'],
+      ['pd_in', 'comp:conveyor', 'P&D lato 1: nastro'], ['pd_out', 'comp:conveyor', 'P&D lato 2: nastro'],
+    ],
+  },
   // ---------------------------------------------------------------- fluidi
   tank: {
     label: 'Serbatoio', icon: '▯', color: '#38bdf8', fluid: true,
@@ -189,6 +207,8 @@ export function physOverlay(view, def = 10) {
     } else if (p.kind === 'sink') {
       const a = axis(c);
       h += `<text x="${a.cx}" y="${a.cy + 6}" fill="${k.color}" font-size="18" text-anchor="middle">⊖</text>`;
+    } else if (p.kind === 'crane') {
+      h += craneMark(c, p, k);
     } else if (k.fluid) {
       h += fluidMark(c, p, k, byId);
     } else {
@@ -205,6 +225,44 @@ export function physOverlay(view, def = 10) {
     }
   }
   return h;
+}
+
+/** Geometria dello scaffale di un traslo (px), dalle proprietà e dal riquadro del componente. */
+export function craneGeo(c, p) {
+  const cols = +p.cols || 20, levels = +p.levels || 5, px = +p.pitch_x_mm || 1200, py = +p.pitch_y_mm || 1500;
+  const x0 = +p.x0_mm || 0, y0 = p.y0_mm === undefined || p.y0_mm === '' ? 100 : +p.y0_mm;
+  const xmax = +p.x_max_mm || x0 + px * cols + 500, ymax = +p.y_max_mm || y0 + py * (levels - 1) + 500;
+  const rx = +c.x || 0, ry = +c.y || 0, rw = +c.w || 600, rh = +c.h || 200;
+  return { cols, levels, cw: px / xmax * rw, ch: py / ymax * rh, X: (x) => rx + x / xmax * rw, Y: (y) => ry + rh - y / ymax * rh, x0, y0, px, py, rect: [rx, ry, rw, rh] };
+}
+
+/** Scaffale in elevazione: celle (metà sinistra = lato 1, destra = lato 2), P&D alla colonna 0. */
+export function rackSvg(g, occ = null) {
+  let h = '';
+  const occSet = occ ? new Set(occ) : null;
+  for (let col = 0; col <= g.cols; col++) {
+    const cx = g.X(g.x0 + col * g.px);
+    for (let l = 1; l <= g.levels; l++) {
+      const cy = g.Y(g.y0 + (l - 1) * g.py);
+      const x = cx - g.cw / 2 + 1, y = cy - g.ch + 2, w = g.cw - 2, hh = g.ch - 3;
+      if (col === 0) { if (l === 1) h += `<rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="#22d3ee22" stroke="#22d3ee" stroke-width=".8"/>`; continue; }
+      h += `<rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="none" stroke="#334155" stroke-width=".6"/>`;
+      if (occSet) {
+        for (const side of [0, 1]) {
+          const i = (side * (g.cols + 1) + col) * g.levels + (l - 1);
+          if (occSet.has(i)) h += `<rect x="${x + 1 + side * w / 2}" y="${y + hh * 0.25}" width="${w / 2 - 2}" height="${hh * 0.7}" fill="${side ? '#a16207' : '#c8915a'}" opacity=".85"/>`;
+        }
+      }
+    }
+  }
+  return h;
+}
+
+function craneMark(c, p, k) {
+  const g = craneGeo(c, p);
+  const [rx, ry, rw, rh] = g.rect;
+  return `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="none" stroke="${k.color}" stroke-dasharray="5 4"/>` + rackSvg(g) +
+    `<text x="${rx + 4}" y="${ry - 6}" fill="${k.color}" font-size="11">🏗 ${g.cols} col × ${g.levels} liv · passo ${g.px}×${g.py} mm · X ${p.x_target ? esc(p.x_target) : '⚠ quota X?'}</text>`;
 }
 
 /** Annotazione di un componente dei fluidi. */
@@ -262,7 +320,37 @@ export class PhysLayer {
     }
     for (const [id, el] of this.els) if (!seen.has(id)) { el.remove(); this.els.delete(id); }
   }
-  clear() { this.set([]); this.flows([]); }
+  clear() { this.set([]); this.flows([]); this.cranes([]); }
+
+  /** Trasloelevatori: scaffale (statico, con occupazione se tracciata), colonna, carro, carico, forche. */
+  cranes(list) {
+    this.cg ||= new Map();
+    const seen = new Set();
+    for (const c of list || []) {
+      seen.add(c.id);
+      let e = this.cg.get(c.id);
+      if (!e) {
+        e = { g: document.createElementNS(NS, 'g'), rack: document.createElementNS(NS, 'g'), dyn: document.createElementNS(NS, 'g'), occKey: null };
+        e.g.append(e.rack, e.dyn);
+        this.g.insertBefore(e.g, this.g.firstChild);
+        this.cg.set(c.id, e);
+      }
+      const [rx, ry, rw, rh] = c.rect;
+      const geo = { cols: c.cols, levels: c.levels, cw: c.cw, ch: c.ch, x0: 0, y0: 0, px: 1, py: 1,
+        X: (col) => c.x0 + col * c.cw, Y: (l) => c.y0 - l * c.ch };
+      const key = JSON.stringify(c.occ) + c.cols + c.levels;
+      if (e.occKey !== key) { e.rack.innerHTML = rackSvg(geo, c.track ? c.occ : null); e.occKey = key; }
+      const cw = c.cw * 0.9, chh = c.ch * 0.42, col = c.fault ? '#ef4444' : '#facc15';
+      const fork = Math.abs(c.z) > 0.03 ? `<rect x="${c.x - cw * 0.35 + c.z * cw * 0.45}" y="${c.y + 1}" width="${cw * 0.7}" height="3" fill="#fb923c"/>` : '';
+      const load = c.loaded ? `<rect x="${c.x - cw * 0.38}" y="${c.y - chh * 1.25}" width="${cw * 0.76}" height="${chh * 1.15}" fill="#a16207" stroke="#451a03" stroke-width="1" rx="1"/>${c.count > 1 ? `<text x="${c.x}" y="${c.y - chh * 0.5}" fill="#fff" font-size="9" text-anchor="middle">×${c.count}</text>` : ''}` : '';
+      e.dyn.innerHTML = `<line x1="${c.x}" y1="${ry}" x2="${c.x}" y2="${ry + rh}" stroke="${col}" stroke-width="4" opacity=".9"/>
+        <rect x="${c.x - cw / 2}" y="${ry + rh - 6}" width="${cw}" height="6" fill="${col}"/>
+        <rect x="${c.x - cw / 2}" y="${c.y - 2}" width="${cw}" height="5" fill="${col}" stroke="#0f172a" stroke-width=".8"/>${fork}${load}
+        <title>traslo ${c.id}${c.fault ? ' · GUASTO' : ''}${c.loaded ? ' · carico' : ''}</title>`;
+      void rx; void rw;
+    }
+    for (const [id, e] of this.cg) if (!seen.has(id)) { e.g.remove(); this.cg.delete(id); }
+  }
 
   /** Tubazioni con portata: classe "phys-flow" sul componente (tubo animato). */
   flows(list) {

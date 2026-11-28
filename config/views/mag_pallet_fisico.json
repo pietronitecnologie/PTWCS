@@ -1,0 +1,698 @@
+{
+  "area": "MP-Trasli",
+  "background": "#0b1220",
+  "components": [
+    {
+      "bindings": {},
+      "events": {},
+      "h": 34,
+      "id": "title",
+      "name": "title",
+      "props": {
+        "bold": true,
+        "color": "#e2e8f0",
+        "fontSize": 24,
+        "text": "Magazzino pallet MP1 – trasli con assi (layer fisico)"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 900,
+      "x": 30,
+      "y": 12
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 22,
+      "id": "hint",
+      "name": "hint",
+      "props": {
+        "color": "#64748b",
+        "fontSize": 13,
+        "text": "Elevazione delle tre corsie: celle (metà sinistra = lato 1, destra = lato 2), P&D alla colonna 0. Le missioni arrivano dal WCS; il PLC di corsia (sim_pallet) comanda gli assi, la fisica li muove."
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 1500,
+      "x": 30,
+      "y": 48
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 250,
+      "id": "p1",
+      "name": "p1",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 1560,
+      "x": 20,
+      "y": 90
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 22,
+      "id": "t1",
+      "name": "t1",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 15,
+        "text": "Corsia 1 – traslo C1"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 300,
+      "x": 34,
+      "y": 98
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "AX1.ActX"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "v10",
+      "name": "v10",
+      "props": {
+        "decimals": 0,
+        "fontSize": 13,
+        "label": "X",
+        "unit": "mm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 380,
+      "y": 94
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "AX1.ActY"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "v11",
+      "name": "v11",
+      "props": {
+        "decimals": 0,
+        "fontSize": 13,
+        "label": "Y",
+        "unit": "mm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 550,
+      "y": 94
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "AX1.ActZ"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "v12",
+      "name": "v12",
+      "props": {
+        "decimals": 0,
+        "fontSize": 13,
+        "label": "Forche",
+        "unit": "mm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 720,
+      "y": 94
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "C1.Mission"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "m1",
+      "name": "m1",
+      "props": {
+        "fontSize": 13,
+        "label": "Missione"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 200,
+      "x": 900,
+      "y": 94
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "AX1.Load"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "l1",
+      "name": "l1",
+      "props": {
+        "colorOn": "#f59e0b",
+        "label": "Carico"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 18,
+      "x": 1130,
+      "y": 100
+    },
+    {
+      "bindings": {
+        "on": {
+          "expr": "tag('C1.Fault') || tag('AX1.Fault')",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "f1",
+      "name": "f1",
+      "props": {
+        "colorOn": "#ef4444",
+        "label": "Guasto"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 18,
+      "x": 1230,
+      "y": 100
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 200,
+      "id": "C1",
+      "name": "C1",
+      "physics": {
+        "capacity": 1,
+        "cols": 50,
+        "fault_tag": "AX1.Fault",
+        "kind": "crane",
+        "levels": 10,
+        "lift_mm": 100,
+        "load_tag": "AX1.Load",
+        "moving_tag": "AX1.Moving",
+        "pitch_x_mm": 1240,
+        "pitch_y_mm": 1778,
+        "reset_tag": "AX1.Reset",
+        "x0_mm": 0,
+        "x_acc": 0.6,
+        "x_inpos": "AX1.InPosX",
+        "x_max_mm": 62600,
+        "x_pos": "AX1.ActX",
+        "x_target": "AX1.TgtX",
+        "x_vmax": 4.0,
+        "y0_mm": 100,
+        "y_acc": 0.8,
+        "y_inpos": "AX1.InPosY",
+        "y_max_mm": 17602,
+        "y_pos": "AX1.ActY",
+        "y_target": "AX1.TgtY",
+        "y_vmax": 1.5,
+        "z_acc": 1.5,
+        "z_inpos": "AX1.InPosZ",
+        "z_pos": "AX1.ActZ",
+        "z_reach_mm": 1300,
+        "z_target": "AX1.TgtZ",
+        "z_vmax": 0.8
+      },
+      "props": {
+        "fill": "#0b1220",
+        "radius": 4,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 1520,
+      "x": 40,
+      "y": 130
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 250,
+      "id": "p2",
+      "name": "p2",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 1560,
+      "x": 20,
+      "y": 350
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 22,
+      "id": "t2",
+      "name": "t2",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 15,
+        "text": "Corsia 2 – traslo C2"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 300,
+      "x": 34,
+      "y": 358
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "AX2.ActX"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "v20",
+      "name": "v20",
+      "props": {
+        "decimals": 0,
+        "fontSize": 13,
+        "label": "X",
+        "unit": "mm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 380,
+      "y": 354
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "AX2.ActY"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "v21",
+      "name": "v21",
+      "props": {
+        "decimals": 0,
+        "fontSize": 13,
+        "label": "Y",
+        "unit": "mm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 550,
+      "y": 354
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "AX2.ActZ"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "v22",
+      "name": "v22",
+      "props": {
+        "decimals": 0,
+        "fontSize": 13,
+        "label": "Forche",
+        "unit": "mm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 720,
+      "y": 354
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "C2.Mission"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "m2",
+      "name": "m2",
+      "props": {
+        "fontSize": 13,
+        "label": "Missione"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 200,
+      "x": 900,
+      "y": 354
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "AX2.Load"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "l2",
+      "name": "l2",
+      "props": {
+        "colorOn": "#f59e0b",
+        "label": "Carico"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 18,
+      "x": 1130,
+      "y": 360
+    },
+    {
+      "bindings": {
+        "on": {
+          "expr": "tag('C2.Fault') || tag('AX2.Fault')",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "f2",
+      "name": "f2",
+      "props": {
+        "colorOn": "#ef4444",
+        "label": "Guasto"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 18,
+      "x": 1230,
+      "y": 360
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 200,
+      "id": "C2",
+      "name": "C2",
+      "physics": {
+        "capacity": 1,
+        "cols": 50,
+        "fault_tag": "AX2.Fault",
+        "kind": "crane",
+        "levels": 10,
+        "lift_mm": 100,
+        "load_tag": "AX2.Load",
+        "moving_tag": "AX2.Moving",
+        "pitch_x_mm": 1240,
+        "pitch_y_mm": 1778,
+        "reset_tag": "AX2.Reset",
+        "x0_mm": 0,
+        "x_acc": 0.6,
+        "x_inpos": "AX2.InPosX",
+        "x_max_mm": 62600,
+        "x_pos": "AX2.ActX",
+        "x_target": "AX2.TgtX",
+        "x_vmax": 4.0,
+        "y0_mm": 100,
+        "y_acc": 0.8,
+        "y_inpos": "AX2.InPosY",
+        "y_max_mm": 17602,
+        "y_pos": "AX2.ActY",
+        "y_target": "AX2.TgtY",
+        "y_vmax": 1.5,
+        "z_acc": 1.5,
+        "z_inpos": "AX2.InPosZ",
+        "z_pos": "AX2.ActZ",
+        "z_reach_mm": 1300,
+        "z_target": "AX2.TgtZ",
+        "z_vmax": 0.8
+      },
+      "props": {
+        "fill": "#0b1220",
+        "radius": 4,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 1520,
+      "x": 40,
+      "y": 390
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 250,
+      "id": "p3",
+      "name": "p3",
+      "props": {
+        "fill": "#0f172a",
+        "radius": 10,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 1560,
+      "x": 20,
+      "y": 610
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 22,
+      "id": "t3",
+      "name": "t3",
+      "props": {
+        "bold": true,
+        "color": "#cbd5e1",
+        "fontSize": 15,
+        "text": "Corsia 3 – traslo C3 (doppia UdC)"
+      },
+      "rotation": 0,
+      "type": "label",
+      "w": 300,
+      "x": 34,
+      "y": 618
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "AX3.ActX"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "v30",
+      "name": "v30",
+      "props": {
+        "decimals": 0,
+        "fontSize": 13,
+        "label": "X",
+        "unit": "mm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 380,
+      "y": 614
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "AX3.ActY"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "v31",
+      "name": "v31",
+      "props": {
+        "decimals": 0,
+        "fontSize": 13,
+        "label": "Y",
+        "unit": "mm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 550,
+      "y": 614
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "AX3.ActZ"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "v32",
+      "name": "v32",
+      "props": {
+        "decimals": 0,
+        "fontSize": 13,
+        "label": "Forche",
+        "unit": "mm"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 160,
+      "x": 720,
+      "y": 614
+    },
+    {
+      "bindings": {
+        "value": {
+          "kind": "tag",
+          "tag": "C3.Mission"
+        }
+      },
+      "events": {},
+      "h": 28,
+      "id": "m3",
+      "name": "m3",
+      "props": {
+        "fontSize": 13,
+        "label": "Missione"
+      },
+      "rotation": 0,
+      "type": "value",
+      "w": 200,
+      "x": 900,
+      "y": 614
+    },
+    {
+      "bindings": {
+        "on": {
+          "kind": "tag",
+          "tag": "AX3.Load"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "l3",
+      "name": "l3",
+      "props": {
+        "colorOn": "#f59e0b",
+        "label": "Carico"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 18,
+      "x": 1130,
+      "y": 620
+    },
+    {
+      "bindings": {
+        "on": {
+          "expr": "tag('C3.Fault') || tag('AX3.Fault')",
+          "kind": "expr"
+        }
+      },
+      "events": {},
+      "h": 18,
+      "id": "f3",
+      "name": "f3",
+      "props": {
+        "colorOn": "#ef4444",
+        "label": "Guasto"
+      },
+      "rotation": 0,
+      "type": "lamp",
+      "w": 18,
+      "x": 1230,
+      "y": 620
+    },
+    {
+      "bindings": {},
+      "events": {},
+      "h": 200,
+      "id": "C3",
+      "name": "C3",
+      "physics": {
+        "capacity": 2,
+        "cols": 50,
+        "fault_tag": "AX3.Fault",
+        "kind": "crane",
+        "levels": 10,
+        "lift_mm": 100,
+        "load_tag": "AX3.Load",
+        "moving_tag": "AX3.Moving",
+        "pitch_x_mm": 1240,
+        "pitch_y_mm": 1778,
+        "reset_tag": "AX3.Reset",
+        "x0_mm": 0,
+        "x_acc": 0.6,
+        "x_inpos": "AX3.InPosX",
+        "x_max_mm": 62600,
+        "x_pos": "AX3.ActX",
+        "x_target": "AX3.TgtX",
+        "x_vmax": 4.0,
+        "y0_mm": 100,
+        "y_acc": 0.8,
+        "y_inpos": "AX3.InPosY",
+        "y_max_mm": 17602,
+        "y_pos": "AX3.ActY",
+        "y_target": "AX3.TgtY",
+        "y_vmax": 1.5,
+        "z_acc": 1.5,
+        "z_inpos": "AX3.InPosZ",
+        "z_pos": "AX3.ActZ",
+        "z_reach_mm": 1300,
+        "z_target": "AX3.TgtZ",
+        "z_vmax": 0.8
+      },
+      "props": {
+        "fill": "#0b1220",
+        "radius": 4,
+        "stroke": "#1e293b"
+      },
+      "rotation": 0,
+      "type": "rect",
+      "w": 1520,
+      "x": 40,
+      "y": 650
+    }
+  ],
+  "height": 880,
+  "physics": {
+    "scale_mm": 10
+  },
+  "title": "Magazzino pallet – fisica",
+  "width": 1600
+}

@@ -176,6 +176,7 @@ Mentre la simulazione è in corso:
 
 Il pannello mostra:
 - unità generate, uscite, in impianto, letture e mancate letture;
+- per i trasloelevatori: posizione degli assi, cella davanti alle forche, carico, prelievi e depositi, guasto o interblocco;
 - per i fluidi: livello, volume, temperatura e pressione dei serbatoi, portate delle tubazioni, aperture delle valvole, velocità di pompe e agitatori, pompe a secco, troppo pieni;
 - lo stato di ogni componente;
 - l'elenco delle unità (barcode, materiale, peso, nastro, posizione, età);
@@ -195,6 +196,7 @@ Il pannello mostra:
 | Valvola | **⚡ Blocca** nella posizione attuale |
 | Pompa | **⚡ Scatto termico**: si ferma e la retroazione di marcia cade; **Riarma** |
 | Riscaldatore, agitatore | **⚡ Guasto** / **⚡ Avaria** |
+| Trasloelevatore | **⚡ Guasto asse** X, Y o Z (azionamento fermo); **⚡ Cella vuota** (il prossimo prelievo non trova il carico); **↺ Reset** dei guasti e degli interblocchi |
 
 Ogni comando e intervento finisce nell'audit trail (categoria *simulazione*).
 

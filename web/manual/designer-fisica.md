@@ -123,6 +123,66 @@ Un impianto grande si divide in pagine per area o linea, e i nastri proseguono d
 - nel disegno il collegamento compare come **↗ vista/id**;
 - nel runtime ogni unità è disegnata sulla vista del nastro su cui si trova.
 
+## Trasloelevatore con assi
+
+Il tipo **Trasloelevatore (assi)** si mette su un riquadro (per esempio un *Rettangolo*) che rappresenta la **corsia vista in elevazione**: X da sinistra a destra, Y dal basso in alto. Le celle dello scaffale si disegnano da sole, con colonne, livelli e passi; la colonna 0 è il **P&D**.
+
+### Assi
+
+| Asse | Movimento | Segno |
+|---|---|---|
+| **X** | traslazione lungo la corsia | 0 = colonna 0 (P&D) |
+| **Y** | sollevamento del carro | 0 = a terra; il livello 1 è a *Y del livello 1* |
+| **Z** | forche | negativo = lato 1, positivo = lato 2 |
+
+Ogni asse si comporta come un azionamento in posizionamento:
+- **comando**: il PLC scrive la **quota obiettivo** (mm) e l'asse ci va con un profilo trapezoidale (accelerazione, velocità massima, frenata), entro i finecorsa;
+- **ritorno**: la fisica scrive **posizione reale**, **in posizione** e **in movimento**;
+- **abilitazione**: se il tag *Abilitazione* è falso, gli assi frenano e restano fermi.
+
+### Presa e deposito
+
+Il carico passa tra carro e cella solo con il gesto vero:
+
+| Operazione | Sequenza |
+|---|---|
+| **Prelievo** | X/Y alla cella, **sotto** di metà corsa di presa → forche fuori → **sollevamento** di almeno la corsa di presa → forche dentro |
+| **Deposito** | X/Y alla cella, **sopra** di metà corsa → forche fuori → **abbassamento** → forche dentro |
+
+La cella è quella davanti alle forche, ricavata dalla posizione: colonna con ±40 mm, livello entro la corsa di presa. Il sensore **carico sul carro** dice al PLC se il prelievo è riuscito.
+
+Con **Carichi sul carro = 2** il traslo porta due UdC.
+
+Con **Occupazione celle tracciata** la fisica conosce le celle piene (riempimento iniziale in %):
+- un prelievo da una cella vuota non porta nulla;
+- un deposito in una cella piena è un **doppio deposito**.
+
+Senza tracciamento ogni prelievo riesce: è il caso in cui le giacenze le tiene il WCS, come nella demo MP1.
+
+**P&D sui nastri.** Se alla colonna 0 sono collegati dei nastri (*P&D lato 1 / lato 2*):
+- il prelievo prende l'unità **in fondo al nastro** (se non c'è, il carro resta vuoto);
+- il deposito la mette **all'inizio** del nastro (se è occupato: guasto).
+
+### Interblocchi (guasti rilevati dalla fisica)
+
+| Guasto | Quando |
+|---|---|
+| traslazione con le forche fuori | X si muove con le forche oltre 50 mm |
+| sollevamento oltre la corsa di presa | Y si sposta più della corsa con le forche fuori |
+| forche fuori non allineate | forche fuori con il carro non davanti a una cella |
+| doppio deposito | deposito in una cella occupata (celle tracciate) |
+| P&D di uscita occupato | deposito su un nastro senza spazio |
+
+In guasto gli assi si fermano e il tag **Guasto** diventa vero. Si riparte con il fronte del tag **Reset**, o con **↺ Reset** nella pagina Simulazione.
+
+Sono gli errori tipici di un programma PLC: la simulazione li fa emergere prima della messa in servizio.
+
+### Sequenza consigliata nel PLC
+
+Per ogni fermata: forche dentro (attendi Z in posizione) → X/Y alla quota d'avvicinamento → forche fuori → Y alla quota di presa o deposito → forche dentro → controlla il sensore di carico.
+
+Attendi sempre "in posizione" **e** la quota reale: dopo una nuova quota obiettivo il segnale "in posizione" del ciclo precedente può essere ancora vero per un istante.
+
 ## Fluidi
 
 Per gli impianti di processo il layer fisico simula anche **serbatoi, tubazioni, valvole, pompe, riscaldatori e agitatori**. Il modello è a parametri concentrati, calcolato a ogni passo.
@@ -330,3 +390,17 @@ Avviando un batch da **Processo → Batch** con la simulazione attiva:
 3. lo scarico svuota il reattore per gravità nel serbatoio prodotto.
 
 Con la simulazione ferma, lo script `sim_reactor` torna a simulare i reattori in modo semplificato.
+
+### Trasloelevatori del magazzino pallet MP1
+
+Si genera con `python3 tools/build_demo_crane.py`, dopo `build_demo_pallet.py`:
+- **tag**: UDT `AssiTraslo` con le istanze `AX1`–`AX3` (quote obiettivo, posizioni reali, in posizione, carico, guasto, reset) e il tag `MP.SimActive`;
+- **vista Magazzino pallet – fisica**: le tre corsie in elevazione, 50 colonne × 10 livelli × 2 lati con passo 1240 × 1778 mm, X a 4 m/s e Y a 1,5 m/s; C3 porta due UdC.
+
+Con la simulazione attiva lo script `sim_pallet` fa il **PLC di corsia**:
+- riceve le missioni dal WCS con il telegramma di sempre;
+- per ogni presa e deposito comanda gli assi con la sequenza qui sopra;
+- verifica il carico con il sensore del carro: un prelievo senza carico manda il traslo in guasto;
+- riporta posizioni e stato nei tag del telegramma, così le viste del magazzino seguono i movimenti reali.
+
+Con la simulazione ferma torna al movimento semplificato.

@@ -89,6 +89,7 @@ export function mount(root) {
     source: () => `su ${c.on.split('/').pop()} · ogni ${c.interval[0]}–${c.interval[1]} s · ${c.materials.join(', ')}`,
     stopper: () => `su ${c.on.split('/').pop()} a ${(+c.at).toFixed(2)} m`,
     sink: () => '',
+    crane: () => `${c.cells / 2} celle per lato · capacità ${c.capacity}${c.track ? ' · celle tracciate' : ''}`,
     tank: () => `${c.vol} m³ · livello ${c.level} % · ${c.temp} °C`,
     supply: () => `${c.p} bar · ${c.t} °C`,
     junction: () => '',

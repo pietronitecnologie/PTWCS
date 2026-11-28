@@ -55,7 +55,7 @@ Warehouse Control System con funzioni SCADA. Il core è in **Rust**, le regole s
   - batch che allocano in esclusiva i dispositivi.
 - **Layer fisico per il collaudo virtuale**:
   - si aggiunge fisica ai componenti delle viste SCADA e si definiscono i materiali:
-    - logistica: nastri, fotocellule, scanner, deviatori, sorgenti, pozzi, fermi;
+    - logistica: nastri, fotocellule, scanner, deviatori, sorgenti, pozzi, fermi, trasloelevatori con assi X/Y/Z;
     - processo: serbatoi, valvole, pompe, tubazioni, riscaldatori, agitatori;
   - ponte PLCSIM Advanced per l'I/O diretto della CPU virtuale;
   - il PLC (PLCSIM Advanced o reale in collaudo) comanda gli attuatori, la simulazione muove le unità e scrive i sensori negli ingressi simulati;
@@ -495,6 +495,15 @@ PLC (PLCSIM Advanced / reale) ──attuatori──▶ tag ──▶ fisica ─�
 - **⚛ Fisica** (workspace): passo, scala, materiali (dimensioni, masse, mix), heartbeat e "simulazione attiva" per il watchdog nel PLC, verifica del modello.
 - **Driver simulabili**: la simulazione scrive i sensori solo sui driver dichiarati come PLC virtuali o in collaudo (e sui driver interni `sim`).
 
+**Trasloelevatori con assi:**
+- corsia in elevazione con scaffale (colonne, livelli, lati, P&D);
+- assi X, Y e forche Z in posizionamento (profilo trapezoidale, finecorsa, posizione reale, in posizione);
+- presa e deposito con il gesto vero (forche fuori, sollevamento o abbassamento, forche dentro), sensore di carico, carro a doppia UdC, P&D sui nastri fisici;
+- interblocchi rilevati: movimento con le forche fuori, doppio deposito, carro non allineato;
+- guasti azionamento e cella vuota.
+
+**Demo:** `python3 tools/build_demo_crane.py`. I tre trasli di MP1 eseguono le missioni del WCS sugli assi simulati; lo script `sim_pallet` fa il PLC di corsia.
+
 **Fluidi:**
 - componenti: serbatoi (volume, quota, livello, temperatura, pressione), alimentazioni, scarichi, giunzioni, valvole on/off e modulanti (Kv, corsa, finecorsa), pompe centrifughe (curva, velocità, marcia a secco), tubazioni con elementi in serie, riscaldatori con termostato, motori e agitatori;
 - bilancio di massa ed energia, travasi per gravità, giunzioni risolte sulla pressione;
@@ -638,6 +647,7 @@ EIP_TEST_HOST=127.0.0.1 cargo test --features eip --test eip_integration
 - **EtherNet/IP**: una richiesta per tag.
 - **Layer fisico**:
   - logistica 1D e fluidi a parametri concentrati (un solo fluido, senza composizione delle miscele);
-  - non ci sono ancora traslo con assi, marcia indietro dei nastri e vista 3D;
+  - mancano la marcia indietro dei nastri e la vista 3D;
+  - nella demo MP1 l'occupazione delle celle la tiene il WCS (la fisica non la traccia);
   - il ponte PLCSIM Advanced (C#) è scritto sull'API pubblica ma non è stato compilato nell'ambiente di sviluppo (serve Windows con PLCSIM).
 - **Driver** e **ridondanza**: i driver si configurano ancora solo in `plant.yaml`; non c'è un'istanza attivo/standby.

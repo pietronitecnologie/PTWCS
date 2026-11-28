@@ -1074,6 +1074,78 @@ udt_types:
     writable: true
     description: Velocità reale (ingresso simulato)
     unit: m/s×100
+- name: AssiTraslo
+  description: 'Assi del trasloelevatore (layer fisico): quote obiettivo dal PLC, posizioni reali dalla fisica'
+  params: []
+  members:
+  - name: TgtX
+    type: f32
+    address: ax_{Instance}_tgtx
+    writable: true
+    description: Quota obiettivo traslazione X (mm)
+    unit: mm
+  - name: TgtY
+    type: f32
+    address: ax_{Instance}_tgty
+    writable: true
+    description: Quota obiettivo sollevamento Y (mm)
+    unit: mm
+  - name: TgtZ
+    type: f32
+    address: ax_{Instance}_tgtz
+    writable: true
+    description: Quota obiettivo forche Z (mm, − lato 1, + lato 2)
+    unit: mm
+  - name: ActX
+    type: f32
+    address: ax_{Instance}_actx
+    description: Posizione reale X
+    unit: mm
+  - name: ActY
+    type: f32
+    address: ax_{Instance}_acty
+    description: Posizione reale Y
+    unit: mm
+  - name: ActZ
+    type: f32
+    address: ax_{Instance}_actz
+    description: Posizione reale forche
+    unit: mm
+  - name: InPosX
+    type: bool
+    address: ax_{Instance}_inposx
+    description: X in posizione
+  - name: InPosY
+    type: bool
+    address: ax_{Instance}_inposy
+    description: Y in posizione
+  - name: InPosZ
+    type: bool
+    address: ax_{Instance}_inposz
+    description: Forche in posizione
+  - name: Load
+    type: bool
+    address: ax_{Instance}_load
+    description: Carico sul carro (fotocellula)
+  - name: Moving
+    type: bool
+    address: ax_{Instance}_moving
+    description: Assi in movimento
+  - name: Fault
+    type: bool
+    address: ax_{Instance}_fault
+    description: Guasto rilevato (interblocco, azionamento)
+    alarms:
+    - name: FAULT
+      op: ==
+      value: true
+      message: '{Instance}: guasto assi del traslo'
+      severity: alarm
+  - name: Reset
+    type: bool
+    address: ax_{Instance}_reset
+    writable: true
+    description: Reset guasti (fronte)
 udt_instances:
 - name: CV1
   type: Nastro
@@ -1789,6 +1861,24 @@ udt_instances:
   params:
     Base: 3040
   description: Scanner sorter Sud
+- name: AX1
+  type: AssiTraslo
+  driver: WCS_INTERNO
+  area: MP-Trasli
+  params: {}
+  description: Assi del traslo C1
+- name: AX2
+  type: AssiTraslo
+  driver: WCS_INTERNO
+  area: MP-Trasli
+  params: {}
+  description: Assi del traslo C2
+- name: AX3
+  type: AssiTraslo
+  driver: WCS_INTERNO
+  area: MP-Trasli
+  params: {}
+  description: Assi del traslo C3
 tags:
 - name: Line.ResetFaults
   driver: PLC_LINEA
@@ -3134,6 +3224,13 @@ tags:
   unit: m³/h
   historize: true
   area: Processo
+- name: MP.SimActive
+  driver: WCS_INTERNO
+  address: mp_simactive
+  type: bool
+  writable: true
+  description: 'Layer fisico attivo: i trasli di MP1 si muovono con gli assi simulati'
+  area: MP-Trasli
 decision_points:
 - name: SC1
   description: Scanner barcode – scelta uscita del collo
@@ -3562,7 +3659,7 @@ physics:
   - PLC_HUB
   - PLC_LINEA
   heartbeat_tag: SimIO.Heartbeat,HubSim.Heartbeat
-  active_tag: SimIO.Active,HubSim.Active,Proc.SimActive
+  active_tag: SimIO.Active,HubSim.Active,Proc.SimActive,MP.SimActive
   materials:
   - name: Collo
     length_m: 0.4
