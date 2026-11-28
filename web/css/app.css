@@ -399,3 +399,4 @@ g.phys-flow > line { stroke-dasharray: 10 8; animation: flow 0.6s linear infinit
 .xl-list label, .modal .row label { gap: 6px; }
 .il-list { max-height: 240px; overflow: auto; list-style: none; padding: 0; margin: 6px 0; }
 .il-list li { padding: 2px 0; }
+.chip.edition { white-space: nowrap; margin-left: 8px; font-size: 11px; border-color: #6366f1; color: #a5b4fc; }

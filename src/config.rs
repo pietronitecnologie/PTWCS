@@ -18,6 +18,9 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     pub plant: PlantInfo,
+    /// Edizione del runtime: tag, scada, wcs, scada-sim, scada-wcs, full (default).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edition: Option<String>,
     #[serde(default)]
     pub server: ServerConfig,
     #[serde(default)]

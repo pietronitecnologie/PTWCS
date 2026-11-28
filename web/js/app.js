@@ -11,7 +11,7 @@ import { PhysLayer } from './physics.js';
 
 const live = new Live();
 const page = document.getElementById('page');
-let info = null, views = [], symbols = [], current = null, renderer = null, refresh = null;
+let info = null, MOD = { scada: true, wcs: true, sim: true }, views = [], symbols = [], current = null, renderer = null, refresh = null;
 let decisions = [], logs = [], compiled = {}, popups = [], areaFilter = '', routeParams = {}, timers = [], hasWh = false, hasProc = false, hasPhys = false, physLayer = null, physView = '';
 const setTimer = (fn, ms) => timers.push(setInterval(() => fn().catch?.(() => {}), ms));
 
@@ -41,7 +41,7 @@ function route() {
   if (kind === 'audit') return showAudit(page, routeParams, live).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   if (kind === 'wcs') return showWcs(page, arg ? decodeURIComponent(arg) : '', routeParams, setTimer).catch((e) => { page.innerHTML = `<div class="card">Errore: ${esc(e.message)}</div>`; });
   const home = views.find((v) => v.home) || views[0];
-  location.hash = home ? `#/view/${home.id}` : '#/tags';
+  location.hash = home ? `#/view/${home.id}` : hasWh ? '#/wcs' : MOD.wcs ? '#/decisions' : '#/areas';
 }
 
 function buildNav() {
@@ -49,7 +49,7 @@ function buildNav() {
   document.getElementById('nav').innerHTML =
     views.filter((v) => !v.faceplate && v.menu !== false && !v.area).map((v) => `<a href="#/view/${esc(v.id)}">${esc(v.title)}</a>`).join('') +
     (hasWh ? '<a href="#/wcs">WCS</a>' : '') + (hasProc ? '<a href="#/process">Processo</a>' : '') + (hasPhys ? '<a href="#/sim">Simulazione</a>' : '') + `<a href="#/areas">Aree</a><a href="#/alarms">Allarmi${n ? `<span class="badge">${n}</span>` : ''}</a>
-     <a href="#/decisions">Decisioni</a><a href="#/tags">Tag</a><a href="#/trend">Trend</a><a href="#/diag">Diagnostica</a>${can('audit.view') ? '<a href="#/audit">Audit</a>' : ''}`;
+     ${MOD.wcs ? '<a href="#/decisions">Decisioni</a>' : ''}<a href="#/tags">Tag</a><a href="#/trend">Trend</a><a href="#/diag">Diagnostica</a>${can('audit.view') ? '<a href="#/audit">Audit</a>' : ''}`;
   markNav();
 }
 
@@ -479,6 +479,11 @@ function showDiag() {
         <p>Stato: ${st.scripts.running ? '<b style="color:var(--ok)">attivo</b>' : '<b style="color:var(--alarm)">fermo</b>'} · riavvii: ${st.scripts.restarts}</p>
         ${st.scripts.load_error ? `<pre class="mono" style="color:#fca5a5;white-space:pre-wrap">${esc(st.scripts.load_error)}</pre>` : ''}
         <div class="muted">Funzioni: ${st.scripts.functions.map(esc).join(', ')}</div></div></div>
+      <div class="card"><h3>Edizione</h3><p><b>${esc(info.edition?.label || 'completa')}</b> <span class="muted">(${esc(info.edition?.name || 'full')}${info.version ? ` · v${esc(info.version)}` : ''})</span></p>
+        ${info.edition?.locked ? `<p class="muted">Pacchetto distribuito come <b>${esc(info.edition.locked)}</b>: la configurazione può solo ridurre i moduli.</p>` : ''}
+        ${info.edition?.excluded?.length ? `<p class="chip warn">Moduli richiesti in plant.yaml ma non inclusi nel pacchetto: ${esc(info.edition.excluded.join(', '))}</p>` : ''}
+        <table><tbody>${[['Tag', 'driver, tag, allarmi, storico, trend, script', true], ['SCADA', 'viste HMI, faceplate, processo batch', MOD.scada], ['WCS', 'decisioni, smistamento, magazzini', MOD.wcs], ['Simulazione', 'fisica sul layout delle viste', MOD.sim]]
+          .map(([n, d, on]) => `<tr><td>${on ? '✓' : '—'}</td><td><b>${n}</b></td><td class="muted">${d}</td></tr>`).join('')}</tbody></table></div>
       <div class="card"><h3>Log eventi</h3><table><tbody>${logs.slice(0, 200).map((l) => `<tr><td style="width:170px">${fmtTs(l.ts)}</td><td style="width:60px">${esc(l.level)}</td><td style="width:140px">${esc(l.source)}</td><td>${esc(l.message)}</td></tr>`).join('') || '<tr><td class="muted">Nessun evento dall\'apertura della pagina</td></tr>'}</tbody></table></div>`;
   };
   showDiag.draw = draw;
@@ -520,17 +525,19 @@ async function init() {
   await initAuth('runtime.view');
   mountUserChip(document.getElementById('userChip'));
   mountThemeButton(document.getElementById('themeBtn'));
-  [views, symbols] = await Promise.all([api.get('/api/views'), api.get('/api/symbols')]);
+  MOD = info.edition?.modules || MOD;
+  if (MOD.scada) [views, symbols] = await Promise.all([api.get('/api/views'), api.get('/api/symbols')]);
   AUTH.viewOps = Object.fromEntries(views.map((v) => [v.id, v.can_operate !== false]));
-  hasWh = (await api.get('/api/wh').catch(() => [])).length > 0;
-  const pr = await api.get('/api/proc').catch(() => null);
+  hasWh = MOD.wcs && (await api.get('/api/wh').catch(() => [])).length > 0;
+  const pr = MOD.scada ? await api.get('/api/proc').catch(() => null) : null;
   hasProc = !!pr && pr.sequences.length + pr.devices.length > 0;
-  const ph = await api.get('/api/physics').catch(() => null);
+  const ph = MOD.sim ? await api.get('/api/physics').catch(() => null) : null;
   hasPhys = !!ph && (ph.components.length > 0 || ph.running);
   setSimBadge(ph?.running);
   document.getElementById('simBadge').onclick = () => (location.hash = '#/sim');
   for (const s of symbols) { try { compiled[s.id] = compileSymbol(s.svg); } catch { /* simbolo non valido */ } }
   document.getElementById('plant').textContent = info.plant.name;
+  if (info.edition && info.edition.name !== 'full') document.getElementById('plant').insertAdjacentHTML('afterend', `<span class="chip edition" title="Edizione del runtime">${esc(info.edition.label)}</span>`);
   document.title = info.plant.name;
   if (!info.designer || !can('designer')) document.getElementById('designerLink').remove();
   buildNav();

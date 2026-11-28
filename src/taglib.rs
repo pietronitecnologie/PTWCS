@@ -152,7 +152,7 @@ pub fn read_std(dir: &Path) -> Result<Vec<UdtType>> {
     if !p.exists() {
         return Ok(vec![]);
     }
-    Ok(serde_json::from_str(&std::fs::read_to_string(&p)?).with_context(|| format!("lettura {}", p.display()))?)
+    serde_json::from_str(&std::fs::read_to_string(&p)?).with_context(|| format!("lettura {}", p.display()))
 }
 
 /// Salva i tipi UDT della libreria standard; la versione precedente resta in `udts.json.bak`.

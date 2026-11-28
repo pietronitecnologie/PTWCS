@@ -91,6 +91,8 @@ pub struct AppState {
     decisions: Mutex<HashMap<String, Task>>,
     timers: Mutex<HashMap<String, Task>>,
     warehouses: RwLock<HashMap<String, (Arc<crate::warehouse::Warehouse>, Task)>>,
+    /// Edizione del runtime (moduli inclusi).
+    pub edition: crate::edition::Edition,
     /// Serializza le modifiche di progetto dal Designer.
     pub edit_lock: tokio::sync::Mutex<()>,
     me: std::sync::OnceLock<std::sync::Weak<AppState>>,
@@ -314,10 +316,11 @@ impl AppState {
         cand.save_project(&cand.project)?;
         self.db.set_defs(cand.tags.clone());
         self.sync_drivers(&cand);
-        self.sync_decisions(&cand.decision_points);
+        let wcs = self.edition.modules.wcs;
+        self.sync_decisions(if wcs { &cand.decision_points } else { &[] });
         self.sync_timers(&cand.timer_scripts);
         let me = self.arc();
-        let whs = cand.warehouses.clone();
+        let whs = if wcs { cand.warehouses.clone() } else { vec![] };
         tokio::spawn(async move { me.sync_warehouses(&whs).await });
         self.sorting.configure(&cand.sort_classes, cand.wms.clone());
         *self.cfg.write().unwrap() = Arc::new(cand);
@@ -353,6 +356,11 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
     if !library_dir.join("symbols.json").exists() {
         tracing::warn!("libreria standard non trovata in {}", library_dir.display());
     }
+    let edition = crate::edition::Edition::resolve(cfg.edition.as_deref(), crate::edition::BUILD_EDITION)?;
+    tracing::info!("edizione: {} ({}){}", edition.label, edition.name, edition.locked.as_ref().map(|l| format!(", pacchetto {l}")).unwrap_or_default());
+    if !edition.excluded.is_empty() {
+        tracing::warn!("moduli richiesti ma non inclusi nel pacchetto: {}", edition.excluded.join(", "));
+    }
     let rules = RulesEngine::load(cfg.resolve(&cfg.rules_dir), &cfg.decision_points)?;
     let sorting = Sorting::new();
     sorting.configure(&cfg.sort_classes, cfg.wms.clone());
@@ -381,20 +389,28 @@ pub async fn start(base: Config, cfg: Config) -> Result<Arc<AppState>> {
         decisions: Default::default(),
         timers: Default::default(),
         warehouses: Default::default(),
+        edition,
         edit_lock: Default::default(),
         me: Default::default(),
     });
     let _ = app.me.set(Arc::downgrade(&app));
+    let m = app.edition.modules;
     app.sync_drivers(&cfg);
-    app.sync_decisions(&cfg.decision_points);
     app.sync_timers(&cfg.timer_scripts);
-    app.sync_warehouses(&cfg.warehouses).await;
+    if m.wcs {
+        app.sync_decisions(&cfg.decision_points);
+        app.sync_warehouses(&cfg.warehouses).await;
+        tokio::spawn(crate::sorting::sync_task(sorting));
+    }
     tokio::spawn(alarms::run(app.clone()));
-    tokio::spawn(crate::sequences::run(app.clone()));
-    tokio::spawn(crate::physics::run(app.clone()));
+    if m.scada {
+        tokio::spawn(crate::sequences::run(app.clone()));
+    }
+    if m.sim {
+        tokio::spawn(crate::physics::run(app.clone()));
+    }
     tokio::spawn(historian(app.clone()));
     tokio::spawn(housekeeping(app.clone()));
-    tokio::spawn(crate::sorting::sync_task(sorting));
     Ok(app)
 }
 

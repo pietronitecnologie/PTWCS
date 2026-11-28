@@ -318,6 +318,7 @@ Le richieste hanno timeout breve e cache. Per i token negli header usa `${VARIAB
 ## UDT, tag, scan class, aree
 
 - **Template di indirizzo**: `{Param}` inserisce il valore così com'è; `{Base+4}` o `{(Idx-1)*20}` sono espressioni intere; `{Instance}` è il nome dell'istanza. Esempi: `DB{DB}.DBX{Base+0}.3`, `hr:{Base+12}`, `ns=2;s={Instance}.Run`.
+- **Libreria tag in testo**: tipi UDT, istanze e tag si esportano in YAML (`.ptlib.yaml`) e si reimportano in un altro progetto o nella libreria standard, modificabile dal Designer (*Tag e UDT → 📚 Libreria standard*).
 - **Allarmi** sul tag o sul membro UDT (op, soglia, gravità). Nei messaggi si può usare `{Instance}`.
 - **Scan class**: periodo di lettura per tag, membro o istanza. Nello stesso ciclo i gruppi in scadenza sono letti insieme.
 - **Aree** gerarchiche: un tag eredita l'area dall'istanza. In ogni area arrivano i suoi allarmi, un allarme aggregato `<area>.QUALITY` per i tag con qualità BAD e `COMM.<driver>` per la comunicazione (area del driver). Il runtime ha la pagina **Aree** con lo stato e il riconoscimento per area.
@@ -556,6 +557,24 @@ API:
 
 Pulsante ☀/🌙 nell'intestazione di runtime, Designer e manuale (anche dal tasto destro). La scelta è salvata nel browser; al primo accesso segue il tema del sistema operativo.
 
+## Edizioni e distribuzione
+
+Il runtime si distribuisce in edizioni con i soli moduli necessari; il nucleo **Tag** (driver, tag, allarmi, storico, trend, script, sicurezza) è sempre incluso:
+
+| Edizione | Moduli |
+|---|---|
+| `tag` | solo Tag |
+| `scada` | Tag + SCADA (viste, faceplate, processo batch) |
+| `wcs` | Tag + WCS (decisioni, smistamento, magazzini) |
+| `scada-sim` | Tag + SCADA + Simulazione fisica |
+| `scada-wcs` | Tag + SCADA + WCS |
+| `full` | tutto (default) |
+
+- `edition:` in `plant.yaml` sceglie i moduli; i moduli esclusi non partono, spariscono da runtime e Designer e le loro API rispondono 404.
+- `tools/dist.sh <edizione> [--demo] [--client]` crea `dist/ptwcs-<edizione>-…tar.gz` con binario, web, libreria, configurazione, avvio e servizio systemd. L'edizione è compilata nel binario (`PTWCS_EDITION`): il cliente può ridurla, non ampliarla.
+
+Dettagli nel [manuale](web/manual/distribuzione.md).
+
 ## Manuale utente
 
 Il manuale è in Markdown in [`web/manual/`](web/manual/index.md) e si legge anche dallo SCADA:
@@ -572,6 +591,7 @@ Il manuale è in Markdown in [`web/manual/`](web/manual/index.md) e si legge anc
 | [Designer – Smistamento](web/manual/designer-smistamento.md) | protocollo, handshake, regole, classi, WMS |
 | [Designer – Progetto](web/manual/designer-progetto.md) | aree, scan class, timer, magazzini, driver |
 | [Designer – Script](web/manual/designer-script.md) | script Python, editor, test |
+| [Edizioni e distribuzione](web/manual/distribuzione.md) | edizioni del runtime, pacchetti con `tools/dist.sh` |
 
 ## Protocolli e indirizzi
 

@@ -1205,14 +1205,22 @@ async function init() {
   mountUserChip($('#userChip'));
   mountThemeButton($('#themeBtn'));
   S.scripts = info.scripts;
-  await Promise.all([loadViews(), loadSymbols(), loadTags(), loadProject()]);
+  const mod = info.edition?.modules || { scada: true, wcs: true, sim: true };
+  window.PTWCS_MODULES = mod;
+  // workspace non inclusi nell'edizione del runtime
+  const need = { views: 'scada', process: 'scada', physics: 'sim', sort: 'wcs' };
+  for (const [ws, m] of Object.entries(need)) if (!mod[m]) $(`.wstabs [data-ws="${ws}"]`)?.remove();
+  for (let i = WS_LIST.length - 1; i >= 0; i--) if (need[WS_LIST[i][0]] && !mod[need[WS_LIST[i][0]]]) WS_LIST.splice(i, 1);
+  if (info.edition && info.edition.name !== 'full') $('.wstabs').insertAdjacentHTML('beforebegin', `<span class="chip edition" title="Edizione del runtime">${esc(info.edition.label)}</span>`);
+  await Promise.all([mod.scada ? loadViews() : null, mod.scada ? loadSymbols() : null, loadTags(), loadProject()]);
   live.connect();
+  if (!mod.scada) { showWorkspace(WS_LIST.some(([k]) => k === localStorage.getItem('designer.ws')) ? localStorage.getItem('designer.ws') : 'tags'); return; }
   refreshAll();
   const last = localStorage.getItem('designer.view');
   const start = S.views.find((v) => v.id === last) || S.views.find((v) => v.home) || S.views.find((v) => !v.faceplate) || S.views[0];
   if (start) { await openView(start.id); fit(); drawOverlay(); }
   const ws = localStorage.getItem('designer.ws');
-  if (ws && ws !== 'views') showWorkspace(ws);
+  if (ws && ws !== 'views' && WS_LIST.some(([k]) => k === ws)) showWorkspace(ws);
 }
 export { loadTags, S as designerState };
 init().catch((e) => toast(e.message, 'error'));

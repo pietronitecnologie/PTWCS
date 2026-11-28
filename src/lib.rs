@@ -5,6 +5,7 @@ pub mod bundle;
 pub mod config;
 pub mod decision;
 pub mod drivers;
+pub mod edition;
 pub mod physics;
 pub mod rules;
 pub mod script;

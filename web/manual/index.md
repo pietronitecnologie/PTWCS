@@ -28,6 +28,10 @@ Si usa da browser e ha due applicazioni:
 - [Fisica](designer-fisica.md): layer fisico per il collaudo virtuale (nastri, sensori, deviatori, materiali, PLCSIM Advanced)
 - [Script Python](designer-script.md): un file per funzione, editor, suggerimenti, snippet, test
 
+## Installazione
+
+- [Edizioni e distribuzione](distribuzione.md): Tag + SCADA, Tag + WCS, Tag + SCADA + Simulazione…, creazione dei pacchetti
+
 ## Aiuto contestuale
 
 Nel Designer i pulsanti **?** accanto a sezioni e campi aprono la parte di questo manuale che li descrive, in un pannello laterale. Il manuale completo si apre con **📖 Manuale** in alto, in entrambe le applicazioni.

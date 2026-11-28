@@ -12,7 +12,7 @@ export function mount(root, { live }) {
   const side = root.querySelector('#pjSide'), main = root.querySelector('#pjMain');
 
   function drawSide() {
-    side.innerHTML = `<div class="subtabs" style="flex-direction:column">${[['areas', '🗺 Aree'], ['scan', '⏱ Scan class'], ['timers', '⏲ Script a timer'], ['wh', '🏬 Magazzini'], ['security', '🔐 Sicurezza'], ['drivers', '🔌 Driver PLC']]
+    side.innerHTML = `<div class="subtabs" style="flex-direction:column">${[['areas', '🗺 Aree'], ['scan', '⏱ Scan class'], ['timers', '⏲ Script a timer'], ['wh', '🏬 Magazzini'], ['security', '🔐 Sicurezza'], ['drivers', '🔌 Driver PLC']].filter(([k]) => k !== 'wh' || window.PTWCS_MODULES?.wcs !== false)
       .map(([k, l]) => `<button data-st="${k}" class="${tab === k ? 'on' : ''}" style="text-align:left">${l}</button>`).join('')}</div>
       <p class="hint">Le modifiche sono applicate a caldo con <b>Salva progetto</b>. I driver sono definiti nel file di impianto (<code>plant.yaml</code>).</p>`;
     side.querySelectorAll('[data-st]').forEach((b) => (b.onclick = () => { tab = b.dataset.st; drawSide(); draw(); }));

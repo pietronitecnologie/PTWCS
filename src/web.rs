@@ -186,6 +186,12 @@ pub fn required_perm(method: &axum::http::Method, path: &str) -> Option<&'static
 }
 
 async fn auth_layer(State(app): S, mut req: axum::extract::Request, next: axum::middleware::Next) -> Response {
+    if let Some(m) = crate::edition::Edition::module_of(req.uri().path())
+        && !app.edition.has(m)
+    {
+        let msg = format!("funzione non inclusa nell'edizione {} (modulo {m})", app.edition.label);
+        return (StatusCode::NOT_FOUND, Json(json!({"error": msg, "module": m, "edition": app.edition.name}))).into_response();
+    }
     let token = session_token(req.headers());
     let cfg = app.cfg();
     let p = app.security.principal(token.as_deref(), &cfg.security());
@@ -363,6 +369,8 @@ async fn info(State(app): S) -> Json<J> {
     let drivers: Vec<_> = app.board.read().unwrap().values().cloned().collect();
     Json(json!({
         "plant": app.cfg().plant,
+        "edition": app.edition,
+        "version": env!("CARGO_PKG_VERSION"),
         "drivers": drivers,
         "scripts": app.scripts.status(),
         "designer": app.cfg().server.designer,

@@ -10,3 +10,4 @@ config/rules/*.tmp
 scripts/.history/
 **/__pycache__/
 config/backups/
+/dist
